@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <graph_core/collision_checker.h>
 #include <graph_core/sampler.h>
 #include <graph_core/metrics.h>
+#include <graph_core/graph/kdtree.h>
 
 namespace pathplan
 {
@@ -49,7 +50,8 @@ protected:
   CollisionCheckerPtr checker_;
   MetricsPtr metrics_;
 
-  std::vector<NodePtr> nodes_;
+//  std::vector<NodePtr> nodes_;
+  KdTreePtr nodes_;
 
   void purgeNodeOutsideEllipsoid(NodePtr& node,
                                  const SamplerPtr& sampler,
@@ -75,15 +77,14 @@ public:
   {
     return root_;
   }
-  std::vector<NodePtr> getNodes()
-  {
-    return nodes_;
-  }
+//  std::vector<NodePtr> getNodes()
+//  {
+//    return nodes_;
+//  }
 
   bool changeRoot(const NodePtr& node);
 
   virtual void addNode(const NodePtr& node, const bool& check_if_present = true);
-  virtual void removeNode(const std::vector<NodePtr>::iterator& it);
   virtual void removeNode(const NodePtr& node);
 
   bool tryExtend(const Eigen::VectorXd& configuration,
@@ -167,22 +168,22 @@ public:
   bool addBranch(const std::vector<ConnectionPtr>& connections);
   bool addTree(TreePtr& additional_tree, const double &max_time = std::numeric_limits<double>::infinity());
   void cleanTree();
-  std::vector<NodePtr> near(const NodePtr& node, const double& r_rewire);
+  std::map<double, NodePtr> near(const NodePtr& node, const double& r_rewire);
   std::map<double, NodePtr> nearK(const NodePtr& node);
   std::map<double, NodePtr> nearK(const Eigen::VectorXd& conf);
 
   bool isInTree(const NodePtr& node);
-  bool isInTree(const NodePtr& node, std::vector<NodePtr>::iterator& it);
   unsigned int getNumberOfNodes()const
   {
-    return nodes_.size();
+    return nodes_->size();
   }
+  std::vector<NodePtr> getNodes();
 
   unsigned int purgeNodesOutsideEllipsoid(const SamplerPtr& sampler, const std::vector<NodePtr>& white_list);
   unsigned int purgeNodesOutsideEllipsoids(const std::vector<SamplerPtr>& samplers, const std::vector<NodePtr>& white_list);
   unsigned int purgeNodes(const SamplerPtr& sampler, const std::vector<NodePtr>& white_list, const bool check_bounds = true);
   bool purgeFromHere(NodePtr& node, const std::vector<NodePtr>& white_list, unsigned int& removed_nodes);
-  bool needCleaning(){return nodes_.size()>maximum_nodes_;}
+  bool needCleaning(){return nodes_->size()>maximum_nodes_;}
 
   bool recheckCollision(); //return true if there are no collisions
   bool recheckCollisionFromNode(NodePtr &n); //return true if there are no collisions

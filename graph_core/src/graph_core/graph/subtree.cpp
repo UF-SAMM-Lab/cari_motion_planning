@@ -47,10 +47,10 @@ void Subtree::addNode(const NodePtr& node, const bool& check_if_present)
   parent_tree_->addNode(node,check_if_present);
 }
 
-void Subtree::removeNode(const std::vector<NodePtr>::iterator& it)
+void Subtree::removeNode(const NodePtr& node)
 {
-  Tree::removeNode(it);
-  parent_tree_->removeNode(*it);
+  Tree::removeNode(node);
+  parent_tree_->removeNode(node);
 }
 
 

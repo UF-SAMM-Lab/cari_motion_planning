@@ -39,6 +39,8 @@ typedef std::shared_ptr<KdTree> KdTreePtr;
 class KdNode;
 typedef std::shared_ptr<KdNode> KdNodePtr;
 
+enum SearchDirection {Left,Right};
+
 class KdNode: public std::enable_shared_from_this<KdNode>
 {
 public:
@@ -68,8 +70,6 @@ public:
 
   void insert(const NodePtr& node);
 
-  bool goRight(const NodePtr& node);
-
   KdNodePtr findMin(const int& dim);
 
   void nearestNeighbor(const Eigen::VectorXd& configuration,
@@ -88,9 +88,8 @@ public:
   bool findNode(const NodePtr& node,
                 KdNodePtr& kdnode);
 
-
+  void getNodes(std::vector<NodePtr>& nodes);
 protected:
-  enum SearchDirection {Left,Right};
   NodePtr node_;
   KdNodePtr left_;
   KdNodePtr right_;
@@ -123,12 +122,21 @@ public:
   bool findNode(const NodePtr& node,
                 KdNodePtr& kdnode);
 
+  bool findNode(const NodePtr& node);
+
   bool deleteNode(const NodePtr& node,
                   const bool& disconnect_node=false);
 
   bool restoreNode(const NodePtr& node);
+
+  unsigned int size(){return size_;}
+
+  std::vector<NodePtr> getNodes();
 protected:
   KdNodePtr root_;
+  unsigned int size_;
+  unsigned int delete_nodes_;
+
 };
 
 }  // namespace pathplan

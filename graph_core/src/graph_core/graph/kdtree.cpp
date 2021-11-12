@@ -72,7 +72,7 @@ void KdNode::insert(const NodePtr& node)
 {
   int size=node->getConfiguration().size();
   int next_dim=(dimension_==(size-1))?0:dimension_+1;
-  if (goRight(node))
+  if (node->getConfiguration()(dimension_)>=node_->getConfiguration()(dimension_))  // goRight
   {
     if (not right_)
       right_=std::make_shared<KdNode>(node,next_dim);
@@ -86,11 +86,6 @@ void KdNode::insert(const NodePtr& node)
     else
       left_->insert(node);
   }
-}
-
-bool KdNode::goRight(const NodePtr& node)
-{
-  return node->getConfiguration()(dimension_)>=node_->getConfiguration()(dimension_);
 }
 
 KdNodePtr KdNode::findMin(const int& dim)
@@ -244,13 +239,13 @@ bool KdNode::findNode(const NodePtr& node,
     return true;
   }
   // otherwise search the node
-  if (goRight(node))
+  if (node->getConfiguration()(dimension_)>=node_->getConfiguration()(dimension_))  // goRight
   {
     if (not right_)
       return false;
     return right_->findNode(node,kdnode);
   }
-  else
+  else  // goLefta
   {
     if (not left_)
       return false;
@@ -270,17 +265,28 @@ void KdNode::restoreNode()
   deleted_=false;
 }
 
+void KdNode::getNodes(std::vector<NodePtr>& nodes)
+{
+  if (not deleted_)
+    nodes.push_back(node_);
+  if (left_)
+    left_->getNodes(nodes);
+  if (right_)
+    right_->getNodes(nodes);
+}
+
 KdTree::KdTree()
 {
-
+  delete_nodes_=0;
+  size_=0;
 }
 
 void KdTree::insert(const NodePtr& node)
 {
+  size_++;
   // if not root, initialize it
   if (not root_)
   {
-    ROS_INFO("kdtreee root");
     root_=std::make_shared<KdNode>(node,0);
     return;
   }
@@ -343,12 +349,23 @@ bool KdTree::findNode(const NodePtr& node,
   return root_->findNode(node,kdnode);
 }
 
+
+bool KdTree::findNode(const NodePtr& node)
+{
+  KdNodePtr kdnode;
+  return findNode(node,kdnode);
+}
+
+
 bool KdTree::deleteNode(const NodePtr& node,
                         const bool& disconnect_node)
 {
   KdNodePtr kdnode;
   if (not findNode(node,kdnode))
     return false;
+
+  size_--;
+  delete_nodes_++;
   kdnode->deleteNode(disconnect_node);
   return true;
 }
@@ -358,8 +375,20 @@ bool KdTree::restoreNode(const NodePtr& node)
   KdNodePtr kdnode;
   if (not findNode(node,kdnode))
     return false;
+  size_++;
+  delete_nodes_--;
   kdnode->restoreNode();
   return true;
+}
+
+std::vector<NodePtr> KdTree::getNodes()
+{
+  std::vector<NodePtr> nodes;
+  if (not root_)
+    return nodes;
+
+  root_->getNodes(nodes);
+  return nodes;
 }
 
 }  // namespace pathplan
