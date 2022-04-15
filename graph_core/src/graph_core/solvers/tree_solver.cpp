@@ -92,6 +92,103 @@ bool TreeSolver::config(const ros::NodeHandle& nh)
 }
 
 
+bool TreeSolver::config(const std::vector<ros::NodeHandle>& nhs)
+{
+  nh_ = nhs.at(0);
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("max_distance",max_distance_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_WARN("%s/max_distance is not set. using 1.0",nh_.getNamespace().c_str());
+      max_distance_=1.0;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("use_kdtree",use_kdtree_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_DEBUG("%s/use_kdtree is not set. set true",nh_.getNamespace().c_str());
+      use_kdtree_=true;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("informed",informed_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_DEBUG("%s/informed is not set. using true (informed set enble)",nh_.getNamespace().c_str());
+      informed_=true;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("extend",extend_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_WARN("%s/extend is not set. using false (connect algorithm)",nh_.getNamespace().c_str());
+      extend_=false;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("warp",warp_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_DEBUG("%s/warp is not set. using false",nh_.getNamespace().c_str());
+      warp_=false;
+    }
+  }
+
+  if (!warp_)
+  {
+    for (auto it = nhs.begin(); it != nhs.end(); ++it)
+    {
+      if (it->getParam("warp_once",first_warp_))
+        break;
+      if (it == nhs.end()-1)
+      {
+        ROS_DEBUG("%s/warp_once is not set. using false",nh_.getNamespace().c_str());
+        first_warp_=false;
+      }
+    }
+  }
+  else
+    first_warp_=true;
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("utopia_tolerance",utopia_tolerance_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_WARN("%s/utopia_tolerance is not set. using 0.01",nh_.getNamespace().c_str());
+      utopia_tolerance_=0.01;
+    }
+  }
+  if (utopia_tolerance_<=0.0)
+  {
+    ROS_WARN("%s/utopia_tolerance cannot be negative, set equal to 0.0",nh_.getNamespace().c_str());
+    utopia_tolerance_=0.0;
+  }
+  utopia_tolerance_+=1.0;
+  dof_=sampler_->getDimension();
+  configured_=true;
+  return true;
+}
+
+
 bool TreeSolver::solve(PathPtr &solution, const unsigned int& max_iter, const double& max_time)
 {
   ros::WallTime tic = ros::WallTime::now();

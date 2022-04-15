@@ -20,7 +20,7 @@ public:
 
     if (!nh_.getParam("epsilon_coef", epsilon_coef_))
     {
-      ROS_DEBUG("%s/epsilon_coef is not set. Deafult: 0.1",nh_.getNamespace().c_str());
+      ROS_INFO("%s/epsilon_coef is not set. Deafult: 0.1",nh_.getNamespace().c_str());
       epsilon_coef_=0.1;
     }
   }

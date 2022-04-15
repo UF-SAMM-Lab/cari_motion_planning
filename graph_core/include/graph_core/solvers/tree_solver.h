@@ -120,6 +120,8 @@ public:
 
   virtual bool config(const ros::NodeHandle& nh);
 
+  virtual bool config(const std::vector<ros::NodeHandle>& nhs);
+
   void setGoalCostFunction(const GoalCostFunctionPtr& goal_cost_fcn)
   {
     goal_cost_fcn_=goal_cost_fcn;

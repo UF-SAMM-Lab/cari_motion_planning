@@ -32,9 +32,11 @@ namespace pathplan
 {
 
 AvoidanceMetrics::AvoidanceMetrics(const ros::NodeHandle &nh):
-  Metrics(),
-  nh_(nh)
+  Metrics()
 {
+
+  nh_ = nh;
+  nh_depends.push_back(nh);
 
   urdf::Model model;
   model.initParam("robot_description");
@@ -84,6 +86,126 @@ AvoidanceMetrics::AvoidanceMetrics(const ros::NodeHandle &nh):
   else
     for (const std::string& s: links_)
       ROS_INFO("link %s",s.c_str());
+
+  points_.resize(3,0);
+  inv_delta_distance_=1.0/(max_distance_-min_distance_);
+
+  marker_id_=0;
+  marker_pub_ = nh_.advertise<visualization_msgs::Marker>("/avoidance_points", 1000);
+  ros::Duration(0.1).sleep();
+  visualization_msgs::Marker marker;
+  marker.type = visualization_msgs::Marker::SPHERE;
+  marker.id=marker_id_;
+  marker.ns = "avoidance";
+  marker.header.frame_id="world";
+  marker.header.stamp=ros::Time::now();
+  marker.action = visualization_msgs::Marker::DELETE;
+
+  for (unsigned int idx=0;idx<5;idx++)
+  {
+    marker_pub_.publish(marker);
+    ros::Duration(0.1).sleep();
+  }
+
+}
+
+AvoidanceMetrics::AvoidanceMetrics(const std::vector<ros::NodeHandle> &nhs):
+  Metrics()
+{
+
+  nh_ = nhs.at(0);
+  nh_depends = nhs;
+
+  urdf::Model model;
+  model.initParam("robot_description");
+  std::string base_frame = "world";
+  std::string tool_frame = "tip";
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("base_frame",base_frame))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_ERROR("%s/base_frame not defined", nh_.getNamespace().c_str());
+      throw std::invalid_argument("base_frame is not defined");
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("tool_frame",tool_frame))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_ERROR("%s/tool_frame not defined", nh_.getNamespace().c_str());
+      throw std::invalid_argument("base_frame is not defined");
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("max_penalty",max_penalty_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_ERROR("%s/max_penalty not defined, use 1.0", nh_.getNamespace().c_str());
+      max_penalty_=1.0;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("max_avoidance_distance",max_distance_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_ERROR("%s/max_avoidance_distance not defined, use 1.5 meter", nh_.getNamespace().c_str());
+      max_distance_=1.5;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("min_avoidance_distance",min_distance_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_ERROR("%s/min_avoidance_distance not defined, use 0.5 meter", nh_.getNamespace().c_str());
+      min_distance_=0.5;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("computation_step",step_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_ERROR("%s/computation_step not defined, use 0.1", nh_.getNamespace().c_str());
+      step_=0.1;
+    }
+  }
+
+  Eigen::Vector3d grav;
+  grav << 0, 0, -9.806;
+
+  chain_ = rosdyn::createChain(model, base_frame, tool_frame, grav);
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("links",links_))
+    {
+      for (const std::string& s: links_)
+        ROS_INFO("link %s",s.c_str());
+      break;
+    }
+    if (it == nhs.end()-1)
+    {
+      ROS_ERROR("%s/links not defined, use all links", nh_.getNamespace().c_str());
+      links_=chain_->getLinksName();
+    }
+  }
 
   points_.resize(3,0);
   inv_delta_distance_=1.0/(max_distance_-min_distance_);
@@ -207,7 +329,7 @@ double AvoidanceMetrics::cost(const Eigen::VectorXd& configuration1,
 
 MetricsPtr AvoidanceMetrics::clone()
 {
-  return std::make_shared<AvoidanceMetrics>(nh_);
+  return std::make_shared<AvoidanceMetrics>(nh_depends);
 }
 
 

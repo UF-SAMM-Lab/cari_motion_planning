@@ -54,6 +54,8 @@ protected:
   int marker_id_;
 public:
 AvoidanceGoalCostFunction(const ros::NodeHandle &nh);
+AvoidanceGoalCostFunction(const std::vector<ros::NodeHandle> &nhs);
+
 void cleanPoints();
 void addPoint(const Eigen::Vector3d &point);
 void publishPoints();

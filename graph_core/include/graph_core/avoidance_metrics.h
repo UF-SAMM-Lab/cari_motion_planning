@@ -42,6 +42,7 @@ class AvoidanceMetrics: public Metrics
 protected:
   double step_ = 0.1;
   ros::NodeHandle nh_;
+  std::vector<ros::NodeHandle> nh_depends;
   rosdyn::ChainPtr chain_;
 
   double min_distance_=0.2;
@@ -58,6 +59,7 @@ protected:
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   AvoidanceMetrics(const ros::NodeHandle& nh);
+  AvoidanceMetrics(const std::vector<ros::NodeHandle>& nhs);
 
   void addPoint(const Eigen::Vector3d& point);
   void cleanPoints();

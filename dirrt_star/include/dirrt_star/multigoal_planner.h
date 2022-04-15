@@ -61,6 +61,12 @@ public:
                 const moveit::core::RobotModelConstPtr& model
               );
 
+  MultigoalPlanner ( const std::string& name,
+                const std::string& parent_ns,
+                const std::string& group,
+                const moveit::core::RobotModelConstPtr& model
+              );
+
 
   virtual bool solve(planning_interface::MotionPlanResponse& res) override;
   virtual bool solve(planning_interface::MotionPlanDetailedResponse& res) override;
@@ -78,6 +84,7 @@ protected:
   moveit::core::RobotModelConstPtr robot_model_;
   //planning_scene::PlanningSceneConstPtr pl
   ros::NodeHandle m_nh;
+  std::vector<ros::NodeHandle> m_nh_depends;
   std::shared_ptr<pathplan::Display> display;
 
   ros::WallDuration m_max_refining_time;

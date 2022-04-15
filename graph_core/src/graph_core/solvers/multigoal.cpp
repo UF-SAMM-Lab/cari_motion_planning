@@ -273,12 +273,124 @@ bool MultigoalSolver::config(const ros::NodeHandle& nh)
   }
   if (!nh.getParam("forgetting_factor",forgetting_factor_))
   {
-    ROS_WARN("%s/forgetting_factor is not set. using 0.01",nh.getNamespace().c_str());
-    tube_radius_=0.3;
+    ROS_WARN("%s/forgetting_factor is not set. using 0.999",nh.getNamespace().c_str());
+    forgetting_factor_=0.999;
   }
   if (forgetting_factor_<=0)
   {
     ROS_WARN("%s/forgetting_factor cannot be negative, set equal to 0.0",nh.getNamespace().c_str());
+    forgetting_factor_=0.0;
+  }
+
+  configured_=true;
+  return true;
+}
+
+bool MultigoalSolver::config(const std::vector<ros::NodeHandle>& nhs)
+{
+  if (not TreeSolver::config(nhs))
+    return false;
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("rewire_radius",r_rewire_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_DEBUG("%s/rewire_radius is not set. using 2.0*max_distance",nh_.getNamespace().c_str());
+      r_rewire_=2.0*max_distance_;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("mixed_strategy",mixed_strategy_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_DEBUG("%s/mixed_strategy is not set. enable it if informed set is enable",nh_.getNamespace().c_str());
+      mixed_strategy_=informed_;
+    }
+  }
+
+  if (not informed_ && mixed_strategy_)
+  {
+    ROS_WARN("you cannot use mixed_strategy without informed set enable, turning it on");
+    informed_=true;
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("bidirectional",bidirectional_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_DEBUG("%s/bidirectional is not set. using true",nh_.getNamespace().c_str());
+      bidirectional_=true;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("k_nearest",knearest_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_DEBUG("%s/k_nearest is not set. using false (rewire using nodes in the radius)",nh_.getNamespace().c_str());
+      knearest_=false;
+    }
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("local_bias",local_bias_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_WARN("%s/local_bias is not set. using 0.3",nh_.getNamespace().c_str());
+      local_bias_=0.3;
+    }
+  }
+  if (local_bias_<0)
+  {
+    ROS_WARN("%s/local_bias cannot be negative, set equal to 0",nh_.getNamespace().c_str());
+    local_bias_=0.0;
+  }
+  if (local_bias_>1)
+  {
+    ROS_WARN("%s/local_bias cannot be greater than 1.0, set equal to 1.0",nh_.getNamespace().c_str());
+    local_bias_=1.0;
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("tube_radius",tube_radius_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_WARN("%s/tube_radius is not set. using 0.01",nh_.getNamespace().c_str());
+      tube_radius_=0.3;
+    }
+  }
+  if (tube_radius_<=0)
+  {
+    ROS_WARN("%s/tube_radius cannot be negative, set equal to 0.01",nh_.getNamespace().c_str());
+    tube_radius_=0.01;
+  }
+
+  for (auto it = nhs.begin(); it != nhs.end(); ++it)
+  {
+    if (it->getParam("forgetting_factor",forgetting_factor_))
+      break;
+    if (it == nhs.end()-1)
+    {
+      ROS_WARN("%s/forgetting_factor is not set. using 0.999",nh_.getNamespace().c_str());
+      forgetting_factor_=0.999;
+    }
+  }
+  if (forgetting_factor_<=0)
+  {
+    ROS_WARN("%s/forgetting_factor cannot be negative, set equal to 0.0",nh_.getNamespace().c_str());
     forgetting_factor_=0.0;
   }
 

@@ -21,13 +21,13 @@ public:
     double alpha=1.0;
     if (!nh_.getParam("ts_alpha", alpha))
     {
-      ROS_DEBUG("%s/ts_alpha is not set. Deafult: 1.0",nh_.getNamespace().c_str());
+      ROS_INFO("%s/ts_alpha is not set. Deafult: 1.0",nh_.getNamespace().c_str());
     }
 
     double beta=1.0;
     if (!nh_.getParam("ts_beta", beta))
     {
-      ROS_DEBUG("%s/ts_beta is not set. Deafult: 1.0",nh_.getNamespace().c_str());
+      ROS_INFO("%s/ts_beta is not set. Deafult: 1.0",nh_.getNamespace().c_str());
     }
 
     alphas_ = std::vector<double>(n_goals_, alpha);

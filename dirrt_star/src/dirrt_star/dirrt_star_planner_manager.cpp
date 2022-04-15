@@ -67,7 +67,8 @@ bool PathPlanerManager::initialize(const moveit::core::RobotModelConstPtr& model
     }
     else if (!type.compare("Multigoal"))
     {
-      ptr= std::make_shared<MultigoalPlanner>(ns+"/"+p.first,p.second,model);
+//      ptr= std::make_shared<MultigoalPlanner>(ns+"/"+p.first,p.second,model);
+      ptr= std::make_shared<MultigoalPlanner>(ns+"/"+p.first,ns,p.second,model);
     }
 //    else if (!type.compare("TimeBasedMultigoal"))
 //    {

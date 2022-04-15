@@ -42,7 +42,6 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
   m_nh=ros::NodeHandle(name);
   m_nh.setCallbackQueue(&m_queue);
 
-
   COMMENT("create MultigoalPlanner, name =%s, group = %s", name.c_str(),group.c_str());
   robot_model_=model;
   if (!robot_model_)
@@ -80,10 +79,8 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
     }
   }
 
-
   urdf::Model urdf_model;
   urdf_model.initParam("robot_description");
-
 
   if (!m_nh.getParam("display_bubbles",display_flag))
   {
@@ -157,6 +154,181 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
     refining_time=30;
   }
   m_max_refining_time=ros::WallDuration(refining_time);
+
+}
+
+MultigoalPlanner::MultigoalPlanner ( const std::string& name,
+                       const std::string& parent_ns,
+                       const std::string& group,
+                       const moveit::core::RobotModelConstPtr& model ) :
+  PlanningContext ( name, group ),
+  group_(group)
+{
+  m_nh=ros::NodeHandle(name);
+  m_nh.setCallbackQueue(&m_queue);
+
+  m_nh_depends.clear();
+  m_nh_depends.push_back(m_nh);
+
+  std::string inherit_configuration;
+  size_t idx=0;
+  while (m_nh_depends.at(idx).getParam("inherit",inherit_configuration))
+  {
+    m_nh_depends.push_back(ros::NodeHandle(parent_ns+"/"+inherit_configuration));
+    ROS_ERROR("planner config %s depends on %s", m_nh_depends.at(idx).getNamespace().c_str(), inherit_configuration.c_str());
+    idx++;
+  }
+
+  COMMENT("create MultigoalPlanner, name =%s, group = %s", name.c_str(),group.c_str());
+  robot_model_=model;
+  if (!robot_model_)
+  {
+    ROS_ERROR("robot model is not initialized");
+  }
+  COMMENT("model name = %s",robot_model_->getName().c_str());
+
+  COMMENT("get joint model group");
+
+  const moveit::core::JointModelGroup* jmg=robot_model_->getJointModelGroup(group);
+  if (jmg==NULL)
+    ROS_ERROR("unable to find JointModelGroup for group %s",group.c_str());
+
+
+  COMMENT("get joint names of JointModelGroup=%s",jmg->getName().c_str());
+
+  joint_names_=jmg->getActiveJointModelNames();
+  m_dof=joint_names_.size();
+  COMMENT("number of joints  = %u",m_dof);
+  m_lb.resize(m_dof);
+  m_ub.resize(m_dof);
+  m_max_speed_.resize(m_dof);
+
+  COMMENT("read bounds");
+  for (unsigned int idx=0;idx<m_dof;idx++)
+  {
+    COMMENT("joint %s",joint_names_.at(idx).c_str());
+    const robot_model::VariableBounds& bounds = robot_model_->getVariableBounds(joint_names_.at(idx));
+    if (bounds.position_bounded_)
+    {
+      m_lb(idx)=bounds.min_position_;
+      m_ub(idx)=bounds.max_position_;
+      m_max_speed_(idx)=bounds.max_velocity_;
+    }
+  }
+
+  urdf::Model urdf_model;
+  urdf_model.initParam("robot_description");
+
+  for (auto it = m_nh_depends.begin(); it != m_nh_depends.end(); ++it)
+  {
+    if (it->getParam("display_bubbles",display_flag))
+      break;
+    if (it == m_nh_depends.end()-1)
+    {
+      ROS_INFO("display_flag is not set, default=false");
+      display_flag=false;
+    }
+  }
+
+  COMMENT("create metrics");
+
+  for (auto it = m_nh_depends.begin(); it != m_nh_depends.end(); ++it)
+  {
+    if (it->getParam("use_avoidance_path",use_avoidance_metrics_))
+      break;
+    if (it == m_nh_depends.end()-1)
+    {
+      ROS_DEBUG("use_avoidance_path is not set, default=false");
+      use_avoidance_metrics_=false;
+    }
+  }
+
+  if (use_avoidance_metrics_)
+  {
+    avoidance_metrics_=std::make_shared<pathplan::AvoidanceMetrics>(m_nh);
+    metrics_=avoidance_metrics_;
+  }
+  else
+    metrics_=std::make_shared<pathplan::Metrics>();
+
+  for (auto it = m_nh_depends.begin(); it != m_nh_depends.end(); ++it)
+  {
+    if (it->getParam("use_avoidance_goal",use_avoidance_goal_))
+      break;
+    if (it == m_nh_depends.end()-1)
+    {
+      ROS_DEBUG("use_avoidance_goal is not set, default=false");
+      use_avoidance_goal_=false;
+    }
+  }
+  if (use_avoidance_metrics_ && use_avoidance_goal_)
+  {
+    ROS_DEBUG("both use_avoidance_goal and use_avoidance_path are set, using use_avoidance_path");
+    use_avoidance_goal_=false;
+  }
+
+  if (use_avoidance_goal_)
+  {
+    m_avoidance_goal_cost_fcn=std::make_shared<pathplan::AvoidanceGoalCostFunction>(m_nh);
+  }
+
+
+  std::string detector_topic;
+  if (use_avoidance_goal_ || use_avoidance_metrics_)
+  {
+    for (auto it = m_nh_depends.begin(); it != m_nh_depends.end(); ++it)
+    {
+      if (it->getParam("detector_topic",detector_topic))
+        break;
+      if (it == m_nh_depends.end()-1)
+      {
+        ROS_DEBUG("detector_topic is not defined, using poses");
+        detector_topic="/poses";
+      }
+    }
+    m_centroid_sub=m_nh.subscribe(detector_topic,2,&MultigoalPlanner::centroidCb,this);
+  }
+
+  for (auto it = m_nh_depends.begin(); it != m_nh_depends.end(); ++it)
+  {
+    if (it->getParam("collision_distance",collision_distance_))
+      break;
+    if (it == m_nh_depends.end()-1)
+    {
+      ROS_DEBUG("collision_distance is not set, default=0.04");
+      collision_distance_=0.04;
+    }
+  }
+
+  for (auto it = m_nh_depends.begin(); it != m_nh_depends.end(); ++it)
+  {
+    if (it->getParam("collision_thread",collision_thread_))
+      break;
+    if (it == m_nh_depends.end()-1)
+    {
+      ROS_DEBUG("collision_thread is not set, default=5");
+      collision_thread_=5;
+    }
+  }
+
+  COMMENT("created MultigoalPlanner");
+
+  double refining_time=0;
+  for (auto it = m_nh_depends.begin(); it != m_nh_depends.end(); ++it)
+  {
+    if (it->getParam("max_refine_time",refining_time))
+      break;
+    if (it == m_nh_depends.end()-1)
+    {
+      ROS_DEBUG("refining_time is not set, default=30");
+      refining_time=30;
+    }
+  }
+  m_max_refining_time=ros::WallDuration(refining_time);
+
+  std::cout << "m_max_refining_time : " << m_max_refining_time;
+  std::cout << "collision_distance_ : " << collision_distance_;
+
 
 }
 
@@ -243,7 +415,7 @@ bool MultigoalPlanner::solve ( planning_interface::MotionPlanDetailedResponse& r
   pathplan::NodePtr start_node=std::make_shared<pathplan::Node>(start_conf);
   pathplan::SamplerPtr sampler = std::make_shared<pathplan::InformedSampler>(m_lb, m_ub, m_lb, m_ub);
   pathplan::TreeSolverPtr solver=std::make_shared<pathplan::MultigoalSolver>(metrics_, checker, sampler);
-  if (!solver->config(m_nh))
+  if (!solver->config(m_nh_depends))
   {
     ROS_ERROR("Unable to configure the planner");
     res.error_code_.val=moveit_msgs::MoveItErrorCodes::INVALID_GROUP_NAME;

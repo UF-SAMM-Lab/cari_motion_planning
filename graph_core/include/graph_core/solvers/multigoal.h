@@ -88,6 +88,7 @@ public:
   }
 
   virtual bool config(const ros::NodeHandle& nh) override;
+  virtual bool config(const std::vector<ros::NodeHandle>& nhs) override;
   virtual bool initGoalSelector() ;
   virtual bool update(PathPtr& solution) override;
 

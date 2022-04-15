@@ -19,7 +19,7 @@ public:
 
     if (!nh_.getParam("ucb_alpha", alpha_))
     {
-      ROS_DEBUG("%s/ucb_alpha is not set. Deafult: 1.0",nh_.getNamespace().c_str());
+      ROS_INFO("%s/ucb_alpha is not set. Deafult: 1.0",nh_.getNamespace().c_str());
       alpha_=1.0;
     }
   }
