@@ -37,8 +37,8 @@ NetConnection::NetConnection(const NodePtr &parent, const NodePtr &child):
 void NetConnection::add()
 {
   added_ = true;
-  parent_->addNetChildConnection(pointer());
-  child_->addNetParentConnection(pointer());
+  getParent()->addNetChildConnection(pointer());
+  getChild()->addNetParentConnection(pointer());
 }
 void NetConnection::remove()
 {
@@ -46,16 +46,16 @@ void NetConnection::remove()
     return;
 
   added_ = false;
-  if (parent_)
+  if (!(parent_.expired()))
   {
-    parent_->remoteNetChildConnection(pointer());
+    getParent()->remoteNetChildConnection(pointer());
   }
   else
     ROS_FATAL("parent already destroied");
 
-  if (child_)
+  if (!(child_.expired()))
   {
-    child_->remoteNetParentConnection(pointer());
+    getChild()->remoteNetParentConnection(pointer());
   }
   else
     ROS_FATAL("child already destroied");
@@ -63,8 +63,8 @@ void NetConnection::remove()
 
 ConnectionPtr NetConnection::clone()
 {
-  NodePtr new_parent = std::make_shared<Node>(parent_->getConfiguration());
-  NodePtr new_child = std::make_shared<Node>(child_->getConfiguration());
+  NodePtr new_parent = std::make_shared<Node>(getParent()->getConfiguration());
+  NodePtr new_child = std::make_shared<Node>(getChild()->getConfiguration());
 
   NetConnectionPtr new_connection = std::make_shared<NetConnection>(new_parent,new_child);
   new_connection->setCost(cost_);

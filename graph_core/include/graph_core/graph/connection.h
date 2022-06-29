@@ -33,8 +33,8 @@ namespace pathplan
 class Connection : public std::enable_shared_from_this<Connection>
 {
 protected:
-  NodePtr parent_;
-  NodePtr child_;
+  WeakNodePtr parent_;
+  WeakNodePtr child_;
   double cost_;
   bool added_ = false;
   double euclidean_norm_;
@@ -69,13 +69,13 @@ public:
   {
     return euclidean_norm_;
   }
-  const NodePtr& getParent() const
+  NodePtr getParent() const
   {
-    return parent_;
+    return parent_.lock();
   }
-  const NodePtr& getChild() const
+  NodePtr getChild() const
   {
-    return child_;
+    return child_.lock();
   }
 
   void setLikelihood(const double& likelihood){likelihood_=likelihood;}
@@ -88,6 +88,8 @@ public:
 
   friend std::ostream& operator<<(std::ostream& os, const Connection& connection);
   ~Connection();
+
+
 };
 
 

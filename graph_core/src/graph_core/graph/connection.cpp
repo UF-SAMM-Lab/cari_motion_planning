@@ -42,8 +42,9 @@ Connection::Connection(const NodePtr &parent, const NodePtr &child, const double
 
 ConnectionPtr Connection::clone()
 {
-  NodePtr new_parent = std::make_shared<Node>(parent_->getConfiguration());
-  NodePtr new_child = std::make_shared<Node>(child_->getConfiguration());
+
+  NodePtr new_parent = std::make_shared<Node>(getParent()->getConfiguration());
+  NodePtr new_child = std::make_shared<Node>(getChild()->getConfiguration());
 
   ConnectionPtr new_connection = std::make_shared<Connection>(new_parent,new_child);
   new_connection->setCost(cost_);
@@ -54,8 +55,8 @@ ConnectionPtr Connection::clone()
 void Connection::add()
 {
   added_ = true;
-  parent_->addChildConnection(pointer());
-  child_->addParentConnection(pointer());
+  getParent()->addChildConnection(pointer());
+  getChild()->addParentConnection(pointer());
 }
 void Connection::remove()
 {
@@ -63,16 +64,16 @@ void Connection::remove()
     return;
 
   added_ = false;
-  if (parent_)
+  if (not parent_.expired())
   {
-    parent_->remoteChildConnection(pointer());
+    getParent()->remoteChildConnection(pointer());
   }
   else
     ROS_FATAL("parent already destroied");
 
-  if (child_)
+  if (not child_.expired())
   {
-    child_->remoteParentConnection(pointer());
+    getChild()->remoteParentConnection(pointer());
   }
   else
     ROS_FATAL("child already destroied");
@@ -87,12 +88,13 @@ void Connection::flip()
 }
 Connection::~Connection()
 {
+  //remove();
 }
 
 bool Connection::isParallel(const ConnectionPtr& conn, const double& toll)
 {
   // v1 dot v2 = norm(v1)*norm(v2)*cos(angle)
-  double scalar= (child_->getConfiguration()-parent_->getConfiguration()).dot(
+  double scalar= (getChild()->getConfiguration()-getParent()->getConfiguration()).dot(
         conn->getChild()->getConfiguration()-conn->getParent()->getConfiguration());
 
   // v1 dot v2 = norm(v1)*norm(v2) if v1 // v2
@@ -102,8 +104,8 @@ bool Connection::isParallel(const ConnectionPtr& conn, const double& toll)
 
 std::ostream& operator<<(std::ostream& os, const Connection& connection)
 {
-  os << connection.parent_->getConfiguration().transpose() << " -->" << std::endl;
-  os << "-->" << connection.child_->getConfiguration().transpose() << std::endl;
+  os << connection.getParent()->getConfiguration().transpose() << " -->" << std::endl;
+  os << "-->" << connection.getChild()->getConfiguration().transpose() << std::endl;
 
   return os;
 }
