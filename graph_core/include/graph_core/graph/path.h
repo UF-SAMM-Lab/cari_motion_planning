@@ -1,4 +1,5 @@
 #pragma once
+#pragma GCC diagnostic ignored "-Wsign-compare"
 /*
 Copyright (c) 2019, Manuel Beschi CNR-STIIMA manuel.beschi@stiima.cnr.it
 All rights reserved.
@@ -108,7 +109,9 @@ public:
 
 
   std::vector<NodePtr> getNodes();
+  double getGoalTime();
   std::vector<Eigen::VectorXd> getWaypoints();
+  std::vector<double> getTiming();
 
 
   std::vector<bool> getChangeWarp()
@@ -154,6 +157,7 @@ public:
     for(const ConnectionPtr& connection : conn)
     {
       cost_ += connection->getCost();
+      std::cout<<"conn cost:"<<connection->getCost()<<std::endl;
       change_warp_.push_back(true);
     }
     change_warp_.at(0) = false;

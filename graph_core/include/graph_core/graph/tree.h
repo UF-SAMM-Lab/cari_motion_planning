@@ -74,12 +74,14 @@ protected:
 
 
 public:
+  bool time_avoid_ = false;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Tree(const NodePtr& root,
        const double& max_distance,
        const CollisionCheckerPtr& checker,
        const MetricsPtr& metrics,
-       const bool& use_kdtree=true);
+       const bool& use_kdtree=true,
+        const bool &use_time_cost=false);
 
   const NodePtr& getRoot()
   {

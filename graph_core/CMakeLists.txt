@@ -18,12 +18,15 @@ find_package(catkin REQUIRED COMPONENTS
   eigen_conversions
   geometry_msgs
   velocity_scaling_iso15066
+  avoidance_intervals
   )
+
+message(WARNING ${catkin_INCLUDE_DIRS})
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES graph_core
-  CATKIN_DEPENDS actionlib moveit_core moveit_ros_planning moveit_ros_planning_interface roscpp rosdyn_core human_probablistic_occupancy moveit_visual_tools rviz_visual_tools eigen_conversions geometry_msgs velocity_scaling_iso15066
+  CATKIN_DEPENDS actionlib moveit_core moveit_ros_planning moveit_ros_planning_interface roscpp rosdyn_core human_probablistic_occupancy moveit_visual_tools rviz_visual_tools eigen_conversions geometry_msgs velocity_scaling_iso15066 avoidance_intervals
   DEPENDS
   )
 include_directories(
@@ -39,13 +42,16 @@ add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}/avoidance_probabilistic_time_metrics.cpp
   src/${PROJECT_NAME}/occupancy_metrics.cpp
   src/${PROJECT_NAME}/time_metrics.cpp
+  src/${PROJECT_NAME}/time_avoid_metrics.cpp
   src/${PROJECT_NAME}/sampler.cpp
   src/${PROJECT_NAME}/local_informed_sampler.cpp
+  src/${PROJECT_NAME}/time_informed_sampler.cpp
   src/${PROJECT_NAME}/tube_informed_sampler.cpp
   src/${PROJECT_NAME}/time_sampler.cpp
   src/${PROJECT_NAME}/util.cpp
   src/${PROJECT_NAME}/moveit_collision_checker.cpp
   src/${PROJECT_NAME}/parallel_moveit_collision_checker.cpp
+  src/${PROJECT_NAME}/parallel_robot_point_clouds.cpp
   src/${PROJECT_NAME}/narrow_pass_checker.cpp
   src/${PROJECT_NAME}/boxes_checker.cpp
   src/${PROJECT_NAME}/collision_checker.cpp
@@ -63,6 +69,7 @@ add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}/solvers/tree_solver.cpp
   src/${PROJECT_NAME}/solvers/birrt.cpp
   src/${PROJECT_NAME}/solvers/rrt_star.cpp
+  src/${PROJECT_NAME}/solvers/time_avoid_rrt_star.cpp
   src/${PROJECT_NAME}/solvers/rrt.cpp
   src/${PROJECT_NAME}/solvers/anytime_rrt.cpp
   src/${PROJECT_NAME}/solvers/path_solver.cpp

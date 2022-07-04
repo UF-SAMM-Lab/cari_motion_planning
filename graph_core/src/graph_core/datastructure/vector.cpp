@@ -32,8 +32,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace pathplan
 {
 
-Vector::Vector():
-  NearestNeighbors()
+Vector::Vector(bool mode):
+  NearestNeighbors(mode)
 {
 
 }
@@ -53,7 +53,7 @@ void Vector::nearestNeighbor(const Eigen::VectorXd& configuration,
   best_distance=std::numeric_limits<double>::infinity();
   for (const NodePtr& n: nodes_)
   {
-    double dist=(n->getConfiguration()-configuration).norm();
+    double dist=cost_fn(n,configuration);
     if (dist<best_distance)
     {
       best=n;
@@ -62,16 +62,20 @@ void Vector::nearestNeighbor(const Eigen::VectorXd& configuration,
   }
 }
 
+//get nearest nodes based on the cost function
+//this used to simply be the l2 cost function (shortest path)
+//JF - I added the option to specify a cost function so I could choose to find neighbors nearest in time instead of l2 distance
+//JF - Nearest in time considers slow downs to avoid predicted obstacles, so it may not be linearly related to l2 distance
 std::multimap<double, pathplan::NodePtr> Vector::near(const Eigen::VectorXd& configuration,
                                   const double& radius)
 {
   std::multimap<double, pathplan::NodePtr> nodes;
   for (const NodePtr& n: nodes_)
   {
-    double dist=(n->getConfiguration()-configuration).norm();
-    if (dist<radius)
+    double dist=cost_fn(n,configuration);  //get cost between node n and config, either l2 distance or time depending on cost_fn
+    if (dist<radius) //if cost is close enough, then node is viable parent
     {
-      nodes.insert(std::pair<double, pathplan::NodePtr>(dist,n));
+      nodes.insert(std::pair<double, pathplan::NodePtr>(dist,n)); //build table of nearest nodes and cost for edge: nearest node -> node n
     }
   }
   return nodes;

@@ -409,11 +409,34 @@ std::vector<Eigen::VectorXd> Path::getWaypoints()
   if (connections_.size() == 0)
     return wp;
 
+  std::cout<<connections_.at(0)->getParent()->getConfiguration()<<std::endl;
   wp.push_back(connections_.at(0)->getParent()->getConfiguration());
-  for (const ConnectionPtr& conn : connections_)
+  for (const ConnectionPtr& conn : connections_) {
+    std::cout<<conn->getChild()->getConfiguration()<<std::endl;
     wp.push_back(conn->getChild()->getConfiguration());
-
+  }
   return wp;
+}
+
+std::vector<double> Path::getTiming()
+{
+  std::vector<double> times;
+  if (connections_.size() == 0){
+    ROS_INFO("No connections!");
+    return times;
+  }
+
+  for (const ConnectionPtr& conn : connections_) {
+    std::cout<<conn->getParentTime()<<std::endl;
+    times.push_back(conn->getParentTime());
+  }
+  ROS_INFO("last connection...");
+  ConnectionPtr conn = connections_.back();
+  std::cout<<"goal time...\n";
+  std::cout<<"goal time: "<<conn->getParent()->min_time+conn->getCost()<<std::endl;
+  times.push_back(conn->getParent()->min_time+conn->getCost());
+
+  return times;
 }
 
 

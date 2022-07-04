@@ -25,7 +25,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-
+#include <graph_core/sampler.h>
 #include <eigen3/Eigen/Core>
 #include <graph_core/util.h>
 #include <ros/ros.h>
@@ -34,10 +34,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace pathplan
 {
 
-class InformedSampler;
-typedef std::shared_ptr<InformedSampler> InformedSamplerPtr;
-
-class InformedSampler: public std::enable_shared_from_this<InformedSampler>
+class TimeInformedSampler: public InformedSampler
 {
 protected:
   Eigen::VectorXd start_configuration_;
@@ -46,16 +43,19 @@ protected:
   Eigen::VectorXd upper_bound_;
   Eigen::VectorXd center_bound_;
   Eigen::VectorXd bound_width_;
+  Eigen::VectorXd max_vel_;
+
 
   double cost_;
   unsigned int ndof_;
 
-  Eigen::VectorXd ellipse_center_;
-  Eigen::VectorXd ellipse_axis_;
-  double max_radius_;
-  double min_radius_;
-  Eigen::MatrixXd rot_matrix_;
-  double focii_distance_;
+
+  Eigen::VectorXd q_dist_;
+  Eigen::VectorXd l_box_;
+  Eigen::VectorXd u_box_;
+  Eigen::VectorXd q_mid_;
+  Eigen::VectorXd q_range_;
+  double utopia_;
   bool inf_cost_;
   double specific_volume_; // ndof-th root of volume of the hyperellipsoid divided by the volume of unit sphere
 
@@ -66,56 +66,66 @@ protected:
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  InformedSampler(const Eigen::VectorXd& start_configuration,
+  TimeInformedSampler(const Eigen::VectorXd& start_configuration,
                   const Eigen::VectorXd& stop_configuration,
                   const Eigen::VectorXd& lower_bound,
                   const Eigen::VectorXd& upper_bound,
+                  const Eigen::VectorXd& max_q_vel,
                   const double& cost = std::numeric_limits<double>::infinity()):
+    InformedSampler(start_configuration,stop_configuration,lower_bound,upper_bound,cost),
     start_configuration_(start_configuration),
     stop_configuration_(stop_configuration),
     lower_bound_(lower_bound),
     upper_bound_(upper_bound),
     cost_(cost),
-    gen_{rd_()}//gen_(time(0))
+    max_vel_(max_q_vel)
+    //gen_{rd_()}//gen_(time(0))
   {
+
+    std::cout<<"test3\n";
+    Eigen::VectorXd inv_max_speed = max_q_vel.cwiseInverse();
+    std::cout<<inv_max_speed<<std::endl;
+    utopia_ = (stop_configuration-start_configuration).cwiseProduct(inv_max_speed).cwiseAbs().maxCoeff();
+
+    std::cout<<"test4\n";
     ud_ = std::uniform_real_distribution<double>(0, 1);
-    std::cout<<"test1\n";
+
     ndof_ = lower_bound_.rows();
-    ellipse_center_ = 0.5 * (start_configuration_ + stop_configuration_);
-    focii_distance_ = (start_configuration_ - stop_configuration_).norm();
-    center_bound_ = 0.5 * (lower_bound_ + upper_bound_);
-    bound_width_ = 0.5 * (lower_bound_ - upper_bound_);
-    ellipse_axis_.resize(ndof_);
 
-    rot_matrix_ = computeRotationMatrix(start_configuration_, stop_configuration_);
-
-    std::cout<<"test2\n";
-    ROS_DEBUG_STREAM("rot_matrix_:\n" << rot_matrix_);
-    ROS_DEBUG_STREAM("ellipse center" << ellipse_center_.transpose());
-    ROS_DEBUG_STREAM("focii_distance_" << focii_distance_);
-    ROS_DEBUG_STREAM("center_bound_" << center_bound_.transpose());
-    ROS_DEBUG_STREAM("bound_width_" << bound_width_.transpose());
 
 
     if (cost_ < std::numeric_limits<double>::infinity())
     {
-      inf_cost_ = false;
+      inf_cost_ = false;    
+      //generate bounds of hyperrectangle
+      q_dist_ = 0.5*(cost*max_q_vel-(stop_configuration-start_configuration).cwiseAbs());
+      l_box_ = start_configuration.cwiseMin(stop_configuration)-q_dist_;
+      l_box_ = l_box_.cwiseMax(lower_bound_);
+      u_box_ = start_configuration.cwiseMax(stop_configuration)+q_dist_;
+      u_box_ = u_box_.cwiseMin(upper_bound_);
       setCost(cost);
     }
-    else
+    else {
       inf_cost_ = true;
+      l_box_ = lower_bound_;
+      u_box_ = upper_bound_;
+    }
+
+    q_range_ = (u_box_-l_box_);
+    q_mid_ = 0.5*(u_box_+l_box_);
+
+    std::cout<<"box extents:\n" << q_dist_;
+    std::cout<<"box mid:\n" << q_mid_;
+    std::cout<<"box range:\n" << q_range_;
+    std::cout<<"lower bounds" << l_box_;
+    std::cout<<" upper bounds" << u_box_<<std::endl;
   }
 
   virtual Eigen::VectorXd sample();
   void setCost(const double& cost);
 
   virtual bool inBounds(const Eigen::VectorXd& q);
-  virtual bool collapse()
-  {
-    return focii_distance_ >= cost_;
-  }
 
-  const double& getFociiDistance(){return focii_distance_;}
   const double& getCost(){return cost_;}
 
   virtual double getSpecificVolume();
@@ -132,6 +142,6 @@ public:
 };
 
 
-typedef std::shared_ptr<InformedSampler> SamplerPtr;
+typedef std::shared_ptr<TimeInformedSampler> TimeInformedSamplerPtr;
 
 }  // namespace pathplan

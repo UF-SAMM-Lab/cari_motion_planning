@@ -27,21 +27,37 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
-#include <eigen3/Eigen/Core>
-#include <ros/ros.h>
-
-#define PATH_COMMENT(...) ROS_LOG(::ros::console::levels::Debug, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
-#define PATH_COMMENT_STREAM(...) ROS_LOG_STREAM(::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
-// #define PATH_COMMENT_STREAM(...) ROS_LOG_STREAM_COND(true,::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
+#include <graph_core/solvers/rrt.h>
+#include <graph_core/parallel_robot_point_clouds.h>
 
 namespace pathplan
 {
+class TimeAvoidRRTStar;
+typedef std::shared_ptr<TimeAvoidRRTStar> TimeAvoidRRTStarPtr;
 
-class Connection;
-class Node;
-typedef std::shared_ptr<Connection> ConnectionPtr;
-typedef std::shared_ptr<Node> NodePtr;
+class TimeAvoidRRTStar: public RRT
+{
+protected:
+  double r_rewire_;
+  //virtual bool setProblem(const double &max_time = std::numeric_limits<double>::infinity()); //max_time not used
 
-Eigen::MatrixXd computeRotationMatrix(const Eigen::VectorXd& x1, const Eigen::VectorXd&  x2);
+public:
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  TimeAvoidRRTStar(const MetricsPtr& metrics,
+          const CollisionCheckerPtr& checker,
+          const SamplerPtr& sampler):
+    RRT(metrics, checker, sampler) {}
 
+  virtual bool config(const ros::NodeHandle& nh) override;
+  virtual bool addGoal(const NodePtr &goal_node, const double &max_time = std::numeric_limits<double>::infinity()) override;
+  virtual bool setProblem(const double &max_time) override;
+  virtual bool addStartTree(const TreePtr& start_tree, const double &max_time = std::numeric_limits<double>::infinity()) override;
+  virtual bool update(PathPtr& solution) override;
+  virtual bool solve(PathPtr &solution, const unsigned int& max_iter=100, const double &max_time = std::numeric_limits<double>::infinity()) override;
+  virtual bool update(const Eigen::VectorXd& configuration, PathPtr& solution) override;
+  virtual bool update(const NodePtr& n, PathPtr& solution) override;
+  virtual TreeSolverPtr clone(const MetricsPtr& metrics, const CollisionCheckerPtr& checker, const SamplerPtr& sampler) override;
+
+
+};
 }

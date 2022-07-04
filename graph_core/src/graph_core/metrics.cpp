@@ -49,6 +49,12 @@ double Metrics::cost(const Eigen::VectorXd& configuration1,
   return (configuration1 - configuration2).norm();
 }
 
+double Metrics::cost(const NodePtr& parent,
+                              const NodePtr& new_node, double &near_time)
+{
+  return cost(parent,new_node);
+}
+
 double Metrics::utopia(const NodePtr& node1,
                      const NodePtr& node2)
 {

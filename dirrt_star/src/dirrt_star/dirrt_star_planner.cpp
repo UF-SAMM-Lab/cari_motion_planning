@@ -520,7 +520,7 @@ bool DIRRTStar::solve ( planning_interface::MotionPlanDetailedResponse& res )
             COMMENT("it improves the actual best solution");
             best_solution=solution;
             for (pathplan::SamplerPtr& sampler: samplers)
-              sampler->setCost(solution->cost());
+              sampler->(solution->cost());
           }
 
         }

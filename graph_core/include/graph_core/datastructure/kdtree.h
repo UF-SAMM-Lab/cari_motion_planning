@@ -103,7 +103,7 @@ protected:
 class KdTree: public NearestNeighbors
 {
 public:
-  KdTree();
+  KdTree(bool mode=0);
 
   virtual void insert(const NodePtr& node) override;
 

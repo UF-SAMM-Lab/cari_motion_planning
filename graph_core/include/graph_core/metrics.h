@@ -46,7 +46,9 @@ public:
 
   virtual double cost(const Eigen::VectorXd& configuration1,
                       const Eigen::VectorXd& configuration2);
-
+  
+  virtual double cost(const NodePtr& parent,
+                              const NodePtr& new_node, double &near_time);
 
   virtual double utopia(const NodePtr& node1,
                       const NodePtr& node2);

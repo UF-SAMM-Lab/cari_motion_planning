@@ -26,22 +26,37 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-
-#include <eigen3/Eigen/Core>
-#include <ros/ros.h>
-
-#define PATH_COMMENT(...) ROS_LOG(::ros::console::levels::Debug, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
-#define PATH_COMMENT_STREAM(...) ROS_LOG_STREAM(::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
-// #define PATH_COMMENT_STREAM(...) ROS_LOG_STREAM_COND(true,::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
+#include <graph_core/metrics.h>
+#include <rosdyn_core/primitives.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <eigen_conversions/eigen_msg.h>
+#include <graph_core/parallel_robot_point_clouds.h>
 
 namespace pathplan
 {
 
-class Connection;
-class Node;
-typedef std::shared_ptr<Connection> ConnectionPtr;
-typedef std::shared_ptr<Node> NodePtr;
 
-Eigen::MatrixXd computeRotationMatrix(const Eigen::VectorXd& x1, const Eigen::VectorXd&  x2);
+// Avoidance metrics
+class TimeAvoidMetrics: public Metrics
+{
+protected:
+  Eigen::VectorXd max_speed_;
+  Eigen::VectorXd inv_max_speed_;
+  double nu_=1e-2;
+  double t_pad_=0;
+
+public:
+  ParallelRobotPointCloudsPtr pc_avoid_checker;
+  EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+  TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const double &nu=1e-2, const double &t_pad=0.0);
+
+  virtual double cost(const NodePtr& parent,
+                              const NodePtr& new_node, double &near_time);
+  virtual double utopia(const Eigen::VectorXd& configuration1,
+                      const Eigen::VectorXd& configuration2);
+
+
+};
+typedef std::shared_ptr<TimeAvoidMetrics> TimeAvoidMetricsPtr;
 
 }

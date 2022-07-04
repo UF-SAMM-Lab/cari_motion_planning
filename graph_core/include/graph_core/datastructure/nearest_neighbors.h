@@ -31,15 +31,25 @@ PSEUDO CODE :
 */
 #pragma once
 #include <graph_core/graph/node.h>
+#include <graph_core/util.h>
+#include <functional>
 namespace pathplan
 {
 
+// double time_dist(NodePtr n,Eigen::VectorXd configuration) {
+//   return n->min_time+(n->getConfiguration()-configuration).norm();
+// }
+
+// double l2_dist(NodePtr n,Eigen::VectorXd configuration) {
+//   return (n->getConfiguration()-configuration).norm();
+// }
 
 class NearestNeighbors: public std::enable_shared_from_this<NearestNeighbors>
 {
 public:
-  NearestNeighbors()
+  NearestNeighbors(bool mode=0)
   {
+    mode_=mode;
     delete_nodes_=0;
     size_=0;
   }
@@ -57,6 +67,22 @@ public:
       nearestNeighbor(configuration,best,best_distance);
       return best;
     }
+  }
+  double cost_fn(NodePtr n,Eigen::VectorXd configuration) 
+  {
+    if (mode_==0){
+      return l2_dist(n,configuration);
+    } else if (mode_==1) {
+      return time_dist(n,configuration);
+    }
+  }
+
+  double time_dist(NodePtr n,Eigen::VectorXd configuration) {
+    return n->min_time+(n->getConfiguration()-configuration).norm();
+  }
+  
+  double l2_dist(NodePtr n,Eigen::VectorXd configuration) {
+    return (n->getConfiguration()-configuration).norm();
   }
 
   virtual std::multimap<double, NodePtr> near(const Eigen::VectorXd& configuration,
@@ -81,6 +107,7 @@ public:
 protected:
   unsigned int size_;
   unsigned int delete_nodes_;
+  bool mode_;
 };
 
 typedef std::shared_ptr<NearestNeighbors> NearestNeighborsPtr;

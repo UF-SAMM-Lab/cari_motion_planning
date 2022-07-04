@@ -37,7 +37,7 @@ namespace pathplan
 class Vector: public NearestNeighbors
 {
 public:
-  Vector();
+  Vector(bool mode=0);
 
   virtual void insert(const NodePtr& node) override;
 

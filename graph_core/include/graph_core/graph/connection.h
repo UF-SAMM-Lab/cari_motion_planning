@@ -35,11 +35,12 @@ class Connection : public std::enable_shared_from_this<Connection>
 protected:
   NodePtr parent_;
   NodePtr child_;
-  double cost_;
+  double cost_ = std::numeric_limits<double>::infinity(); //JF - init connection cost to infinity?
   bool added_ = false;
   double euclidean_norm_;
   double time_;
   double likelihood_;
+  double parent_time_ = 0;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -55,6 +56,15 @@ public:
   virtual bool isNet()
   {
     return false;
+  }
+
+  void setParentTime(const double& parent_time)
+  {
+    parent_time_ = parent_time;
+  }
+  const double& getParentTime()
+  {
+    return parent_time_;
   }
 
   void setCost(const double& cost)

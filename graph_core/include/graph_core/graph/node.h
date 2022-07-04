@@ -43,6 +43,8 @@ protected:
   bool non_optimal_;
 public:
   std::vector<ConnectionPtr> parent_connections_;
+  std::vector<double> parent_time_occupancy;
+  double min_time = std::numeric_limits<double>::infinity();
   std::vector<ConnectionPtr> child_connections_;
   std::vector<ConnectionPtr> net_parent_connections_;   //CHIEDI COME USARE NETCONNECTIONPTR
   std::vector<ConnectionPtr> net_child_connections_;

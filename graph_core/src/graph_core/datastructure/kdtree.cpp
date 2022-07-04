@@ -287,8 +287,8 @@ void KdNode::disconnectNodes(const std::vector<NodePtr>& white_list)
     right_->disconnectNodes(white_list);
 }
 
-KdTree::KdTree():
-  NearestNeighbors()
+KdTree::KdTree(bool mode):
+  NearestNeighbors(mode)
 {
 }
 

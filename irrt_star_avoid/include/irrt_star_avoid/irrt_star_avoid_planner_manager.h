@@ -27,21 +27,51 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
-#include <eigen3/Eigen/Core>
-#include <ros/ros.h>
+#include <moveit/planning_interface/planning_interface.h>
+#include <irrt_star_avoid/irrt_star_avoid_planner.h>
+// #include <dirrt_star/multigoal_planner.h>
+//#include <dirrt_star/time_planner.h>
+//#include <dirrt_star/hamp_time_planner.h>
+//#include <dirrt_star/probabilist_hamp_time_planner.h>
+#define COMMENT(...) ROS_LOG(::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
 
-#define PATH_COMMENT(...) ROS_LOG(::ros::console::levels::Debug, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
-#define PATH_COMMENT_STREAM(...) ROS_LOG_STREAM(::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
-// #define PATH_COMMENT_STREAM(...) ROS_LOG_STREAM_COND(true,::ros::console::levels::Info, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
-
-namespace pathplan
+namespace pathplan {
+namespace irrt_star_avoid {
+class PathPlanerManager : public planning_interface::PlannerManager
 {
+public:
+  virtual bool initialize(const robot_model::RobotModelConstPtr& model, const std::string& ns) override;
+  std::string getDescription() const override
+  {
+    return "IRRT_Avoid";
+  }
+  bool canServiceRequest(const moveit_msgs::MotionPlanRequest &req) const override;
 
-class Connection;
-class Node;
-typedef std::shared_ptr<Connection> ConnectionPtr;
-typedef std::shared_ptr<Node> NodePtr;
 
-Eigen::MatrixXd computeRotationMatrix(const Eigen::VectorXd& x1, const Eigen::VectorXd&  x2);
+
+  void getPlanningAlgorithms(std::vector<std::string> &algs) const override;
+
+
+
+  void setPlannerConfigurations(const planning_interface::PlannerConfigurationMap &pcs) override;
+
+  planning_interface::PlanningContextPtr getPlanningContext(
+    const planning_scene::PlanningSceneConstPtr &planning_scene,
+    const planning_interface::MotionPlanRequest &req,
+    moveit_msgs::MoveItErrorCodes &error_code) const override;
+
+
+
+protected:
+  ros::NodeHandle m_nh;
+
+  std::map< std::string, std::shared_ptr<planning_interface::PlanningContext>> m_planners;
+  moveit::core::RobotModelConstPtr m_robot_model;
+  std::string m_default_planner_config;
+};
+
+//
 
 }
+}
+
