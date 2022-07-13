@@ -44,7 +44,7 @@ bool TimeAvoidRRTStar::addGoal(const NodePtr &goal_node, const double &max_time)
   solved_ = false;
   goal_node_ = goal_node;
   ROS_INFO("adding the goal, setting the problem");
-
+  start_tree_->goal_node_ = goal_node_;
   return setProblem(max_time);
 }
 
@@ -55,7 +55,7 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
     return false;
   if (!goal_node_)
     return false;
-  goal_cost_ = std::numeric_limits<double>::infinity();
+  goal_cost_ = std::numeric_limits<double>::max()/utopia_tolerance_/1.05;
 
   best_utopia_ = goal_cost_;
   init_ = true;
@@ -73,14 +73,16 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
     sampler_->setCost(path_cost_);
     ROS_INFO_STREAM("set sampler cost");
     start_tree_->addNode(goal_node_);
-    ROS_INFO_STREAM("added goal node");
+    ROS_INFO_STREAM("added goal node "<<goal_node_);
 
     solved_ = true;
     PATH_COMMENT_STREAM("A direct solution is found\n" << *solution_);
   }
   else
   {
-    path_cost_ = std::numeric_limits<double>::infinity();
+    start_tree_->addNode(goal_node_);
+    path_cost_ = std::numeric_limits<double>::max();
+    PATH_COMMENT_STREAM("No direct solution is found " << path_cost_);
   }
   cost_=path_cost_+goal_cost_;
   return true;
@@ -90,7 +92,7 @@ bool TimeAvoidRRTStar::config(const ros::NodeHandle& nh)
 {
   RRT::config(nh);
   solved_ = false;
-  if (!nh.getParam("rewire_radius",max_distance_))
+  if (!nh.getParam("rewire_radius",r_rewire_))
   {
     ROS_DEBUG("%s/rewire_radius is not set. using 2.0*max_distance",nh.getNamespace().c_str());
     r_rewire_=2.0*max_distance_;
@@ -106,47 +108,52 @@ bool TimeAvoidRRTStar::update(PathPtr& solution)
 //this is for adding new nodes
 bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& solution)
 {
-  PATH_COMMENT_STREAM("update w/ config\n"<<configuration);
-  PATH_COMMENT_STREAM("init:"<<init_);
+  // PATH_COMMENT_STREAM("update w/ config\n"<<configuration);
+  // PATH_COMMENT_STREAM("init:"<<init_);
   if (!init_) {
     PATH_COMMENT_STREAM("exit update, not init");
     return false;
   }
-  PATH_COMMENT_STREAM("yeah");
-  PATH_COMMENT_STREAM("cost:"<<cost_);
-  PATH_COMMENT_STREAM("utopia_tolerance_:"<<utopia_tolerance_);
-  PATH_COMMENT_STREAM("best_utopia_:"<<best_utopia_);
-  if (cost_ <= utopia_tolerance_ * best_utopia_)
-  {
-    ROS_INFO("Already optimal");
-    std::cout<<cost_<<std::endl;
-    solution=solution_;
-    completed_=true;
-    return true;
+  // PATH_COMMENT_STREAM("cost:"<<cost_<<",utopia_tolerance_:"<<utopia_tolerance_<<",best_utopia_:"<<best_utopia_);
+  // if (cost_ <= utopia_tolerance_ * best_utopia_)
+  // {
+  //   ROS_INFO("Already optimal (121)");
+  //   std::cout<<cost_<<std::endl;
+  //   solution=solution_;
+  //   completed_=true;
+  //   return true;
+  // }
+
+  double old_path_cost;
+  // PATH_COMMENT_STREAM("getting solution cost");
+  //for time-avoidance, cost is time to reach goal node
+  if (solution_) {
+    old_path_cost = solution_->cost();
+  } else {
+    old_path_cost = std::numeric_limits<double>::max();
   }
 
-  PATH_COMMENT_STREAM("getting solution cost");
-  //for time-avoidance, cost is time to reach goal node
-  double old_path_cost = solution_->cost();
-
-  PATH_COMMENT_STREAM("old path cost:"<<old_path_cost);
+  // PATH_COMMENT_STREAM("old path cost:"<<old_path_cost);
 
   bool improved = start_tree_->rewire(configuration, r_rewire_);
+  // PATH_COMMENT_STREAM("number of nodes in tree: "<<start_tree_->getNumberOfNodes());
   if (improved)
   {
-    PATH_COMMENT_STREAM("improved");
-    if (goal_node_->parent_connections_.at(0)->getCost() >= (old_path_cost - 1e-8))
+    // PATH_COMMENT_STREAM("improved");
+    //this is a problem
+    if (start_tree_->costToNode(goal_node_)  >= (old_path_cost - 1e-8))
       return false;
-    PATH_COMMENT_STREAM("creating the solution");
+    // PATH_COMMENT_STREAM("creating the solution");
     solution_ = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node_), metrics_, checker_);
-    PATH_COMMENT_STREAM("solution:\n"<<solution_);
+    PATH_COMMENT_STREAM("solution:\n"<<*solution_);
     solution_->setTree(start_tree_);
 
-    path_cost_ = goal_node_->parent_connections_.at(0)->getCost();
+    path_cost_ = start_tree_->costToNode(goal_node_) ;
     cost_ = path_cost_+goal_cost_;
     sampler_->setCost(path_cost_);
   }
   solution = solution_;
+  // PATH_COMMENT_STREAM("update returned "<<improved);
   return improved;
 }
 

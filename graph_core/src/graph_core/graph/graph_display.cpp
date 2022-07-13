@@ -54,7 +54,7 @@ Display::Display(const planning_scene::PlanningSceneConstPtr planning_scene,
 
 void Display::clearMarkers(const std::string& ns)
 {
-  PATH_COMMENT_STREAM("create marker");
+  // PATH_COMMENT_STREAM("create marker");
   visualization_msgs::Marker marker;
   marker.action = visualization_msgs::Marker::DELETEALL;
   marker.header.stamp=ros::Time::now();
@@ -63,7 +63,7 @@ void Display::clearMarkers(const std::string& ns)
   marker.id= marker_id_++;
 
   marker_pub_.publish(marker);
-  PATH_COMMENT_STREAM("published empty marker");
+  // PATH_COMMENT_STREAM("published empty marker");
   ros::Duration(DISPLAY_TIME).sleep();
 }
 void Display::clearMarker(const int& id,const std::string& ns)
@@ -204,7 +204,7 @@ int Display::displayPath(const PathPtr &path,
                          const bool &plot_state)
 {
 
-  PATH_COMMENT_STREAM("create markers");
+  // PATH_COMMENT_STREAM("create markers");
   visualization_msgs::Marker marker;
   marker.ns = ns;
   marker.type = visualization_msgs::Marker::LINE_LIST;
@@ -213,28 +213,28 @@ int Display::displayPath(const PathPtr &path,
   marker.action = visualization_msgs::Marker::ADD;
   marker.id= static_id;
 
-  PATH_COMMENT_STREAM("scale markers");
+  // PATH_COMMENT_STREAM("scale markers");
   marker.scale.x = connection_marker_scale_.at(0);
   marker.scale.y = connection_marker_scale_.at(1);
   marker.scale.z = connection_marker_scale_.at(2);
 
-  PATH_COMMENT_STREAM("color markers");
+  // PATH_COMMENT_STREAM("color markers");
   marker.color.r = marker_color.at(0);
   marker.color.g = marker_color.at(1);
   marker.color.b = marker_color.at(2);
   marker.color.a = marker_color.at(3);
 
-  PATH_COMMENT_STREAM("get connections");
+  // PATH_COMMENT_STREAM("get connections");
   std::vector<ConnectionPtr> connections=path->getConnections();
 
-  PATH_COMMENT_STREAM("has connections");
+  // PATH_COMMENT_STREAM("has connections");
 
   if (connections.size()==0)
     return marker.id;
   for (const ConnectionPtr& conn: connections)
   {
 
-    PATH_COMMENT_STREAM("connection marker"<<*conn);
+    // PATH_COMMENT_STREAM("connection marker"<<*conn);
     Eigen::VectorXd parent = conn->getParent()->getConfiguration();
     Eigen::VectorXd child = conn->getChild()->getConfiguration();
 
@@ -263,7 +263,7 @@ int Display::displayPath(const PathPtr &path,
 
   }
 
-  PATH_COMMENT_STREAM("publishing markers");
+  // PATH_COMMENT_STREAM("publishing markers");
   marker_pub_.publish(marker);
   ros::Duration(DISPLAY_TIME).sleep();
   return marker.id;

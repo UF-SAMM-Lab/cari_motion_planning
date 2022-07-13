@@ -34,7 +34,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace pathplan
 {
+class TimeAvoidMetrics;
 
+typedef std::shared_ptr<TimeAvoidMetrics> TimeAvoidMetricsPtr;
 
 // Avoidance metrics
 class TimeAvoidMetrics: public Metrics
@@ -50,13 +52,12 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const double &nu=1e-2, const double &t_pad=0.0);
 
-  virtual double cost(const NodePtr& parent,
+  double cost(const NodePtr& parent,
                               const NodePtr& new_node, double &near_time);
-  virtual double utopia(const Eigen::VectorXd& configuration1,
+  double utopia(const Eigen::VectorXd& configuration1,
                       const Eigen::VectorXd& configuration2);
 
 
 };
-typedef std::shared_ptr<TimeAvoidMetrics> TimeAvoidMetricsPtr;
 
 }

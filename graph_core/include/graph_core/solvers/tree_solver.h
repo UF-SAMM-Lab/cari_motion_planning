@@ -42,6 +42,10 @@ class TreeSolver;
 typedef std::shared_ptr<TreeSolver> TreeSolverPtr;
 class TreeSolver: public std::enable_shared_from_this<TreeSolver>
 {
+public:
+  std::string getMetricsName() {
+    return metrics_->getName();
+  }
 protected:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   ros::NodeHandle nh_;
@@ -67,9 +71,9 @@ protected:
   NodePtr goal_node_;                                          // if multigoal, it is related the best goal
   double path_cost_;                                           // if multigoal, it is related the best goal
   double goal_cost_=0;                                         // if multigoal, it is related the best goal
-  double cost_=0;                                              // if multigoal, it is related the best goal
+  double cost_;                                              // if multigoal, it is related the best goal
   PathPtr solution_;                                           // if multigoal, it is related the best goal
-  double best_utopia_=std::numeric_limits<double>::infinity(); // if multigoal, it is related the best goal
+  double best_utopia_=std::numeric_limits<double>::max(); // if multigoal, it is related the best goal
 
 protected:
   virtual bool setProblem(const double &max_time = std::numeric_limits<double>::infinity())
@@ -89,6 +93,7 @@ public:
     checker_(checker),
     sampler_(sampler)
   {
+    PATH_COMMENT_STREAM("tree solver metrics name "<<metrics->getName());
     path_cost_ = std::numeric_limits<double>::infinity();
     goal_cost_ = 0.0;
     cost_ = std::numeric_limits<double>::infinity();

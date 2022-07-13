@@ -65,6 +65,7 @@ Path::Path(std::vector<NodePtr> nodes,
 
     ConnectionPtr conn = std::make_shared<Connection>(parent,child);
     double cost = metrics->cost(parent,child);
+    PATH_COMMENT_STREAM("cost " << cost);
     conn->setCost(cost);
     conn->add();
 
@@ -255,7 +256,6 @@ double Path::getNormFromConf(const Eigen::VectorXd &conf)
 void Path::computeCost()
 {
   cost_ = 0;
-
   for (const ConnectionPtr& conn : connections_)
     cost_ += conn->getCost();
 }

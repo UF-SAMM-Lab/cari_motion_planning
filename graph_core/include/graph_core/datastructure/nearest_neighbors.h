@@ -65,6 +65,9 @@ public:
       double best_distance=std::numeric_limits<double>::infinity();
       NodePtr best;
       nearestNeighbor(configuration,best,best_distance);
+      Eigen::VectorXd tmp_cfg = best->getConfiguration();
+      // PATH_COMMENT_STREAM("nearest neighbor:"<<best_distance);
+      // PATH_COMMENT_STREAM(tmp_cfg);
       return best;
     }
   }
@@ -73,11 +76,14 @@ public:
     if (mode_==0){
       return l2_dist(n,configuration);
     } else if (mode_==1) {
+      double t=time_dist(n,configuration);
+      // PATH_COMMENT_STREAM("min time:"<<t);
       return time_dist(n,configuration);
     }
   }
 
   double time_dist(NodePtr n,Eigen::VectorXd configuration) {
+    // PATH_COMMENT_STREAM("n min time:"<<n->min_time);
     return n->min_time+(n->getConfiguration()-configuration).norm();
   }
   

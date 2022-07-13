@@ -55,6 +55,7 @@ void Connection::add()
 {
   added_ = true;
   parent_->addChildConnection(pointer());
+  // ROS_INFO_STREAM("adding a parent for node "<<child_->getConfiguration());
   child_->addParentConnection(pointer());
 }
 void Connection::remove()

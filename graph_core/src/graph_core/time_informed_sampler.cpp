@@ -34,11 +34,12 @@ namespace pathplan
 
 Eigen::VectorXd TimeInformedSampler::sample()
 {
-  ROS_INFO("sampling");
+  // ROS_INFO("sampling");
   if (inf_cost_)
   {
-    Eigen::VectorXd sample = l_box_+Eigen::MatrixXd::Random(ndof_, 1).cwiseProduct(q_range_);
-    PATH_COMMENT_STREAM("sample:\n"<<sample);
+    Eigen::VectorXd rand_samp = 0.5*Eigen::MatrixXd::Random(ndof_, 1)+0.5*Eigen::MatrixXd::Ones(ndof_, 1);
+    Eigen::VectorXd sample = l_box_+rand_samp.cwiseProduct(q_range_);
+    // PATH_COMMENT_STREAM("sample:\n"<<sample);
     return sample;
   }
   else
@@ -65,7 +66,7 @@ Eigen::VectorXd TimeInformedSampler::sample()
     }
     ROS_DEBUG_THROTTLE(0.1, "unable to find a feasible point in the hyperrectangle");
     Eigen::VectorXd sample = l_box_ + Eigen::MatrixXd::Random(ndof_, 1).cwiseProduct(q_range_);
-    PATH_COMMENT_STREAM("sample:\n"<<sample);
+    // PATH_COMMENT_STREAM("sample:\n"<<sample);
     return sample;
   }
 }

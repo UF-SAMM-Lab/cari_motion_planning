@@ -40,7 +40,8 @@ Tree::Tree(const NodePtr& root,
   use_kdtree_(use_kdtree),
   max_distance_(max_distance),
   checker_(checker),
-  metrics_(metrics)
+  metrics_(metrics),
+  time_avoid_(use_time_cost)
 {
   if (use_kdtree)
   {
@@ -50,6 +51,7 @@ Tree::Tree(const NodePtr& root,
   {
     nodes_=std::make_shared<Vector>(use_time_cost);
   }
+  PATH_COMMENT_STREAM("root min time:"<<root->min_time);
   nodes_->insert(root);
   double dimension=root->getConfiguration().size();
   k_rrt_=1.1*std::pow(2.0,dimension+1)*std::exp(1)*(1.0+1.0/dimension);
@@ -71,7 +73,7 @@ bool Tree::tryExtend(const Eigen::VectorXd &configuration,
   //for time-avoidance, this returns the nearest node in time,
   //otherwise, nearest in l2 distance
   closest_node = findClosestNode(configuration);
-  std::cout<<"try extend closest node cfg:\n"<<closest_node->getConfiguration()<<std::endl;
+  // std::cout<<"try extend closest node cfg:\n"<<closest_node->getConfiguration()<<std::endl;
   assert(closest_node);
 
   return tryExtendFromNode(configuration,next_configuration,closest_node);
@@ -83,14 +85,18 @@ bool Tree::tryExtendFromNode(const Eigen::VectorXd &configuration,
 {
   assert(node);
   double distance = selectNextConfiguration(configuration,next_configuration,node);
-
-  if (distance < tolerance_) //if difference in config is small enough that it is imposssible for an obstacle between configs
+  // PATH_COMMENT_STREAM("try ext dist "<< distance);
+  if (distance < tolerance_) {//if difference in config is small enough that it is imposssible for an obstacle between configs
     return true;
-  else
+    PATH_COMMENT_STREAM("too close");
+  }else{
     //check path between node and next_config for intermediate collisions
-    if (checker_->checkPath(node->getConfiguration(), next_configuration))
+    if (checker_->checkPath(node->getConfiguration(), next_configuration)){
       return true;
-
+      // PATH_COMMENT_STREAM("no collision between nodes");
+    }
+    // PATH_COMMENT_STREAM("collision between nodes");
+  }
   return false;
 }
 
@@ -124,8 +130,16 @@ bool Tree::extendOnly(NodePtr& closest_node, NodePtr &new_node, ConnectionPtr &c
 {
   ConnectionPtr conn; //empty connection
   //get edge cost, for time-avoid this is the min time to reach the new node, considering avoidance intervals
-  double cost = metrics_->cost(closest_node, new_node); 
+  double cost; 
+  double n_time = 0;
+  if (time_avoid_) {
+    cost = metrics_->cost(closest_node, new_node, n_time);
+  } else {
+    cost = metrics_->cost(closest_node, new_node);
+  }
+  new_node->min_time = closest_node->min_time+cost;
   conn = std::make_shared<Connection>(closest_node, new_node);
+  // PATH_COMMENT_STREAM("adding connection..................................."<<cost);
   conn->add();
   conn->setCost(cost);
 
@@ -144,7 +158,6 @@ bool Tree::extend(const Eigen::VectorXd &configuration, NodePtr &new_node)
 
 bool Tree::extend(const Eigen::VectorXd &configuration, NodePtr &new_node, ConnectionPtr &connection)
 {
-  ROS_INFO("extending");
   NodePtr closest_node;
   Eigen::VectorXd next_configuration;
   //attempt connection between config and its closest node
@@ -158,6 +171,7 @@ bool Tree::extend(const Eigen::VectorXd &configuration, NodePtr &new_node, Conne
   }
   //if extension passed, create new node at the next config
   new_node = std::make_shared<Node>(next_configuration);
+  // ROS_INFO("extending only...................................");
   return extendOnly(closest_node,new_node,connection);
 }
 
@@ -168,7 +182,7 @@ bool Tree::extendToNode(const NodePtr& node,
   Eigen::VectorXd next_configuration;
   //this appears to be the steering function
   //
-  PATH_COMMENT_STREAM("node cfg:"<<node->getConfiguration());
+  // PATH_COMMENT_STREAM("node cfg:"<<node->getConfiguration());
 
   if (!tryExtend(node->getConfiguration(),
                  next_configuration,
@@ -176,7 +190,7 @@ bool Tree::extendToNode(const NodePtr& node,
   {
     return false;
   }
-  PATH_COMMENT_STREAM("next cfg:"<<next_configuration);
+  // PATH_COMMENT_STREAM("next cfg:"<<next_configuration);
   new_node = std::make_shared<Node>(next_configuration);
   addNode(new_node,false);
 
@@ -193,14 +207,20 @@ bool Tree::extendToNode(const NodePtr& node,
     addNode(new_node,false);
   }
 
-  double cost = metrics_->cost(closest_node, new_node);
-  PATH_COMMENT_STREAM("parent->child extension cost:"<<cost);
+  double cost; 
+  double n_time = 0;
+  if (time_avoid_) {
+    cost = metrics_->cost(closest_node, new_node, n_time);
+  } else {
+    cost = metrics_->cost(closest_node, new_node);
+  }
+  // PATH_COMMENT_STREAM("parent->child extension cost:"<<cost);
   ConnectionPtr conn = std::make_shared<Connection>(closest_node, new_node);
-  PATH_COMMENT_STREAM("adding connection from:\n"<<*closest_node<<"\nto\n"<<*new_node);
+  // PATH_COMMENT_STREAM("adding connection from:\n"<<*closest_node<<"\nto\n"<<*new_node);
   conn->add();
-  PATH_COMMENT_STREAM("setting cost for connection");
+  // PATH_COMMENT_STREAM("setting cost for connection");
   conn->setCost(cost);
-  PATH_COMMENT_STREAM("new node connection done");
+  // PATH_COMMENT_STREAM("new node connection done");
 
   return true;
 }
@@ -394,17 +414,23 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
   double cost_node_to_near;
   if(rewire_parent)
   {
-    ROS_INFO("try to find a better parent between %zu nodes", near_nodes.size());
+    // ROS_INFO_STREAM("try to find a better parent between "<<near_nodes.size()<<" nodes w/ time avoid:"<<time_avoid_);
     NodePtr nearest_node = node->getParents().at(0);
     //loop over all nearest nodes
     for (const std::pair<double,NodePtr>& p : near_nodes)
     {
       const NodePtr& n = p.second; //get near node from pair
+      if (n == goal_node_)
+        continue;
       //check to prevent a node from becoming its own parent
       if (n == nearest_node)
         continue;
       if (n == node)
         continue;
+      // if (n == goal_node_) {
+      //   PATH_COMMENT_STREAM("goal node rewire "<<goal_node_->getConfiguration());
+      // }
+      // PATH_COMMENT_STREAM("test.........................");
       //cost of near node
       double cost_to_near = costToNode(n);
       //if near node is not better than nearest node, skip
@@ -446,6 +472,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       //JF - if node cost is l2 distance between parent and node, then sum cost to parent with parent->node cost
       // if (cummulative_cost_) {
         cost_to_node = cost_to_near + cost_near_to_node;
+        node->min_time = cost_to_node;
       // } else { //JF - else node cost is total time to reach node
       //   cost_to_node = cost_near_to_node;
       // }
@@ -462,10 +489,14 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       if (n == node)
         continue;
       //l2 distance or time to reach node n
-      double cost_to_near = costToNode(n);
+      double cost_to_near = std::numeric_limits<double>::infinity();
+      if ((n!=goal_node_)||(!goal_node_->parent_connections_.empty())) cost_to_near = costToNode(n);
       //node can not be a better parent to near node
       if (cost_to_node >= cost_to_near)
-        continue;
+        continue;     
+        // if (n == goal_node_) {
+        //   PATH_COMMENT_STREAM("goal node rewire "<<cost_to_near<<",\n"<<goal_node_->getConfiguration());
+        // }
       //JF - if standard cost fn, get l2 distance between nodes
       double node_time=0;
       double cost_node_to_near;
@@ -481,7 +512,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       if (!checker_->checkPath(node->getConfiguration(), n->getConfiguration()))
         continue;
       //node is a better parent for n and path is collision free, remove old n.parent
-      n->parent_connections_.at(0)->remove();
+      if (!n->parent_connections_.empty()) n->parent_connections_.at(0)->remove();
       //make new connection between node and n
       ConnectionPtr conn = std::make_shared<Connection>(node, n);
       conn->setCost(cost_node_to_near);
@@ -733,7 +764,7 @@ bool Tree::rewire(const Eigen::VectorXd &configuration, double r_rewire, NodePtr
   {
     return false;
   }
-
+  // PATH_COMMENT_STREAM("rewire only");
   return rewireOnly(new_node,r_rewire);
 }
 
@@ -787,7 +818,8 @@ double Tree::costToNode(NodePtr node)
     {
       if (node->parent_connections_.size() != 1)
       {
-        ROS_ERROR_STREAM("a tree node should have exactly a parent. this node has 0: "<<*node);
+        ROS_ERROR_STREAM("a tree node should have exactly a parent. this node has "<<node->parent_connections_.size()<<": "<<*node);
+        // ROS_INFO_STREAM("node ptr "<<node<<", goal ptr"<<goal_node_);
         return std::numeric_limits<double>::infinity();
       }
 

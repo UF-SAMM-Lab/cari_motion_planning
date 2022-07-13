@@ -74,6 +74,7 @@ protected:
 
 
 public:
+  NodePtr goal_node_;
   bool time_avoid_ = false;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Tree(const NodePtr& root,

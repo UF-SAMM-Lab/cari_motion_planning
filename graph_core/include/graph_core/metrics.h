@@ -37,6 +37,8 @@ typedef std::shared_ptr<Metrics> MetricsPtr;
 // Euclidean metrics
 class Metrics
 {
+protected:
+  std::string name = "base metrics";
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Metrics();
@@ -55,6 +57,10 @@ public:
 
   virtual double utopia(const Eigen::VectorXd& configuration1,
                       const Eigen::VectorXd& configuration2);
+
+  std::string getName() {
+    return name;
+  }
 
   virtual MetricsPtr clone();
 

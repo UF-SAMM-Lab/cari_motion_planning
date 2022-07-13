@@ -29,17 +29,23 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <thread>
 #include <mutex>
 #include <avoidance_intervals/avoidance_model.h>
+#include <chrono>
+#include <ctime>
+#include <ratio>
 
 namespace pathplan
 {
 class ParallelRobotPointClouds
 {
+private:
+  std::vector<bool> model_pts_already_checked;
+  ros::Publisher pub_pt;
 protected:
+  ros::NodeHandle nh;
   int threads_num_;
   int thread_iter_=0;
   bool stop_check_;
   bool at_least_a_collision_;
-  avoidance_intervals::modelPtr model_;
 
   std::string group_name_;
   double min_distance_;
@@ -51,6 +57,7 @@ protected:
   std::vector<Eigen::Vector3f> link_bb_offsets;
   std::vector<fcl::Boxf> link_boxes;
   std::vector<const robot_state::LinkModel*> links;
+  std::vector<const robot_state::LinkModel*> robot_links;
 
   int n_dof = 6;
 
@@ -66,9 +73,10 @@ protected:
   collision_detection::CollisionRequest req_;
   collision_detection::CollisionResult res_;
 public:
+  avoidance_intervals::modelPtr model_;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   
-  ParallelRobotPointClouds(const planning_scene::PlanningScenePtr& planning_scene,
+  ParallelRobotPointClouds(ros::NodeHandle node_handle, const planning_scene::PlanningScenePtr& planning_scene,
                                  const std::string& group_name,const avoidance_intervals::modelPtr& model,
                                  const int& threads_num=4,
                                  const double& min_distance = 0.01);
@@ -100,6 +108,9 @@ public:
   // {
   //   return planning_scene_;
   // }
+  std::vector<ros::Publisher> vis_pubs;
+  void displayRobot(int i,Eigen::Vector3f sides,Eigen::Vector3f pos, Eigen::Quaternionf quat);
+  void displayCollisionPoint(float radius,Eigen::Vector3f pos);
 
 };
 typedef std::shared_ptr<ParallelRobotPointClouds> ParallelRobotPointCloudsPtr;

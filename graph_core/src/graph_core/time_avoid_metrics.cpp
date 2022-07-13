@@ -38,17 +38,25 @@ TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const doubl
   t_pad_(t_pad)
 {
   inv_max_speed_=max_speed_.cwiseInverse();
+
+  name="time avoid metrics";
 }
 
 //JF - need node1 instead of config1
 double TimeAvoidMetrics::cost(const NodePtr& parent,
                               const NodePtr& new_node, double &near_time)
 {
+
+    // PATH_COMMENT_STREAM("time avoid metrics cost fn 1");
     double dist=std::numeric_limits<double>::infinity();
 
     //determine min time to complete straight line path from parent to config
     Eigen::VectorXd dist_new = new_node->getConfiguration()-parent->getConfiguration();
-    double time_new = (dist_new.array()*inv_max_speed_.array()).maxCoeff();
+    
+    // PATH_COMMENT_STREAM("dist_new:"<<dist_new);
+
+    double time_new = (dist_new.cwiseAbs().array()*inv_max_speed_.array()).maxCoeff();
+    // PATH_COMMENT_STREAM("time_new:"<<time_new);
     double node_time_new = time_new;
     //get cost of parent
     //requires extended node data
@@ -58,7 +66,11 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     // } else {
     //     c_near = parent.min_time;
     // }
-    c_near = parent->parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
+    if (!parent->parent_connections_.empty()) {
+      c_near = parent->parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
+    }
+    // PATH_COMMENT_STREAM("parent near time:"<<parent_new_time);
+    // PATH_COMMENT_STREAM("cnear:"<<c_near);
     near_time = c_near;
     // get min cost to get to new node from near parent
     double c_new = c_near + time_new;
@@ -118,6 +130,9 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     //determine last_pass_time for collection of avoidance intervals
 
     //if the min cost to get to new node from nearest parent exceeds the collective last_pass_time, then node is not viable
+    if (!avoid_ints.empty()){
+      ROS_INFO_STREAM("num avoid pts "<<avoid_ints.size()<<", last pass time "<<last_pass_time);
+    }
     if (c_new>last_pass_time){
         success = false;
         // break;

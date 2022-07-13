@@ -69,10 +69,12 @@ void Vector::nearestNeighbor(const Eigen::VectorXd& configuration,
 std::multimap<double, pathplan::NodePtr> Vector::near(const Eigen::VectorXd& configuration,
                                   const double& radius)
 {
+  // PATH_COMMENT_STREAM("near radius "<<radius);
   std::multimap<double, pathplan::NodePtr> nodes;
   for (const NodePtr& n: nodes_)
   {
-    double dist=cost_fn(n,configuration);  //get cost between node n and config, either l2 distance or time depending on cost_fn
+    // ROS_INFO_STREAM("node ptr "<<n);
+    double dist=l2_dist(n,configuration);  //get cost between node n and config, either l2 distance or time depending on cost_fn
     if (dist<radius) //if cost is close enough, then node is viable parent
     {
       nodes.insert(std::pair<double, pathplan::NodePtr>(dist,n)); //build table of nearest nodes and cost for edge: nearest node -> node n
