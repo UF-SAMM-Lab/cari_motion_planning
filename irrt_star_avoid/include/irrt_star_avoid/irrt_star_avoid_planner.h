@@ -30,18 +30,22 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/robot_state/conversions.h>
 #include <moveit/planning_scene/planning_scene.h>
-#include <graph_core/solvers/time_avoid_rrt_star.h>
+#include <irrt_star_avoid/solvers/time_avoid_rrt_star.h>
 #include <graph_core/solvers/path_solver.h>
-#include <graph_core/time_avoid_metrics.h>
+#include <irrt_star_avoid/time_avoid_metrics.h>
 #include <graph_core/moveit_collision_checker.h>
-#include <graph_core/time_informed_sampler.h>
+#include <irrt_star_avoid/time_informed_sampler.h>
 #include <rosparam_utilities/rosparam_utilities.h>
 #include <graph_core/parallel_moveit_collision_checker.h>
 #include <geometry_msgs/PoseArray.h>
 #include <ros/callback_queue.h>
+#include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/Float64MultiArray.h>
-
 #include <graph_core/graph/graph_display.h>
+#include <visualization_msgs/Marker.h>
+#include <avoidance_intervals/avoidance_model.h>
+#include <ros/ros.h>
+#include <algorithm>
 
 // #define COMMENT(...) ROS_LOG(::ros::console::levels::Debug, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
 
@@ -74,11 +78,14 @@ public:
 
   /** \brief Clear the data structures used by the planner */
   virtual void clear() override;
+  avoidance_intervals::modelPtr avoid_model_;
 
 protected:
+  // ros::NodeHandle m_nh;
   moveit::core::RobotModelConstPtr robot_model_;
   //planning_scene::PlanningSceneConstPtr pl
   ros::NodeHandle m_nh;
+  // ros::AsyncSpinner spinner;
   ros::CallbackQueue m_queue;
 
   std::shared_ptr<pathplan::Display> display;
@@ -112,10 +119,18 @@ protected:
   bool m_stop=false;
   double plot_interval_=5;
   bool display_flag=false;
+  int max_iterations = 0;
+  bool allow_goal_collision = false;
 
 private:
-  avoidance_intervals::modelPtr avoid_model_;
+  ros::Publisher vis_pub_;
+  std::thread spinner_thread;
+  void spinThread(void);
+  float grid_spacing = 0.1;
+
 };
+
+typedef std::shared_ptr<IRRTStarAvoid> IRRTStarAvoidPtr;
 
 }
 }

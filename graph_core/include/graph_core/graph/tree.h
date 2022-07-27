@@ -75,6 +75,7 @@ protected:
 
 public:
   NodePtr goal_node_;
+  Eigen::VectorXd inv_max_speed_;
   bool time_avoid_ = false;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Tree(const NodePtr& root,
@@ -101,6 +102,8 @@ public:
   bool tryExtend(const Eigen::VectorXd& configuration,
                  Eigen::VectorXd& next_configuration,
                  NodePtr& closest_node);
+
+  void directSolution(NodePtr& goal_node_);
 
   bool tryExtendFromNode(const Eigen::VectorXd& configuration,
                        Eigen::VectorXd& next_configuration,
@@ -212,6 +215,12 @@ public:
                                  const CollisionCheckerPtr& checker,
                                  const MetricsPtr& metrics,
                                  const bool& lazy=false);
+
+  void rewireTimeAvoidCheckChildren(NodePtr n, int iterations);
+  std::vector<NodePtr> getNodesToNode(NodePtr node);
+  std::vector<NodePtr> getNodesFromNode(NodePtr node);
+  void rewireNearToTheirChildren (NodePtr n);
+  void rewireNearToBetterParents (NodePtr n);
 };
 
 std::ostream& operator<<(std::ostream& os, const Tree& tree);

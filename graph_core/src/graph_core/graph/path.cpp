@@ -409,10 +409,10 @@ std::vector<Eigen::VectorXd> Path::getWaypoints()
   if (connections_.size() == 0)
     return wp;
 
-  std::cout<<connections_.at(0)->getParent()->getConfiguration()<<std::endl;
+  std::cout<<connections_.at(0)->getParent()->getConfiguration().transpose()<<std::endl;
   wp.push_back(connections_.at(0)->getParent()->getConfiguration());
   for (const ConnectionPtr& conn : connections_) {
-    std::cout<<conn->getChild()->getConfiguration()<<std::endl;
+    std::cout<<"wpt:"<<conn->getChild()->getConfiguration().transpose()<<std::endl;
     wp.push_back(conn->getChild()->getConfiguration());
   }
   return wp;
@@ -420,21 +420,30 @@ std::vector<Eigen::VectorXd> Path::getWaypoints()
 
 std::vector<double> Path::getTiming()
 {
+
+  ROS_INFO_STREAM("Connections:"<<connections_.size());
   std::vector<double> times;
   if (connections_.size() == 0){
     ROS_INFO("No connections!");
     return times;
   }
-
+  
   for (const ConnectionPtr& conn : connections_) {
-    std::cout<<conn->getParentTime()<<std::endl;
+    std::vector<Eigen::Vector3f> tmp_cons = conn->getAvoidIntervals();
+    std::cout<<tmp_cons.size()<<std::endl;
+    for (int i=0;i<tmp_cons.size();i++) {
+      std::cout<<"i:"<<i<<", interval "<<tmp_cons[i].transpose()<<std::endl;
+    }
+    std::cout<<"parent time:"<<conn->getParentTime()<<", "<<conn->getParent()->min_time<<","<<conn->getMinTime()<<","<<conn->getChild()->potential_parent_connections_.size()<<std::endl;
     times.push_back(conn->getParentTime());
   }
   ROS_INFO("last connection...");
   ConnectionPtr conn = connections_.back();
   std::cout<<"goal time...\n";
-  std::cout<<"goal time: "<<conn->getParent()->min_time+conn->getCost()<<std::endl;
-  times.push_back(conn->getParent()->min_time+conn->getCost());
+  std::cout<<"goal time: "<<conn->getCost()<<std::endl;
+  std::cout<<"parent time:"<<conn->getParentTime()<<", "<<conn->getParent()->min_time<<","<<conn->getMinTime()<<","<<conn->getChild()->potential_parent_connections_.size()<<std::endl;
+
+  times.push_back(conn->getCost());
 
   return times;
 }

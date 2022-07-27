@@ -28,6 +28,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <graph_core/util.h>
 #include <graph_core/graph/node.h>
+#include <parallel_robot_point_clouds/parallel_robot_point_clouds.h>
 namespace pathplan
 {
 class Metrics;
@@ -40,6 +41,7 @@ class Metrics
 protected:
   std::string name = "base metrics";
 public:
+  ParallelRobotPointCloudsPtr pc_avoid_checker;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Metrics();
 
@@ -50,13 +52,17 @@ public:
                       const Eigen::VectorXd& configuration2);
   
   virtual double cost(const NodePtr& parent,
-                              const NodePtr& new_node, double &near_time);
+                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time);
 
   virtual double utopia(const NodePtr& node1,
                       const NodePtr& node2);
 
   virtual double utopia(const Eigen::VectorXd& configuration1,
                       const Eigen::VectorXd& configuration2);
+
+  virtual void setPointCloudChecker(ParallelRobotPointCloudsPtr pc_avoid_checker_) {
+    pc_avoid_checker=pc_avoid_checker_;
+  }
 
   std::string getName() {
     return name;

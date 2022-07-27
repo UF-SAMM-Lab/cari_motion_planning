@@ -26,7 +26,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
-#include <graph_core/time_informed_sampler.h>
+#include <irrt_star_avoid/time_informed_sampler.h>
 
 namespace pathplan
 {

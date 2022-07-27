@@ -60,12 +60,15 @@ void Node::addParentConnection(const ConnectionPtr &connection)
 {
   assert(connection->getChild() == pointer());
   parent_connections_.push_back(connection);
+
 }
 
 void Node::addChildConnection(const ConnectionPtr &connection)
 {
   assert(connection->getParent() == pointer());
-  child_connections_.push_back(connection);
+  if (std::find(child_connections_.begin(), child_connections_.end(), connection) == child_connections_.end()) {
+    child_connections_.push_back(connection);  
+  }
 }
 
 void Node::addNetParentConnection(const ConnectionPtr &connection)
@@ -90,7 +93,9 @@ void Node::remoteParentConnection(const ConnectionPtr &connection)
   }
   else
   {
-   parent_connections_.erase(it);
+    if (std::find(potential_parent_connections_.begin(), potential_parent_connections_.end(), connection) != potential_parent_connections_.end()) potential_parent_connections_.push_back(connection);
+
+    parent_connections_.erase(it);
   }
 }
 

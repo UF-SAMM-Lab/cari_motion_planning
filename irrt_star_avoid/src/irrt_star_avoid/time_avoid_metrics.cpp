@@ -25,7 +25,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <graph_core/time_avoid_metrics.h>
+#include <irrt_star_avoid/time_avoid_metrics.h>
 
 
 namespace pathplan
@@ -44,18 +44,17 @@ TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const doubl
 
 //JF - need node1 instead of config1
 double TimeAvoidMetrics::cost(const NodePtr& parent,
-                              const NodePtr& new_node, double &near_time)
+                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time)
 {
 
     // PATH_COMMENT_STREAM("time avoid metrics cost fn 1");
-    double dist=std::numeric_limits<double>::infinity();
 
     //determine min time to complete straight line path from parent to config
     Eigen::VectorXd dist_new = new_node->getConfiguration()-parent->getConfiguration();
     
     // PATH_COMMENT_STREAM("dist_new:"<<dist_new);
 
-    double time_new = (dist_new.cwiseAbs().array()*inv_max_speed_.array()).maxCoeff();
+    double time_new = (inv_max_speed_.cwiseProduct(dist_new)).cwiseAbs().maxCoeff();
     // PATH_COMMENT_STREAM("time_new:"<<time_new);
     double node_time_new = time_new;
     //get cost of parent
@@ -67,20 +66,11 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     //     c_near = parent.min_time;
     // }
     if (!parent->parent_connections_.empty()) {
-      c_near = parent->parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
+      c_near = parent->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
     }
-    // PATH_COMMENT_STREAM("parent near time:"<<parent_new_time);
-    // PATH_COMMENT_STREAM("cnear:"<<c_near);
     near_time = c_near;
     // get min cost to get to new node from near parent
     double c_new = c_near + time_new;
-
-    bool avoid_time = false;
-
-    //some variables to store request/results of collision check between robot shapes and avoidance point cloud
-    fcl::DistanceRequest<double> req(true);
-    fcl::DistanceResult<double> res;
-    std::vector<Eigen::Vector3d> collision_points;
 
     bool success = true; //bool to set false if path can not be found
     
@@ -88,51 +78,26 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     //determine which model points the robot is in collision with at configuration
     //probably need to write a function to descritize robot bounding boxes or cylinders to point clouds
     //call the parallel checker to speed things up
-    std::vector<Eigen::Vector3f> avoid_ints;
-    float last_pass_time;
-    pc_avoid_checker->checkPath(parent->getConfiguration(), new_node->getConfiguration(), avoid_ints, last_pass_time);
-    // //non-parallel version:
-    // for (int i=1;i<num_links;i++) {
-    //     //offset transform relates robot link bounding box to origin of link
-    //     Eigen::Isometry3d offset_transform;
-    //     offset_transform.setIdentity();
-    //     offset_transform.translate(this->link_bb_offsets[i]);
-    //     //getGlobalLinkTransform relates link origin to work frame
-    //     link_transforms[i] = fcl::Transform3d(robo_state.getGlobalLinkTransform(this->links[i])*offset_transform);
-    //     //generate collision object for robot link at config
-    //     fcl::CollisionObjectf* robot = new fcl::CollisionObjectf(&this->link_boxes[i], link_transforms[i]);
-    //     fcl::collide(robot,&model.point_cloud,req,res);
-    //     //get collision points out of res and append them to a vector
-    //     std::vector<fcl::Contact> collisionContacts
-    //     res.getContacts(collisionContacts);
-    //     for (fcl::Contact pt:collisionContacts) {
-    //       collision_points.push_back(pt.pos);
-    //     }
-    // }
-    // // need to sort collision points in order of increasing x, then y, then z,
-    // // there will be many duplicate points since the points for each link were merged
-    // // and links overlap at joints
-    // std::sort(collision_points.begin(),collision_points.end(),eigen_sort_rows_by_columns);
-    // std::vector<Eigen::Vector4d> avoidance_intervals;
-    // std::vector<Eigen::Vector4d> pt_avoid_ints;
-    // for (int i = 0; i<collision_points.size();i++) {
-    //     if (i<collision_points.size()-1) {
-    //         while collision_points[i].isApprox(collision_points[i+1]) {
-    //             i++;
-    //         }
-    //     }
-    //     //look up avoidance intervals for each point robot occupies
-    //     pt_avoid_ints = model.model_point[cart_to_model(Eigen::Vector3d collision_points[i])].avoidance_intervals;
-    //     avoidance_intervals.insert(std::end(avoidance_intervals),std::begin(pt_avoid_ints), std::end(pt_avoid_ints));
-    //     //merge the intervals?
-    //     avoidance_intervals = merge_intervals(avoidance_intervals);
-    // }
-    //determine last_pass_time for collection of avoidance intervals
+    avoid_ints.clear();
+    last_pass_time = std::numeric_limits<float>::infinity();
+    // PATH_COMMENT_STREAM("last pass time:"<<last_pass_time);
+    // PATH_COMMENT_STREAM("last pass time:"<<parent->getConfiguration());
+    // PATH_COMMENT_STREAM("last pass time:"<<new_node->getConfiguration());
 
-    //if the min cost to get to new node from nearest parent exceeds the collective last_pass_time, then node is not viable
-    if (!avoid_ints.empty()){
-      ROS_INFO_STREAM("num avoid pts "<<avoid_ints.size()<<", last pass time "<<last_pass_time);
+    //if connection already exists, then get avoid ints and last pass time from connection, else call pc avoid checker
+    bool conn_found = false;
+    for (const ConnectionPtr& conn : parent->child_connections_){
+      if (conn->getChild()==new_node) {
+        avoid_ints = conn->getAvoidIntervals();
+        last_pass_time = conn->getLPT();
+        conn_found = true;
+        break;
+      }
     }
+    if (!conn_found) {
+      pc_avoid_checker->checkPath(parent->getConfiguration(), new_node->getConfiguration(), avoid_ints, last_pass_time);
+    }
+    // PATH_COMMENT_STREAM("last pass time:"<<last_pass_time);
     if (c_new>last_pass_time){
         success = false;
         // break;
@@ -143,6 +108,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
         double tmp_time = 0.0;
         double tmp_c_new = c_new;
         for (int r=0;r<avoid_ints.size();r++) {
+            std::cout<<avoid_ints[r].transpose()<<std::endl;
             //if time to reach new node is within an avoidance interval +/- padding then set time to reach new node to the end of the avoidance interval
             //repeat check with the time to reach the parent node when parent time is increased
             //ensuring the entire path from parent to new node is not in an avoidance interval
@@ -156,13 +122,17 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
             } else if (found_avoid) {
                 c_new = tmp_c_new;
                 found_avoid = false;
+                break;
             }
         }
         if (found_avoid) {
             c_new = tmp_c_new;
         }
         c_new = std::max(c_new,tmp_c_new);
+
+        std::cout<<"c_new, near time"<<c_new<<","<<near_time<<std::endl;
     }
+    // PATH_COMMENT_STREAM("cnear:"<<c_near<<", c new:"<<c_near + time_new<<", c_new:"<<c_new<<", parent min time:"<<parent->min_time<<", last pass time:"<<last_pass_time<<","<<avoid_ints.size());
 
     //return inf cost if not success
     if (!success) {
@@ -171,7 +141,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
 
     //<to-do> must also return the near_time to assign to parent_time_occupancy
 
-    return c_new-parent->min_time;
+    return c_new;
 }
 
 double TimeAvoidMetrics::utopia(const Eigen::VectorXd &configuration1, const Eigen::VectorXd &configuration2)

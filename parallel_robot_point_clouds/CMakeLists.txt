@@ -1,45 +1,33 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(avoidance_intervals)
+project(parallel_robot_point_clouds)
 add_compile_options(-std=c++14 -funroll-loops -Wall -Ofast)
 set(CMAKE_BUILD_TYPE Release)
 #add_compile_options(-std=c++11)
 #set(CMAKE_BUILD_TYPE Debug)
 
-message(WARNING "find packages")
 find_package(catkin REQUIRED COMPONENTS
   moveit_core
   moveit_ros_planning
   roscpp
   velocity_scaling_iso15066
-  std_msgs
-  human_motion_prediction
+  geometry_msgs
+  avoidance_intervals
 )
-
-# message(WARNING "find human motion predicition")
-# find_package(human_motion_prediction REQUIRED)
-
 find_package(fcl REQUIRED)
-find_package(octomap REQUIRED)
-
-message(WARNING "catkin packages")
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES avoidance_intervals
-  CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 std_msgs human_motion_prediction
-  DEPENDS FCL OCTOMAP
+  LIBRARIES parallel_robot_point_clouds
+  CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 geometry_msgs avoidance_intervals
+  DEPENDS FCL
 )
-message(WARNING "include stuff")
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
   ${FCL_INCLUDE_DIRS}
-  ${OCTOMAP_INCLUDE_DIRS}
 )
-message(WARNING ${OCTOMAP_INCLUDE_DIRS})
 
-
-add_library(${PROJECT_NAME}
-  src/${PROJECT_NAME}/avoidance_model.cpp
+add_library(${PROJECT_NAME}  
+  src/${PROJECT_NAME}/parallel_robot_point_clouds.cpp
 )
 
 add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
@@ -47,7 +35,6 @@ add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EX
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${FCL_LIBRARIES}
-  ${OCTOMAP_LIBRARIES}
 )
 
 install(TARGETS ${PROJECT_NAME}
@@ -61,19 +48,6 @@ install(DIRECTORY include/${PROJECT_NAME}/
   FILES_MATCHING PATTERN "*.h"
   PATTERN ".svn" EXCLUDE
   )
-  
-message(WARNING "adding test_model exe")
-
-add_executable(test_model src/test_model.cpp)
-message(WARNING "linking test_model exe")
-target_link_libraries(test_model
-  ${catkin_LIBRARIES}
-  ${PROJECT_NAME}
-)
-message(WARNING "depending test_model exe")
-add_dependencies(test_model ${catkin_EXPORTED_TARGETS})
-install(TARGETS test_model DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
-
 #############
 ## Install ##
 #############

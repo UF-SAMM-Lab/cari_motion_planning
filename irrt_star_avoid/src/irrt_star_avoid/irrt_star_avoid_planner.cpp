@@ -37,13 +37,26 @@ namespace irrt_star_avoid {
 IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
                        const std::string& group,
                        const moveit::core::RobotModelConstPtr& model ) :
+  // m_nh(name),
+  // spinner(1),
   PlanningContext ( name, group ),
   group_(group),
   m_gen(time(0))
 {
-  std::cout<<"whats wrong\n";
+  // spinner.start();
   m_nh=ros::NodeHandle(name);
-  m_nh.setCallbackQueue(&m_queue);
+
+  // vis_pub_ = m_nh.advertise<visualization_msgs::Marker>( "human_markers", 0 );
+  
+  // std::cout<<vis_pub_.getNumSubscribers()<<std::endl;
+  // while (vis_pub_.getNumSubscribers()<1) {
+  //   ros::Duration(1.0).sleep();
+  //   std::cout<<vis_pub_.getNumSubscribers()<<std::endl;
+  // }
+  COMMENT("created vispub");
+  // m_nh.setCallbackQueue(&m_queue);
+  // spinner_thread = std::thread(&IRRTStarAvoid::spinThread,this);
+  // spinner_thread.detach();
   COMMENT("create IRRTStarAvoid, name =%s, group = %s", name.c_str(),group.c_str());
   robot_model_=model;
   if (!robot_model_)
@@ -67,7 +80,7 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   m_lb.resize(m_dof);
   m_ub.resize(m_dof);
   max_velocity_.resize(m_dof);
-  t_pad_ = 0.5;
+  t_pad_ = 0.0;
 
   COMMENT("read bounds");
   for (unsigned int idx=0;idx<m_dof;idx++)
@@ -135,8 +148,32 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
     m_tube_sampler=false;
   }
 
-  m_ud = std::uniform_real_distribution<double>(0, 1);
+  if (!m_nh.getParam("max_iterations",max_iterations))
+  {
+    ROS_DEBUG("max_iterations is not set, default=false");
+    max_iterations=0;
+  }
 
+  if (!m_nh.getParam("grid_spacing",grid_spacing))
+  {
+    ROS_DEBUG("grid_spacing is not set, default=false");
+    grid_spacing=0.1;
+  }
+
+  if (!m_nh.getParam("allow_goal_collision",allow_goal_collision))
+  {
+    ROS_DEBUG("allow_goal_collision is not set, default=false");
+    allow_goal_collision=false;
+  }
+
+  m_ud = std::uniform_real_distribution<double>(0, 1);
+    
+  COMMENT("init avoidance model");
+
+  Eigen::Vector3f workspace_lb={-1,-1,0.5};
+  Eigen::Vector3f workspace_ub={1,1,2.5};
+
+  avoid_model_ = std::make_shared<avoidance_intervals::model>(workspace_lb,workspace_ub,grid_spacing,collision_thread_,m_nh);
 
 }
 
@@ -172,7 +209,8 @@ void IRRTStarAvoid::clear()
 bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res )
 {
 
-  
+
+
   if (display_flag)
   {
     if (!display)
@@ -199,12 +237,13 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   planning_scene::PlanningScenePtr ptr=planning_scene::PlanningScene::clone(planning_scene_);
   COMMENT("init parallel collision checker");
   checker=std::make_shared<pathplan::ParallelMoveitCollisionChecker>(ptr,group_,collision_thread_,collision_distance);
-  COMMENT("init avoidance model");
-  avoid_model_ = std::make_shared<avoidance_intervals::model>(m_lb,m_ub);
+
+
   COMMENT("init parallel avoid point checker");
-  point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(ptr,group_,avoid_model_,collision_thread_,collision_distance);
+  point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(m_nh, ptr,group_,avoid_model_,collision_thread_,collision_distance,grid_spacing);
+
   COMMENT("settign metrics point cloud checker");
-  metrics->pc_avoid_checker = point_cloud_checker;
+  metrics->setPointCloudChecker(point_cloud_checker);
   COMMENT("getting robot start state");
   moveit::core::RobotState start_state(robot_model_);
   moveit::core::robotStateMsgToRobotState(request_.start_state,start_state);
@@ -254,12 +293,15 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
 
   pathplan::NodePtr start_node=std::make_shared<pathplan::Node>(start_conf);
+  start_node->min_time = 0.0;
   COMMENT("creating a time informed sampler");
   pathplan::SamplerPtr sampler = std::make_shared<pathplan::TimeInformedSampler>(m_lb, m_ub, m_lb, m_ub,max_velocity_);
   COMMENT("creating a time avoid rrt solver");
-  std::shared_ptr<pathplan::TimeAvoidRRTStar> solver=std::make_shared<pathplan::TimeAvoidRRTStar>(base_metrics,checker,sampler);
+  std::shared_ptr<pathplan::TimeAvoidRRTStar> solver=std::make_shared<pathplan::TimeAvoidRRTStar>(metrics,checker,sampler);
   COMMENT("done created a time avoid rrt solver");
   solver->use_time_cost_ = true;
+  PATH_COMMENT_STREAM("metrics name "<< solver->getMetricsName());
+  // std::cin.ignore();
   if (!solver->config(m_nh))
   {
     ROS_ERROR("Unable to configure the planner");
@@ -268,8 +310,9 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     return false;
   }
   solver->addStart(start_node);
+  solver->setInvMaxTime(max_velocity_.cwiseInverse());
 
-  m_queue.callAvailable();
+  // m_queue.callAvailable();
 
   bool at_least_a_goal=false;
 
@@ -319,7 +362,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
           }
         }
       }
-      continue;
+      if (!allow_goal_collision) continue;
     }
     COMMENT("goal is valid");
 
@@ -339,6 +382,12 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     return false;
   }
 
+
+  // ROS_INFO_STREAM("push enter1");
+  // std::cin.ignore();
+  // metrics->pc_avoid_checker->model_->displayAllRequest();
+  // ROS_INFO_STREAM("push enter2");
+  // std::cin.ignore();
   //JF - should upate the model here.  Model takes time-varying predicted point cloud as input
 
 
@@ -347,13 +396,14 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   // ===============================
 
   // searching initial solutions
-  pathplan::PathPtr solution;
+  pathplan::PathPtr solution = solver->getSolution() ;
   bool found_a_solution=false;
   unsigned int iteration=0;
   ros::WallTime plot_time=ros::WallTime::now()-ros::WallDuration(100);
   double cost_of_first_solution;
-  while((ros::WallTime::now()-start_time)<max_planning_time)
+  while (((ros::WallTime::now()-start_time)<max_planning_time) || (iteration<max_iterations))
   {
+    PATH_COMMENT_STREAM("iteration number:"<<iteration);
     iteration++;
     if (m_stop)
     {
@@ -362,16 +412,22 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
       m_is_running=false;
       return false;
     }
-
-    solver->update(solution); //samples for a new node and udpates the node-graph
-    
+    // PATH_COMMENT_STREAM("updating the solution");
+    // solver->update(solution); //samples for a new node and udpates the node-graph
+    if (solver->update(solution))
+    {
+      // ROS_DEBUG("Improved in %u iterations", iter);
+      solver->setSolved(true);
+      // improved = true;
+    }
+    // PATH_COMMENT_STREAM("found a solution:"<<found_a_solution<<", solver solved:"<<solver->solved());
     if (!found_a_solution && solver->solved())
     {
       assert(solution);
       ROS_INFO("Find a first solution (cost=%f) in %f seconds",solver->cost(),(ros::WallTime::now()-start_time).toSec());
       found_a_solution=true;
       cost_of_first_solution=solver->cost();
-      ROS_INFO("path length = %f",solver->getSolution()->computeEuclideanNorm());
+      ROS_INFO("path cost = %f",cost_of_first_solution);
       refine_time = ros::WallTime::now();
     }
     if (solver->completed())
@@ -379,32 +435,34 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
       ROS_INFO("Optimization completed (cost=%f) in %f seconds (%u iterations)",solver->cost(),(ros::WallTime::now()-start_time).toSec(),iteration);
       break;
     }
-    PATH_COMMENT_STREAM("solver not complete");
+    // PATH_COMMENT_STREAM("solver not complete");
     if (found_a_solution && ((ros::WallTime::now()-refine_time)>m_max_refining_time))
     {
       ROS_INFO("Refine time expired (cost=%f) in %f seconds (%u iterations)",solver->cost(),(ros::WallTime::now()-start_time).toSec(),iteration);
       break;
     }
 
-    PATH_COMMENT_STREAM("solver still refining");
+    // PATH_COMMENT_STREAM("solver still refining");
     if (found_a_solution)
     {
       ROS_DEBUG_THROTTLE(0.5,"solution improved from %f to %f",cost_of_first_solution,solution->cost());
-      if ((ros::WallTime::now()-plot_time).toSec()>plot_interval_)
-      {
-        PATH_COMMENT_STREAM("clearing markers");
-        display->clearMarkers();
-        PATH_COMMENT_STREAM("displaying the tree");
-        display->displayTree(solver->getStartTree());
-        PATH_COMMENT_STREAM("displaying the path");
-        display->displayPath(solution,"pathplan",{0,1,0,1});
-        PATH_COMMENT_STREAM("done displaying");
-        plot_time=ros::WallTime::now();
+      if (display_flag) {
+        if ((ros::WallTime::now()-plot_time).toSec()>plot_interval_)
+        {
+          // PATH_COMMENT_STREAM("clearing markers");
+          display->clearMarkers();
+          // PATH_COMMENT_STREAM("displaying the tree");
+          display->displayTree(solver->getStartTree());
+          // PATH_COMMENT_STREAM("displaying the path");
+          display->displayPath(solution,"pathplan",{0,1,0,1});
+          // PATH_COMMENT_STREAM("done displaying");
+          plot_time=ros::WallTime::now();
+        }
       }
     }
   }
 
-  ROS_INFO_STREAM(*solver);
+  // ROS_INFO_STREAM(*solver);
 
   if (!found_a_solution)
   {
@@ -413,8 +471,8 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     m_is_running=false;
     return false;
   }
-  ROS_INFO("solution improved from %f to %f",cost_of_first_solution,solution->cost());
-  ROS_INFO("path length = %f",solver->getSolution()->computeEuclideanNorm());
+  // ROS_INFO("solution improved from %f to %f",cost_of_first_solution,solution->cost());
+  // ROS_INFO("path length = %f",solver->getSolution()->computeEuclideanNorm());
 
   if (!solver->completed())
   {
@@ -489,6 +547,13 @@ bool IRRTStarAvoid::terminate()
       ROS_ERROR("Unable to stop planner %s of group %s",name_.c_str(),group_.c_str());
       return false;
     }
+  }
+}
+
+void IRRTStarAvoid::spinThread(void) {
+  while (ros::ok()) {
+    m_queue.callAvailable(ros::WallDuration());
+    ros::Duration(0.1).sleep();
   }
 }
 

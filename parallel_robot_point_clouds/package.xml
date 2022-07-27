@@ -1,35 +1,28 @@
 <?xml version="1.0"?>
 <package format="2">
-  <name>irrt_star_avoid</name>
+  <name>parallel_robot_point_clouds</name>
   <version>0.0.0</version>
-  <description>The irrt_star_avoid package</description>
+  <description>The parallel_robot_point_clouds package</description>
 
   <maintainer email="manuel.beschi@stiima.cnr.it">Manuel Beschi</maintainer>
   <license>BSD</license>
   <author email="manuel.beschi@stiima.cnr.it">Manuel Beschi</author>
 
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>graph_core</build_depend>
   <build_depend>moveit_core</build_depend>
   <build_depend>moveit_ros_planning</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>geometry_msgs</build_depend>
-  <build_depend>parallel_robot_point_clouds</build_depend>
-  <build_export_depend>graph_core</build_export_depend>
+  <build_depend>avoidance_intervals</build_depend>
   <build_export_depend>moveit_core</build_export_depend>
   <build_export_depend>moveit_ros_planning</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
-  <build_export_depend>parallel_robot_point_clouds</build_export_depend>
-  <exec_depend>graph_core</exec_depend>
+  <build_export_depend>avoidance_intervals</build_export_depend>
   <exec_depend>moveit_core</exec_depend>
   <exec_depend>moveit_ros_planning</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
-  <exec_depend>parallel_robot_point_clouds</exec_depend>
+  <exec_depend>avoidance_intervals</exec_depend>
   <depend>velocity_scaling_iso15066</depend>
-
-  <export>
-    <moveit_core plugin="${prefix}/plugin.xml"/>
-  </export>
 </package>

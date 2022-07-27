@@ -40,7 +40,11 @@ protected:
   double euclidean_norm_;
   double time_;
   double likelihood_;
+private:
   double parent_time_ = 0;
+  std::vector<Eigen::Vector3f> avoidance_intervals_;
+  float last_pass_time_;
+  double min_time_;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -52,24 +56,38 @@ public:
 
   virtual void add();
   virtual void remove();
+  void setMinTime(Eigen::VectorXd inv_max_speed_);
 
   virtual bool isNet()
   {
     return false;
   }
 
-  void setParentTime(const double& parent_time)
-  {
-    parent_time_ = parent_time;
-  }
+  void setParentTime(const double& parent_time);
+
   const double& getParentTime()
   {
     return parent_time_;
   }
 
-  void setCost(const double& cost)
+  void setCost(const double& cost);
+  
+  void setAvoidIntervals(std::vector<Eigen::Vector3f> avoid_ints, float last_pass_time)
   {
-    cost_ = cost;
+    last_pass_time_ = last_pass_time;
+    avoidance_intervals_ = avoid_ints;
+  }
+  void setMinTime(const double& min_time)
+  {
+    min_time_ = min_time;
+  }
+  std::vector<Eigen::Vector3f> getAvoidIntervals()
+  {
+    return avoidance_intervals_;
+  }
+  float getLPT()
+  {
+    return last_pass_time_;
   }
   const double& getCost()
   {
@@ -78,6 +96,10 @@ public:
   double norm()
   {
     return euclidean_norm_;
+  }
+  double getMinTime()
+  {
+    return min_time_;
   }
   const NodePtr& getParent() const
   {

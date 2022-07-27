@@ -289,6 +289,11 @@ public:
     return updateCost();
   }
 
+  void setInvMaxTime(const Eigen::VectorXd inv_max_speed) {
+    ROS_INFO_STREAM("inv max spd:"<<inv_max_speed.transpose());
+    start_tree_->inv_max_speed_= inv_max_speed;
+  }
+
   friend std::ostream& operator<<(std::ostream& os, const TreeSolver& solver);
 
 };

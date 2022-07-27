@@ -48,6 +48,7 @@ public:
   std::vector<ConnectionPtr> child_connections_;
   std::vector<ConnectionPtr> net_parent_connections_;   //CHIEDI COME USARE NETCONNECTIONPTR
   std::vector<ConnectionPtr> net_child_connections_;
+  std::vector<ConnectionPtr> potential_parent_connections_; //JF time avoid stuff
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -90,6 +91,10 @@ public:
   friend std::ostream& operator<<(std::ostream& os, const Node& path);
 
   static NodePtr fromXmlRpcValue(const XmlRpc::XmlRpcValue& x);
+
+  void updateMinTime(double time_in) {
+    min_time = std::min(time_in,min_time);
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const Node& node);

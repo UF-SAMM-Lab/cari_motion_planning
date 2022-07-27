@@ -25,7 +25,7 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <graph_core/solvers/time_avoid_rrt_star.h>
+#include <irrt_star_avoid/solvers/time_avoid_rrt_star.h>
 
 namespace pathplan
 {
@@ -60,31 +60,42 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
   best_utopia_ = goal_cost_;
   init_ = true;
   NodePtr new_node;
-  ROS_INFO("attempting connection between start and goal node");
+  // ROS_INFO_STREAM("attempting connection between start and goal node:"<<goal_node_);
   if(start_tree_->connectToNode(goal_node_, new_node,max_time))  //for direct connection to goal
   {
+
+    // ROS_INFO_STREAM("new node"<<new_node);
+    // goal_node_ = new_node;
+    // start_tree_->goal_node_ = goal_node_;
+    // start_tree_->directSolution(goal_node_);
     solution_ = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node_), metrics_, checker_);
-    ROS_INFO_STREAM("created the solution");
+    // ROS_INFO_STREAM("created the solution");
     solution_->setTree(start_tree_);
-    ROS_INFO_STREAM("created the start tree");
+    // ROS_INFO_STREAM("created the start tree");
 
     path_cost_ = solution_->cost();
-    ROS_INFO_STREAM("path cost is "<<path_cost_);
+    // ROS_INFO_STREAM("path cost is "<<path_cost_);
     sampler_->setCost(path_cost_);
-    ROS_INFO_STREAM("set sampler cost");
-    start_tree_->addNode(goal_node_);
-    ROS_INFO_STREAM("added goal node "<<goal_node_);
+    // ROS_INFO_STREAM("set sampler cost");
+    // start_tree_->addNode(goal_node_);
+    // ROS_INFO_STREAM("added goal node "<<goal_node_);
 
     solved_ = true;
-    PATH_COMMENT_STREAM("A direct solution is found\n" << *solution_);
+    // PATH_COMMENT_STREAM("A direct solution is found\n" << *solution_);
   }
   else
   {
     start_tree_->addNode(goal_node_);
     path_cost_ = std::numeric_limits<double>::max();
-    PATH_COMMENT_STREAM("No direct solution is found " << path_cost_);
+    // PATH_COMMENT_STREAM("No direct solution is found " << path_cost_);
   }
   cost_=path_cost_+goal_cost_;
+  // std::vector<NodePtr> all_nodes = start_tree_->getNodes();
+  // std::cout<<"all nodes:\n";
+  // for (int i=0;i<all_nodes.size();i++) {
+  //   std::cout<<all_nodes[i]<<std::endl;
+  //   std::cout<<*all_nodes[i]<<std::endl;
+  // }
   return true;
 }
 
@@ -111,7 +122,7 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
   // PATH_COMMENT_STREAM("update w/ config\n"<<configuration);
   // PATH_COMMENT_STREAM("init:"<<init_);
   if (!init_) {
-    PATH_COMMENT_STREAM("exit update, not init");
+    // PATH_COMMENT_STREAM("exit update, not init");
     return false;
   }
   // PATH_COMMENT_STREAM("cost:"<<cost_<<",utopia_tolerance_:"<<utopia_tolerance_<<",best_utopia_:"<<best_utopia_);
@@ -141,11 +152,11 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
   {
     // PATH_COMMENT_STREAM("improved");
     //this is a problem
+    // PATH_COMMENT_STREAM("solution_improved");
     if (start_tree_->costToNode(goal_node_)  >= (old_path_cost - 1e-8))
       return false;
-    // PATH_COMMENT_STREAM("creating the solution");
     solution_ = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node_), metrics_, checker_);
-    PATH_COMMENT_STREAM("solution:\n"<<*solution_);
+    // PATH_COMMENT_STREAM("solution:\n"<<*solution_);
     solution_->setTree(start_tree_);
 
     path_cost_ = start_tree_->costToNode(goal_node_) ;
@@ -153,7 +164,7 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
     sampler_->setCost(path_cost_);
   }
   solution = solution_;
-  // PATH_COMMENT_STREAM("update returned "<<improved);
+  // PATH_COMMENT_STREAM("num nodes "<<start_tree_->getNodes().size());
   return improved;
 }
 
@@ -161,10 +172,10 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
 bool TimeAvoidRRTStar::update(const NodePtr& n, PathPtr& solution)
 {
   if (!init_)
-    ROS_INFO("exit update, init");
+    // ROS_INFO("exit update, init");
     return false;
-  ROS_INFO("old node cfg:");
-  std::cout<<n->getConfiguration()<<std::endl;
+  // ROS_INFO("old node cfg:");
+  // std::cout<<n->getConfiguration()<<std::endl;
   if (cost_ <= utopia_tolerance_ * best_utopia_)
   {
     completed_=true;
@@ -181,7 +192,7 @@ bool TimeAvoidRRTStar::update(const NodePtr& n, PathPtr& solution)
   {
     if (goal_node_->parent_connections_.at(0)->getCost() >= (old_path_cost - 1e-8))
       return false;
-
+    // ROS_INFO_STREAM("here");
     solution_ = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node_), metrics_, checker_);
     solution_->setTree(start_tree_);
     //path min cost is the cost (time of occupancy) of the goal node

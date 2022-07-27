@@ -53,9 +53,10 @@ void Vector::nearestNeighbor(const Eigen::VectorXd& configuration,
   best_distance=std::numeric_limits<double>::infinity();
   for (const NodePtr& n: nodes_)
   {
-    double dist=cost_fn(n,configuration);
+    double dist=l2_dist(n,configuration);
+    //if time_avoid, need to check avoid ints between nodes
     if (dist<best_distance)
-    {
+    {      
       best=n;
       best_distance=dist;
     }

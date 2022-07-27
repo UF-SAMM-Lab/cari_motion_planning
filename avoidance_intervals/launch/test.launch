@@ -1,4 +1,4 @@
 <launch>
-    <node name="test_model" pkg="avoidance_intervals" type="test_model" respawn="false" output="screen" required="true" launch-prefix="xterm -e gdb -ex run  --args">
+    <node name="test_model" pkg="avoidance_intervals" type="test_model" respawn="false" output="screen" required="true" launch-prefix="gdb -ex run  --args">
     </node>
 </launch>

@@ -26,38 +26,38 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
-#include <graph_core/metrics.h>
-#include <rosdyn_core/primitives.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <eigen_conversions/eigen_msg.h>
-#include <graph_core/parallel_robot_point_clouds.h>
+
+#include <graph_core/solvers/rrt.h>
+#include <parallel_robot_point_clouds/parallel_robot_point_clouds.h>
 
 namespace pathplan
 {
-class TimeAvoidMetrics;
+class TimeAvoidRRTStar;
+typedef std::shared_ptr<TimeAvoidRRTStar> TimeAvoidRRTStarPtr;
 
-typedef std::shared_ptr<TimeAvoidMetrics> TimeAvoidMetricsPtr;
-
-// Avoidance metrics
-class TimeAvoidMetrics: public Metrics
+class TimeAvoidRRTStar: public RRT
 {
 protected:
-  Eigen::VectorXd max_speed_;
-  Eigen::VectorXd inv_max_speed_;
-  double nu_=1e-2;
-  double t_pad_=0;
+  double r_rewire_;
+  //virtual bool setProblem(const double &max_time = std::numeric_limits<double>::infinity()); //max_time not used
 
 public:
-  ParallelRobotPointCloudsPtr pc_avoid_checker;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const double &nu=1e-2, const double &t_pad=0.0);
+  TimeAvoidRRTStar(const MetricsPtr& metrics,
+          const CollisionCheckerPtr& checker,
+          const SamplerPtr& sampler):
+    RRT(metrics, checker, sampler) {}
 
-  double cost(const NodePtr& parent,
-                              const NodePtr& new_node, double &near_time);
-  double utopia(const Eigen::VectorXd& configuration1,
-                      const Eigen::VectorXd& configuration2);
+  virtual bool config(const ros::NodeHandle& nh) override;
+  virtual bool addGoal(const NodePtr &goal_node, const double &max_time = 0.2) override;
+  virtual bool setProblem(const double &max_time) override;
+  virtual bool addStartTree(const TreePtr& start_tree, const double &max_time = std::numeric_limits<double>::infinity()) override;
+  virtual bool update(PathPtr& solution) override;
+  virtual bool solve(PathPtr &solution, const unsigned int& max_iter=100, const double &max_time = std::numeric_limits<double>::infinity()) override;
+  virtual bool update(const Eigen::VectorXd& configuration, PathPtr& solution) override;
+  virtual bool update(const NodePtr& n, PathPtr& solution) override;
+  virtual TreeSolverPtr clone(const MetricsPtr& metrics, const CollisionCheckerPtr& checker, const SamplerPtr& sampler) override;
 
 
 };
-
 }

@@ -30,7 +30,6 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace pathplan
 {
-
 Connection::Connection(const NodePtr &parent, const NodePtr &child, const double &time):
   parent_(parent),
   child_(child),
@@ -39,6 +38,7 @@ Connection::Connection(const NodePtr &parent, const NodePtr &child, const double
   euclidean_norm_ = (child->getConfiguration() - parent->getConfiguration()).norm();
   likelihood_=1.0;
 }
+
 
 ConnectionPtr Connection::clone()
 {
@@ -56,6 +56,8 @@ void Connection::add()
   added_ = true;
   parent_->addChildConnection(pointer());
   // ROS_INFO_STREAM("adding a parent for node "<<child_->getConfiguration());
+  //maybe need to store potential connections with all their avoidance intervals without using the connection in the tree
+  //in tree solution, a node should only have 1 parent
   child_->addParentConnection(pointer());
 }
 void Connection::remove()
@@ -63,13 +65,15 @@ void Connection::remove()
   if (!added_)
     return;
 
-  added_ = false;
-  if (parent_)
-  {
-    parent_->remoteChildConnection(pointer());
-  }
-  else
-    ROS_FATAL("parent already destroied");
+  // added_ = false;
+  // if (parent_)
+  // {
+  //   if (std::find(parent_->potential_parent_connections_.begin(), parent_->potential_parent_connections_.end(), pointer()) != parent_->potential_parent_connections_.end()) parent_->potential_parent_connections_.push_back(pointer());
+
+  //   parent_->remoteChildConnection(pointer());
+  // }
+  // else
+  //   ROS_FATAL("parent already destroied");
 
   if (child_)
   {
@@ -99,6 +103,23 @@ bool Connection::isParallel(const ConnectionPtr& conn, const double& toll)
   // v1 dot v2 = norm(v1)*norm(v2) if v1 // v2
 
   return (scalar>(euclidean_norm_*conn->norm())-toll);
+}
+
+void Connection::setParentTime(const double& parent_time)
+{
+  parent_time_ = parent_time;
+  // parent_->updateMinTime(parent_time);
+} 
+
+void Connection::setCost(const double& cost)
+{
+  cost_ = cost;
+  child_->updateMinTime(cost);
+}
+
+void Connection::setMinTime(Eigen::VectorXd inv_max_speed_)
+{
+  min_time_=(inv_max_speed_.cwiseProduct(parent_->getConfiguration() - child_->getConfiguration())).cwiseAbs().maxCoeff();
 }
 
 std::ostream& operator<<(std::ostream& os, const Connection& connection)

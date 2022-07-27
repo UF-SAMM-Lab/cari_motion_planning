@@ -11,12 +11,14 @@ find_package(catkin REQUIRED COMPONENTS
   moveit_ros_planning
   roscpp
   velocity_scaling_iso15066
+  geometry_msgs
+  parallel_robot_point_clouds
 )
 
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES irrt_star_avoid
-  CATKIN_DEPENDS graph_core moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066
+  CATKIN_DEPENDS graph_core moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 geometry_msgs parallel_robot_point_clouds
   DEPENDS
 )
 include_directories(
@@ -24,7 +26,10 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
 )
 
-add_library(${PROJECT_NAME}
+add_library(${PROJECT_NAME}  
+  src/${PROJECT_NAME}/time_informed_sampler.cpp
+  src/${PROJECT_NAME}/time_avoid_metrics.cpp
+  src/${PROJECT_NAME}/solvers/time_avoid_rrt_star.cpp
   src/${PROJECT_NAME}/irrt_star_avoid_planner.cpp
   src/${PROJECT_NAME}/irrt_star_avoid_planner_manager.cpp
 )
@@ -35,6 +40,17 @@ target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
 )
 
+install(TARGETS ${PROJECT_NAME}
+  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION}
+  )
+
+install(DIRECTORY include/${PROJECT_NAME}/
+  DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+  FILES_MATCHING PATTERN "*.h"
+  PATTERN ".svn" EXCLUDE
+  )
 #############
 ## Install ##
 #############

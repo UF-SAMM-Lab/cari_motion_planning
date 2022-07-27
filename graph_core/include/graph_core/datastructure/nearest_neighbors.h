@@ -78,7 +78,7 @@ public:
     } else if (mode_==1) {
       double t=time_dist(n,configuration);
       // PATH_COMMENT_STREAM("min time:"<<t);
-      return time_dist(n,configuration);
+      return t;
     }
   }
 
@@ -88,7 +88,8 @@ public:
   }
   
   double l2_dist(NodePtr n,Eigen::VectorXd configuration) {
-    return (n->getConfiguration()-configuration).norm();
+    Eigen::VectorXd diff = (n->getConfiguration()-configuration);
+    return diff.dot(diff);
   }
 
   virtual std::multimap<double, NodePtr> near(const Eigen::VectorXd& configuration,

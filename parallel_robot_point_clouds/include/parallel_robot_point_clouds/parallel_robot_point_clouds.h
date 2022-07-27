@@ -25,27 +25,39 @@ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
 (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
-#include <graph_core/moveit_collision_checker.h>
+// #include <graph_core/moveit_collision_checker.h>
 #include <thread>
 #include <mutex>
 #include <avoidance_intervals/avoidance_model.h>
 #include <chrono>
 #include <ctime>
 #include <ratio>
+#include<iterator> // for iterators
+#include <ros/ros.h>
+#include <eigen3/Eigen/Core>
+#include <moveit_msgs/PlanningScene.h>
+#include <moveit/planning_scene/planning_scene.h>
 
 namespace pathplan
 {
+bool vectorEqual(Eigen::Vector3f vec1, Eigen::Vector3f vec2);
+
 class ParallelRobotPointClouds
 {
 private:
   std::vector<bool> model_pts_already_checked;
   ros::Publisher pub_pt;
+  std::vector<Eigen::Vector3f> avoid_ints;
+  std::mutex mtx;
+  std::vector<Eigen::MatrixXf> link_raw_pts;
 protected:
+  bool fcl_check;
   ros::NodeHandle nh;
   int threads_num_;
   int thread_iter_=0;
   bool stop_check_;
   bool at_least_a_collision_;
+  double grid_spacing_;
 
   std::string group_name_;
   double min_distance_;
@@ -66,12 +78,24 @@ protected:
   void queueUp(const Eigen::VectorXd &q);
   void checkAllQueues(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time);
   void collisionThread(int thread_idx);
-
+  void collisionThread2(int thread_idx);
   void queueConnection(const Eigen::VectorXd& configuration1,
                        const Eigen::VectorXd& configuration2);
 
+  Eigen::MatrixXf boxPts(Eigen::Vector3f extents);
+  void sort_reduce_link_pts(std::vector<Eigen::Vector3f> &link_pts);
+  void collisionThreadPts(int thread_idx, int start, int end);
+  void quequeCollisionPtThread(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time) ;
+  void generatePtsThread(int thread_idx);
+  void GenerateAllConfigPts(void);
+  void show_transformed_pts(Eigen::MatrixXf &transformed_pts);
+  void pt_intersection(fcl::Transform3f &link_transform, int link_id, int thread_id);
+
   collision_detection::CollisionRequest req_;
   collision_detection::CollisionResult res_;
+  std::vector<Eigen::MatrixXf> link_pts;
+  std::vector<Eigen::Vector3f> link_pts_vec;
+  int num_link_pts = 0;
 public:
   avoidance_intervals::modelPtr model_;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -79,7 +103,8 @@ public:
   ParallelRobotPointClouds(ros::NodeHandle node_handle, const planning_scene::PlanningScenePtr& planning_scene,
                                  const std::string& group_name,const avoidance_intervals::modelPtr& model,
                                  const int& threads_num=4,
-                                 const double& min_distance = 0.01);
+                                 const double& min_distance = 0.01,
+                                 const double& grid_spacing = 0.05);
 
   ~ParallelRobotPointClouds();
 
@@ -109,8 +134,10 @@ public:
   //   return planning_scene_;
   // }
   std::vector<ros::Publisher> vis_pubs;
+  ros::Publisher pub_robot_pt;
   void displayRobot(int i,Eigen::Vector3f sides,Eigen::Vector3f pos, Eigen::Quaternionf quat);
   void displayCollisionPoint(float radius,Eigen::Vector3f pos);
+  void clearRobot(void);
 
 };
 typedef std::shared_ptr<ParallelRobotPointClouds> ParallelRobotPointCloudsPtr;

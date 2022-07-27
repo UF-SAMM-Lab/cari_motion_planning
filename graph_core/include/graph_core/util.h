@@ -36,7 +36,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 namespace pathplan
 {
-
+  
 class Connection;
 class Node;
 typedef std::shared_ptr<Connection> ConnectionPtr;
