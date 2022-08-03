@@ -76,6 +76,7 @@ protected:
 public:
   NodePtr goal_node_;
   Eigen::VectorXd inv_max_speed_;
+  double min_accel_time=0.0;
   bool time_avoid_ = false;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Tree(const NodePtr& root,

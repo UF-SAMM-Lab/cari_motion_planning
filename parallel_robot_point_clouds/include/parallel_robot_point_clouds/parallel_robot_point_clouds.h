@@ -67,7 +67,7 @@ protected:
   std::vector<planning_scene::PlanningScenePtr> planning_scenes_;
   std::vector<Eigen::Vector3f> collision_points;
   std::vector<Eigen::Vector3f> link_bb_offsets;
-  std::vector<fcl::Boxf> link_boxes;
+  std::vector<Eigen::Vector3f> link_boxes;
   std::vector<const robot_state::LinkModel*> links;
   std::vector<const robot_state::LinkModel*> robot_links;
 
@@ -78,18 +78,11 @@ protected:
   void queueUp(const Eigen::VectorXd &q);
   void checkAllQueues(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time);
   void collisionThread(int thread_idx);
-  void collisionThread2(int thread_idx);
   void queueConnection(const Eigen::VectorXd& configuration1,
                        const Eigen::VectorXd& configuration2);
-
-  Eigen::MatrixXf boxPts(Eigen::Vector3f extents);
   void sort_reduce_link_pts(std::vector<Eigen::Vector3f> &link_pts);
-  void collisionThreadPts(int thread_idx, int start, int end);
-  void quequeCollisionPtThread(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time) ;
-  void generatePtsThread(int thread_idx);
-  void GenerateAllConfigPts(void);
   void show_transformed_pts(Eigen::MatrixXf &transformed_pts);
-  void pt_intersection(fcl::Transform3f &link_transform, int link_id, int thread_id);
+  Eigen::MatrixXf pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id);
 
   collision_detection::CollisionRequest req_;
   collision_detection::CollisionResult res_;

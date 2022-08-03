@@ -15,12 +15,6 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle, 
   // std::cin.ignore();
   min_distance_ = min_distance;
   group_name_ = group_name;
-  fcl_check = true;
-  if (!nh.getParam("fcl_collision_check",fcl_check))
-  {
-    ROS_DEBUG("fcl_collision_check is not set, default=0.04");
-    fcl_check=true;
-  }
 
   if (threads_num<=0)
     throw std::invalid_argument("number of thread should be positive");
@@ -48,34 +42,39 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle, 
   std::vector<std::vector<shapes::ShapeConstPtr>> link_shapes;
 
   robot_state::RobotState robo_state(planning_scene->getCurrentState());
+  // n_dof = robo_state.getRobotModel()->getVariableCount();
   links = robo_state.getJointModelGroup(group_name)->getLinkModels();
   link_shapes.resize(links.size());
   ROS_INFO_STREAM("num links"<<link_shapes.size());
   for (int i=0;i<int(links.size());i++) {
     std::string link_name = links[i]->getName();
-    if (link_name.substr(link_name.length()-4) == "link") {
+    ROS_INFO_STREAM("link name "<<link_name);
+    if (link_name.find("link")!=std::string::npos) {
+    // if (link_name.substr(link_name.length()-4) == "link") {
       link_shapes[i] = links[i]->getShapes();
       if (link_shapes[i].size()>0){
-        ROS_INFO_STREAM("link name "<<link_name);
         const Eigen::Vector3f& extents_tmp = links[i]->getShapeExtentsAtOrigin().cast<float>();
         Eigen::Vector3f extents = extents_tmp;
         const Eigen::Vector3f& offset_tmp = links[i]->getCenteredBoundingBoxOffset().cast<float>();
         Eigen::Vector3f offset = offset_tmp;
+
+        ROS_INFO_STREAM("link name "<<link_name<<", extents:"<<extents.transpose()<<", offset:"<<offset.transpose());
         link_bb_offsets.push_back(offset);
         // Eigen::Isometry3d transform;
         // transform.setIdentity();
         // transform.translate(offset);
         // moveit::core::AABB aabb;
         // aabb.extendWithTransformedBox(transform,extents);
-        fcl::Boxf link_box(extents[0],extents[1],extents[2]);
-        link_raw_pts.push_back(boxPts(extents));
-        link_boxes.push_back(link_box);
+        // link_raw_pts.push_back(boxPts(extents));
+        link_boxes.push_back(extents);
         robot_links.push_back(links[i]);
       }
     }
   }
+
+  n_dof = int(robot_links.size());
   ROS_INFO("Finished initializing collision checker.");
-  for (int i=0;i<6;i++) {
+  for (int i=0;i<n_dof;i++) {
     vis_pubs.push_back(nh.advertise<visualization_msgs::Marker>( "/robot_marker"+std::to_string(i), 0 ));
   }
   pub_pt = nh.advertise<visualization_msgs::Marker>("/human_pt",0);
@@ -83,28 +82,7 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle, 
   pub_robot_pt = nh.advertise<visualization_msgs::Marker>("/robot_points",0);
 }
 
-Eigen::MatrixXf ParallelRobotPointClouds::boxPts(Eigen::Vector3f extents) {
-  double grid_spacing = grid_spacing_*0.7;
-  int z_lim = ceil(extents[2]/grid_spacing);
-  int y_lim = ceil(extents[1]/grid_spacing);
-  int x_lim = ceil(extents[0]/grid_spacing);
-  Eigen::MatrixXf pts(3,(z_lim+1)*(y_lim+1)*(x_lim+1));
-  Eigen::Vector3f mid_pt(x_lim,y_lim,z_lim);
-  mid_pt *= 0.5*grid_spacing;
-  int l = 0;
-  for (int k=0;k<z_lim;k++) {
-     for (int j=0;j<y_lim;j++) {
-      for (int i=0;i<x_lim;i++) {
-        pts.col(l) = Eigen::Vector3f(i,j,k)*grid_spacing-mid_pt;
-        l++;
-      }
-     }   
-  }
-  pts.conservativeResize(3,l);
-  return pts;
-}
-
-void ParallelRobotPointClouds::pt_intersection(fcl::Transform3f &link_transform, int link_id, int thread_id) {
+Eigen::MatrixXf ParallelRobotPointClouds::pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id) {
   //invert link transform
   Eigen::MatrixXf transformed_pts = link_transform.inverse()*model_->avoid_cart_pts;
   bool is_collision = true;
@@ -116,7 +94,7 @@ void ParallelRobotPointClouds::pt_intersection(fcl::Transform3f &link_transform,
     if (already_checked) continue;
     is_collision = true;
     for (int j=0;j<3;j++) {
-      if (((-0.5*link_boxes[link_id].side[j]-grid_spacing_)>transformed_pts.col(i)[j]) || (transformed_pts.col(i)[j]>(0.5*link_boxes[link_id].side[j]+grid_spacing_))) {
+      if (((-0.5*link_boxes[link_id][j]-grid_spacing_)>transformed_pts.col(i)[j]) || (transformed_pts.col(i)[j]>(0.5*link_boxes[link_id][j]+grid_spacing_))) {
         is_collision = false;
         break;
       }
@@ -128,7 +106,7 @@ void ParallelRobotPointClouds::pt_intersection(fcl::Transform3f &link_transform,
       mtx.unlock();
     }
   }
-  // return transformed_pts;
+  return transformed_pts;
 }
 
 void ParallelRobotPointClouds::show_transformed_pts(Eigen::MatrixXf &transformed_pts) {
@@ -162,31 +140,6 @@ void ParallelRobotPointClouds::show_transformed_pts(Eigen::MatrixXf &transformed
     marker.points.push_back(p);
   }
   pub_pt.publish( marker );
-}
-
-void ParallelRobotPointClouds::sort_reduce_link_pts(std::vector<Eigen::Vector3f> &link_pts) {
-  if (link_pts.empty()) {
-    ROS_INFO_STREAM("error, no link points");
-    return;
-  } 
-  std::sort(link_pts.begin(),link_pts.end(),avoidance_intervals::eigen_sort_rows_by_columns);
-  std::vector<Eigen::Vector3f>::iterator prev_it = link_pts.begin();
-  std::vector<Eigen::Vector3f>::iterator it = prev_it+1;
-  while (true) {
-    bool same = true;
-    for (int i=0;i<3;i++) {
-      if (prev(it,1)[i]!=it[i]) {
-        same=false;
-        break;
-      }
-    }
-    if (same) {
-      link_pts.erase(it);
-    }
-    if (it == link_pts.end()) break;
-    // prev_it = it;
-    it++;
-  }
 }
 
 void ParallelRobotPointClouds::resetQueue()
@@ -231,12 +184,7 @@ void ParallelRobotPointClouds::checkAllQueues(std::vector<Eigen::Vector3f> &comb
   for (int idx=0;idx<threads_num_;idx++)
   {
     if (queues_.at(idx).size()>0) {
-      if (fcl_check) {
         threads.at(idx)=std::thread(&ParallelRobotPointClouds::collisionThread,this,idx);
-      } else {
-        threads.at(idx)=std::thread(&ParallelRobotPointClouds::collisionThread2,this,idx);
-      }
-
     } else {
       break;
     }
@@ -260,43 +208,10 @@ void ParallelRobotPointClouds::checkAllQueues(std::vector<Eigen::Vector3f> &comb
   // ROS_INFO_STREAM("It took me " << time_span.count() << " seconds."<<combined_avoidance_intervals.size());
 }
 
-void ParallelRobotPointClouds::GenerateAllConfigPts(void)
+//check for collision between robot bounding shaps and the cloud of points with avoidance intervals for configurations between nodes
+void ParallelRobotPointClouds::collisionThread(int thread_idx)
 {
 
-  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-  link_pts.clear();
-
-  for (int idx=0;idx<threads_num_;idx++)
-  {
-    if (queues_.at(idx).size()>0)
-      threads.at(idx)=std::thread(&ParallelRobotPointClouds::generatePtsThread,this,idx);
-  }
-  //wait for threads to finish
-  for (int idx=0;idx<threads_num_;idx++)
-  {
-    if (threads.at(idx).joinable())
-      threads.at(idx).join();
-  }
-
-  link_pts_vec.clear();
-  for (int i=0;i<link_pts.size();i++) {
-    for (int j=0;j<link_pts[i].cols();j++) link_pts_vec.push_back(link_pts[i].col(j));
-  }
-
-  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  ROS_INFO_STREAM("generating points took " << time_span.count() << " seconds.");
-
-  sort_reduce_link_pts(link_pts_vec);
-
-  std::chrono::high_resolution_clock::time_point t3 = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> time_span2 = std::chrono::duration_cast<std::chrono::duration<double>>(t3 - t2);
-  ROS_INFO_STREAM("sorting took " << time_span2.count() << " seconds.");
-  // ROS_INFO_STREAM("It took me " << time_span.count() << " seconds."<<combined_avoidance_intervals.size());
-}
-
-void ParallelRobotPointClouds::generatePtsThread(int thread_idx)
-{
   std::vector<Eigen::Isometry3f> link_transforms(n_dof); 
 
   robot_state::RobotStatePtr state=std::make_shared<robot_state::RobotState>(planning_scenes_.at(thread_idx)->getCurrentState());
@@ -309,202 +224,27 @@ void ParallelRobotPointClouds::generatePtsThread(int thread_idx)
     }
     assert(configuration.size()>0);
 
+    bool success = true; //bool to set false if path can not be found
     state->setVariablePositions(configuration);
     
-    // std::vector<Eigen::MatrixXf> link_pts(n_dof);
-    int num_link_pts = 0;
     for (int i=0;i<n_dof;i++) {
       Eigen::Isometry3f offset_transform;
       offset_transform.setIdentity();
       offset_transform.translate(link_bb_offsets[i]);
       link_transforms[i] = Eigen::Isometry3f(state->getGlobalLinkTransform(robot_links[i]).cast<float>()*offset_transform);
-      Eigen::Matrix3f tmp_transform(link_transforms[i].rotation());
-      // displayRobot(i,link_boxes[i].side,link_transforms[i].translation(),Eigen::Quaternionf(link_transforms[i].rotation()));
-      //transform robot points
-      // ROS_INFO_STREAM("thread:"<<thread_idx<<"link "<<i<<", link raw pts size:"<<link_raw_pts[i].rows()<<","<<link_raw_pts[i].cols());
-
-      Eigen::MatrixXf oversampled_pts = (link_transforms[i].rotation()*link_raw_pts[i]).colwise()+link_transforms[i].translation();
-
-      // ROS_INFO_STREAM("i:"<<i<<" link transform size:"<<oversampled_pts.size());
-      //downsample the link pts, sort and remove duplicates
-      avoidance_intervals::downsample_points(oversampled_pts, grid_spacing_);
-      link_pts.push_back(oversampled_pts);
-
-        // link_pts[i] = link_pts[i].colwise()+link_transforms[i].translation();
-        // ROS_INFO_STREAM("link transform size:"<<link_pts[i].rows()<<","<<link_pts[i].cols());
-      num_link_pts += link_raw_pts[i].cols();
-
-    }
-  }
-
-}
-
-void ParallelRobotPointClouds::quequeCollisionPtThread(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time) {
-  int pts_per_thread = ceil((float)model_->model_pt_idx.size()/(float)threads_num_);
-
-  threads.clear();
-  threads.resize(threads_num_);
-  avoid_ints.clear();
-  for (int j:model_->model_pt_idx) {
-    std::cout<<model_->model_points[j].position;
-  }
-  for (int idx=0;idx<threads_num_;idx++)
-  {
-    if (queues_.at(idx).size()>0)
-      threads.at(idx)=std::thread(&ParallelRobotPointClouds::collisionThreadPts,this,idx, idx*pts_per_thread, std::min((idx+1)*pts_per_thread,int(model_->model_pt_idx.size())));
-  }
-  //wait for threads to finish
-  for (int idx=0;idx<threads_num_;idx++)
-  {
-    if (threads.at(idx).joinable())
-      threads.at(idx).join();
-  }
-
-
-  //merge the intervals?
-  combined_avoidance_intervals.clear();
-  // ROS_INFO_STREAM("avoid_ints size:"<<avoid_ints.size());
-  avoidance_intervals::merge_intervals(avoid_ints,combined_avoidance_intervals, last_pass_time);
-
-}
-
-bool vectorEqual(Eigen::Vector3f vec1, Eigen::Vector3f vec2) {
-  for (int i=0;i<vec1.size();i++){
-    if (round(vec1[i]*1000)!=round(vec2[i]*1000)) {
-      return false;
-    }
-  }
-  return true;
-}
-
-//check for collision between robot bounding shaps and the cloud of points with avoidance intervals for configurations between nodes
-void ParallelRobotPointClouds::collisionThreadPts(int thread_idx, int start, int end)
-{
-    int last_pos = 0;
-
-    for (int i=start;i<end;i++) {
-      if (stop_check_) break;
-      int j = model_->model_pt_idx[i];
-      //get collision points out of res and append them to a vector
-      if (model_->model_points[j].avoidance_intervals_.empty()) continue;
-      Eigen::Vector3f pt = model_->model_points[j].position;//fcl::Vector3f(pt.position[0],pt.position[1],pt.position[2]);
-
-      for (int k=last_pos;k<link_pts_vec.size();k++) {
-        if (stop_check_) break;
-        if (vectorEqual(link_pts_vec[k],pt)) {
-          mtx.lock();
-          avoid_ints.insert(std::end(avoid_ints),std::begin(model_->model_points[j].avoidance_intervals_), std::end(model_->model_points[j].avoidance_intervals_));
-          mtx.unlock();
-          last_pos = k;
-          break;
-        }
-
-      }
-      
-    }  
-}
-
-//check for collision between robot bounding shaps and the cloud of points with avoidance intervals for configurations between nodes
-void ParallelRobotPointClouds::collisionThread(int thread_idx)
-{
-  std::vector<fcl::Transform3f> link_transforms; 
-
-  robot_state::RobotStatePtr state=std::make_shared<robot_state::RobotState>(planning_scenes_.at(thread_idx)->getCurrentState());
-  const std::vector<std::vector<double>>& queue=queues_.at(thread_idx);
-  for (const std::vector<double>& configuration: queue)
-  {
-    if (stop_check_)
-    {
-      break;
-    }
-    assert(configuration.size()==n_dof);
-
-    //some variables to store request/results of collision check between robot shapes and avoidance point cloud
-    fcl::CollisionRequest<float> req;
-    req.enable_contact = false;
-    req.enable_cost = false;
-
-    bool success = true; //bool to set false if path can not be found
-    state->setVariablePositions(configuration);
-    
-    for (int i=0;i<n_dof;i++) {
-      Eigen::Isometry3f offset_transform;
-      offset_transform.setIdentity();
-      offset_transform.translate(link_bb_offsets[i]);
-      link_transforms.push_back(fcl::Transform3f(state->getGlobalLinkTransform(robot_links[i]).cast<float>()*offset_transform));
-
-    }
-
-    for (int k=0;k<model_->model_pt_idx.size();k++) {
-      int j = model_->model_pt_idx[k];
-      bool already_checked = model_pts_already_checked[k];
-      if (already_checked) continue;
-      fcl::Transform3f obj_pose = fcl::Transform3f::Identity();
-      //get collision points out of res and append them to a vector
-      if (model_->model_points[j].avoidance_intervals_.empty()) continue;
-      // PATH_COMMENT_STREAM("avoid ints "<<pt.avoidance_intervals_.size());
-      obj_pose.translation() = model_->model_points[j].position;//fcl::Vector3f(pt.position[0],pt.position[1],pt.position[2]);
-
-      for (int i=1;i<n_dof;i++) {
-
-        fcl::CollisionResult<float> res;
-        //checks intersection of robot boxes and human points
-        fcl::collide(&link_boxes[i],link_transforms[i],&model_->point_sphere,obj_pose,req,res);
-        
-        //try comparison of robot/human points, is model_points[j].position in robot points
-
-        if (res.isCollision()) {
-          model_pts_already_checked[k] = true;
-          mtx.lock();
-          avoid_ints.insert(std::end(avoid_ints),std::begin(model_->model_points[j].combined_avoidance_intervals_), std::end(model_->model_points[j].combined_avoidance_intervals_));
-          mtx.unlock();
-          break;
-        }
-      }
-    }
-    // ROS_INFO_STREAM("push enter");
-    // std::cin.ignore();
-  }
-}
-
-
-//check for collision between robot bounding shaps and the cloud of points with avoidance intervals for configurations between nodes
-void ParallelRobotPointClouds::collisionThread2(int thread_idx)
-{
-
-  std::vector<fcl::Transform3f> link_transforms(n_dof); 
-
-  robot_state::RobotStatePtr state=std::make_shared<robot_state::RobotState>(planning_scenes_.at(thread_idx)->getCurrentState());
-  const std::vector<std::vector<double>>& queue=queues_.at(thread_idx);
-  for (const std::vector<double>& configuration: queue)
-  {
-    if (stop_check_)
-    {
-      break;
-    }
-    assert(configuration.size()>0);
-
-    bool success = true; //bool to set false if path can not be found
-    state->setVariablePositions(configuration);
-    
-    for (int i=0;i<n_dof;i++) {
-      Eigen::Isometry3f offset_transform;
-      offset_transform.setIdentity();
-      offset_transform.translate(link_bb_offsets[i]);
-      link_transforms[i] = fcl::Transform3f(state->getGlobalLinkTransform(robot_links[i]).cast<float>()*offset_transform);
-      // Eigen::MatrixXf tmp = 
-      pt_intersection(link_transforms[i], i, thread_idx);
-      // if (thread_idx==0) {
-        // clearRobot();
+      Eigen::MatrixXf tmp = pt_intersection(link_transforms[i], i, thread_idx);
+      // if (thread_idx==0) displayRobot(i,link_boxes[i],link_transforms[i].translation(),Eigen::Quaternionf(link_transforms[i].rotation()));
+      if (thread_idx==0) {
+        clearRobot();
         // ROS_INFO_STREAM("link:"<<i<<",side:"<<link_boxes[i].side.transpose());
-        // displayRobot(i,link_boxes[i].side,link_transforms[i].translation(),Eigen::Quaternionf(link_transforms[i].rotation()));
-        // show_transformed_pts(tmp);
-        // std::cout<<"press enter\n";
-        // std::cin.ignore();
-        // displayRobot(i,link_boxes[i].side,Eigen::Vector3f(0,0,0),Eigen::Quaternionf(1,0,0,0));
-        // std::cout<<"press enter\n";
-        // std::cin.ignore();
-      // }
+        displayRobot(i,link_boxes[i],link_transforms[i].translation(),Eigen::Quaternionf(link_transforms[i].rotation()));
+        std::cout<<"press enter\n";
+        std::cin.ignore();
+        show_transformed_pts(tmp);
+        displayRobot(i,link_boxes[i],Eigen::Vector3f(0,0,0),Eigen::Quaternionf(1,0,0,0));
+        std::cout<<"press enter\n";
+        std::cin.ignore();
+      }
     }
 
     // ROS_INFO_STREAM("push enter");

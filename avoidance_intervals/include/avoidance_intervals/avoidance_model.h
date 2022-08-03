@@ -1,17 +1,8 @@
 #pragma once
 #pragma GCC diagnostic ignored "-Wsign-compare"
 
-#include <eigen3/Eigen/Core>
+#include <Eigen/Dense>
 #include <ros/ros.h>
-#include <fcl/narrowphase/detail/gjk_solver_indep.h>
-#include <fcl/narrowphase/detail/gjk_solver_libccd.h>
-#include <fcl/geometry/geometric_shape_to_BVH_model.h>
-#include <fcl/narrowphase/distance.h>
-#include <fcl/narrowphase/collision.h>
-#include <fcl/math/bv/utility.h>
-#include <fcl/geometry/collision_geometry-inl.h>
-#include <fcl/geometry/bvh/detail/BV_fitter.h>
-#include <fcl/geometry/octree/octree.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <human_motion_prediction/human_pose.h>
@@ -29,6 +20,7 @@
 #include <ros/package.h>
 #include <thread>
 #include <algorithm>
+#include <fstream>
 
 namespace avoidance_intervals{
 
@@ -75,9 +67,6 @@ namespace avoidance_intervals{
         Eigen::Vector3i num_bins;
         std::vector<model_point> model_points;
         std::vector<int>model_pt_idx;
-        fcl::CollisionObjectf* point_cloud_;
-        fcl::Spheref point_sphere;
-        // std::shared_ptr<fcl::CollisionObject<double>> point_cloud_;
         int cart_to_model(Eigen::Vector3f pt);
         void generate_model_cloud(std::vector<Eigen::VectorXf> avoid_pts);
         void generate_model_cloud(void);
@@ -124,12 +113,14 @@ namespace avoidance_intervals{
             void callback(const human_motion_prediction::human_pose::ConstPtr& msg);
             void publish_pts(std::vector<Eigen::VectorXf> pts);
             void read_thread(std::vector<std::string> in_lines, std::string prev_line, std::string next_line,int thread_num);
-            std::vector<Eigen::VectorXf> read_human_task(int task_num);
+            std::vector<Eigen::VectorXf> read_human_task(int task_num, Eigen::Isometry3f transform);
             double end_time_;
             double t_step_;
             bool ready =  false;
             std::vector<float> link_lengths_;
             std::vector<float> link_radii_;
+        private:
+            Eigen::Isometry3f transform_to_world;
         protected:
             int num_threads_;
             double grid_size_;

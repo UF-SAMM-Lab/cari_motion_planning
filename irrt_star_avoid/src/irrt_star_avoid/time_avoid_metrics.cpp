@@ -31,12 +31,19 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace pathplan
 {
 
-TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const double& nu, const double& t_pad):
+TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen::VectorXd& max_acc, const double& nu, const double& t_pad):
   Metrics(),
   max_speed_(max_speed),
+  max_acc_(max_acc),
   nu_(nu),
   t_pad_(t_pad)
 {
+  Eigen::VectorXd dt = max_speed_.array()/max_acc_.array();
+  max_dt = 0.7*dt.maxCoeff();
+  PATH_COMMENT_STREAM("max dt:"<<max_dt);
+  int i = 0;
+  for (i=0;i<dt.size();i++) if (dt[i]==max_dt) break;
+  slow_joint = i;
   inv_max_speed_=max_speed_.cwiseInverse();
 
   name="time avoid metrics";
@@ -54,8 +61,15 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     
     // PATH_COMMENT_STREAM("dist_new:"<<dist_new);
 
-    double time_new = (inv_max_speed_.cwiseProduct(dist_new)).cwiseAbs().maxCoeff();
-    // PATH_COMMENT_STREAM("time_new:"<<time_new);
+
+
+    // double p1 = parent->getConfiguration()[slow_joint]+0.5*max_acc_[slow_joint]*max_dt*max_dt;
+    // double p2 = new_node->getConfiguration()[slow_joint]+0.5*max_acc_[slow_joint]*max_dt*max_dt;
+    // double dt3 = (p2-p1)/max_speed_[slow_joint];
+    // double tf = 2*max_dt+dt3;
+
+    double time_new = (inv_max_speed_.cwiseProduct(dist_new)).cwiseAbs().maxCoeff()+2*max_dt;
+    // PATH_COMMENT_STREAM("time_new:"<<time_new<<","<<tf);
     double node_time_new = time_new;
     //get cost of parent
     //requires extended node data
@@ -108,7 +122,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
         double tmp_time = 0.0;
         double tmp_c_new = c_new;
         for (int r=0;r<avoid_ints.size();r++) {
-            std::cout<<avoid_ints[r].transpose()<<std::endl;
+            // std::cout<<avoid_ints[r].transpose()<<std::endl;
             //if time to reach new node is within an avoidance interval +/- padding then set time to reach new node to the end of the avoidance interval
             //repeat check with the time to reach the parent node when parent time is increased
             //ensuring the entire path from parent to new node is not in an avoidance interval
@@ -130,7 +144,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
         }
         c_new = std::max(c_new,tmp_c_new);
 
-        std::cout<<"c_new, near time"<<c_new<<","<<near_time<<std::endl;
+        // std::cout<<"c_new, near time"<<c_new<<","<<near_time<<std::endl;
     }
     // PATH_COMMENT_STREAM("cnear:"<<c_near<<", c new:"<<c_near + time_new<<", c_new:"<<c_new<<", parent min time:"<<parent->min_time<<", last pass time:"<<last_pass_time<<","<<avoid_ints.size());
 

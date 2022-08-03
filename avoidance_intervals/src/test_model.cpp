@@ -41,7 +41,7 @@ int main(int argc, char** argv) {
     } else {
         test_skeleton.link_lengths_ = {0.5,0.2,0.3,0.25,0.25,0.25,0.25};
         test_skeleton.link_radii_ = {0.12,0.05,0.1,0.04,0.03,0.04,0.03};
-        std::vector<Eigen::VectorXf> avoid_pts = test_skeleton.read_human_task(0);
+        std::vector<Eigen::VectorXf> avoid_pts = test_skeleton.read_human_task(0,Eigen::Isometry3f::Identity());
         visualization_msgs::Marker marker;
         test_skeleton._mtx.lock();
         std::vector<Eigen::Vector4f> pts = test_skeleton.ready_points;

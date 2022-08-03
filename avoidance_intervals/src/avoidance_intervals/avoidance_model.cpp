@@ -1,5 +1,3 @@
-#include <eigen3/Eigen/Core>
-#include <ros/ros.h>
 #include <avoidance_intervals/avoidance_model.h>
 
 namespace avoidance_intervals{
@@ -107,7 +105,7 @@ namespace avoidance_intervals{
         combined_avoidance_intervals_.push_back(tmp_int);
     }
 
-    model::model(const Eigen::Vector3f& lower_bound, const Eigen::Vector3f& upper_bound, float grid_space, int num_threads, ros::NodeHandle nh):point_sphere(grid_space)
+    model::model(const Eigen::Vector3f& lower_bound, const Eigen::Vector3f& upper_bound, float grid_space, int num_threads, ros::NodeHandle nh)
     {
         nh_=nh;
         num_threads_ = num_threads;
@@ -139,7 +137,7 @@ namespace avoidance_intervals{
             // ROS_INFO_STREAM(i);
             Eigen::VectorXf tmp_pts = avoid_pts_[i];
             bool success = true;
-            ROS_INFO_STREAM("i:"<<i<<"/"<<avoid_pts_.size()<<" ranges:"<<range_down.transpose()<<":"<<range_up.transpose()<<", tmp_pts:"<<tmp_pts.size());
+            // ROS_INFO_STREAM("i:"<<i<<"/"<<avoid_pts_.size()<<" ranges:"<<range_down.transpose()<<":"<<range_up.transpose()<<", tmp_pts:"<<tmp_pts.size());
             for (int k=0;k<3;k++) {
                 if ((tmp_pts[k]>range_up[k])||(tmp_pts[k]<range_down[k])) {
                     success = false;
@@ -217,25 +215,7 @@ namespace avoidance_intervals{
             if (threads.at(i).joinable())
             threads.at(i).join();
         }
-        // for (int i=0;i<int(avoid_pts.size());i++){
-        //     ROS_INFO_STREAM("loop points i "<<i);
-        //     tmp_interval << avoid_pts[i][3], avoid_pts[i][4], avoid_pts[i][6];
-        //     idx = cart_to_model(avoid_pts[i].head(3));
-        //     ROS_INFO_STREAM("loop idx "<<idx);
-        //     model_points[idx].position = avoid_pts[i].head(3);
-        //     model_points[idx].avoidance_intervals_.push_back(tmp_interval);
-        //     if ((!avoid_pts[i][5]) && (avoid_pts[i][3]<model_points[idx].last_pass_time_)) {
-        //         model_points[idx].last_pass_time_ = avoid_pts[i][3];
-        //     }
-        //     model_points[idx].allows_passage_ = model_points[idx].allows_passage_ and avoid_pts[i][5];
-        // }
-        // octomap::OcTree* tree = new octomap::OcTree(0.05);
-        // for (model_point pt:model_points) {
-        //     tree->updateNode(octomap::point3d(pt.position[0],pt.position[1],pt.position[2]), true);
-        // }
-        // fcl::OcTree<float>* tree_ptr = new fcl::OcTree<float>(std::shared_ptr<octomap::OcTree>(tree));
-        // std::shared_ptr<fcl::CollisionGeometry<float>> pt_cld_ptr(tree_ptr);
-        // point_cloud_ = new fcl::CollisionObjectf(pt_cld_ptr);
+
         std::lock_guard<std::mutex> lock(ext_mutex);
         model_pt_idx.clear();
         avoid_cart_pts.resize(3,model_points.size());
@@ -253,8 +233,6 @@ namespace avoidance_intervals{
         } else {
             avoid_cart_pts.conservativeResize(3,model_pt_idx.size());
         }
-        // ROS_INFO_STREAM("done creating octree ");
-        // point_cloud_ = std::make_shared<fcl::CollisionObject<double>>(pt_cld_ptr);
     }
 
     void model::subscribeTopic()
@@ -295,7 +273,7 @@ namespace avoidance_intervals{
         
         Eigen::VectorXf tmp_vec(h);
         for (int i=start;i<end;i++) {
-            ROS_INFO_STREAM("i:"<<i<<", start/end:"<<start<<"/"<<end);
+            // ROS_INFO_STREAM("i:"<<i<<", start/end:"<<start<<"/"<<end);
             for (int j=0;j<h;j++) {
             tmp_vec[j]=msg_data[i*h+j];
             }
@@ -365,9 +343,9 @@ namespace avoidance_intervals{
         marker.pose.orientation.y = 0.0;
         marker.pose.orientation.z = 0.0;
         marker.pose.orientation.w = 1.0;
-        marker.scale.x = grid_spacing*2;
-        marker.scale.y = grid_spacing*2;
-        marker.scale.z = grid_spacing*2;
+        marker.scale.x = 0.02;
+        marker.scale.y = 0.02;
+        marker.scale.z = 0.02;
         marker.color.a = 0.8; // Don't forget to set the alpha!
         marker.color.r = 0.0;
         marker.color.g = 0.0;
@@ -606,7 +584,7 @@ namespace avoidance_intervals{
     }
 
     skeleton::skeleton(ros::NodeHandle nh, const std::string topic_name,double grid_size, double t_step) {
-        num_threads_ = 8;
+        num_threads_ = 20;
         sub_skeletons = nh.subscribe(topic_name,1,&skeleton::callback, this);
         grid_size_ = grid_size;
         t_step_ = t_step;
@@ -628,12 +606,15 @@ namespace avoidance_intervals{
         //     ROS_INFO_STREAM(prediction);
         // }
         Eigen::Vector3f pelvis_loc = {pose_elements[1],pose_elements[2],pose_elements[3]};
+        pelvis_loc = transform_to_world*pelvis_loc;
 
         Eigen::Quaternionf z_axis_quat(0,0,0,1);
         std::vector<Eigen::Quaternionf> quats;
         Eigen::Quaternionf q;
+
+        Eigen::Quaternionf quat_to_world(transform_to_world.rotation());
         for (int i=0;i<7;i++){
-            q = Eigen::Quaternionf(pose_elements[i*4+4],pose_elements[i*4+5],pose_elements[i*4+6],pose_elements[i*4+7]);
+            q = quat_to_world*Eigen::Quaternionf(pose_elements[i*4+4],pose_elements[i*4+5],pose_elements[i*4+6],pose_elements[i*4+7]);
             quats.push_back(q);
             // ROS_INFO_STREAM("quat "<<q.w()<<" "<<q.vec().transpose());
         }
@@ -662,7 +643,7 @@ namespace avoidance_intervals{
         Eigen::Matrix3f r = Eigen::Matrix3f::Identity();
         Eigen::Matrix3f r_y=Eigen::Matrix3f::Identity();
         r_y= Eigen::Quaternionf(0,0,1,0);//*Eigen::Quaternionf(0.707,0,0,0.707);
-
+        
         for (int i=0;i<7;i++){
             r = Eigen::Quaternionf(quats[i]);
             rotations.push_back(r);
@@ -670,7 +651,7 @@ namespace avoidance_intervals{
         }
 
         Eigen::MatrixXf oversampled_pts = (rotations[0]*raw_limb_points[0]).colwise() + pelvis_loc;
-        // oversampled_pts=r_y*oversampled_pts;
+        // oversampled_pts=transform_to_world.rotation()*oversampled_pts+transform_to_world.translation();
         // ROS_INFO_STREAM("pose torso \n"<<rotations[0]);
         downsample_points(oversampled_pts,grid_size_);
         all_pts.push_back(oversampled_pts);
@@ -678,7 +659,7 @@ namespace avoidance_intervals{
         // Eigen::Vector3f spine_top = pelvis_loc+rotations[0]*Eigen::Vector3f(0,0,link_lengths_[0]);
         oversampled_pts = Eigen::MatrixXf();
         oversampled_pts = (rotations[1]*raw_limb_points[1]).colwise() + spine_top;
-        // oversampled_pts=r_y*oversampled_pts;
+        // oversampled_pts=transform_to_world.rotation()*oversampled_pts+transform_to_world.translation();
         downsample_points(oversampled_pts,grid_size_);
         all_pts.push_back(oversampled_pts);
         // ROS_INFO_STREAM("pose neck \n"<<rotations[1]);
@@ -688,7 +669,7 @@ namespace avoidance_intervals{
         // Eigen::Vector3f origin = spine_top-shoulder_vec;
         oversampled_pts = Eigen::MatrixXf();
         oversampled_pts = (rotations[3]*raw_limb_points[2]).colwise() + l_shoulder;
-        // oversampled_pts=r_y*oversampled_pts;
+        // oversampled_pts=transform_to_world.rotation()*oversampled_pts+transform_to_world.translation();
         downsample_points(oversampled_pts,grid_size_);
         all_pts.push_back(oversampled_pts);
         // ROS_INFO_STREAM("pose l up \n"<<rotations[3]);
@@ -696,7 +677,7 @@ namespace avoidance_intervals{
         // origin = origin+rotations[3]*Eigen::Vector3f(0,0,link_lengths_[3]);
         oversampled_pts = Eigen::MatrixXf();
         oversampled_pts = (rotations[4]*raw_limb_points[3]).colwise()  + e1;
-        // oversampled_pts=r_y*oversampled_pts;
+        // oversampled_pts=transform_to_world.rotation()*oversampled_pts+transform_to_world.translation();
         downsample_points(oversampled_pts,grid_size_);
         all_pts.push_back(oversampled_pts);
         // ROS_INFO_STREAM("pose l fore \n"<<rotations[4]);
@@ -704,7 +685,7 @@ namespace avoidance_intervals{
         // origin = spine_top+shoulder_vec;
         oversampled_pts = Eigen::MatrixXf();
         oversampled_pts = (rotations[5]*raw_limb_points[4]).colwise() + r_shoulder;
-        // oversampled_pts=r_y*oversampled_pts;
+        // oversampled_pts=transform_to_world.rotation()*oversampled_pts+transform_to_world.translation();
         downsample_points(oversampled_pts,grid_size_);
         all_pts.push_back(oversampled_pts);
         // ROS_INFO_STREAM("pose r up \n"<<rotations[5]);
@@ -712,7 +693,7 @@ namespace avoidance_intervals{
         // origin = origin+rotations[5]*Eigen::Vector3f(0,0,link_lengths_[5]);
         oversampled_pts = Eigen::MatrixXf();
         oversampled_pts = (rotations[6]*raw_limb_points[5]).colwise() + e2;
-        // oversampled_pts=r_y*oversampled_pts;
+        // oversampled_pts=transform_to_world.rotation()*oversampled_pts+transform_to_world.translation();
         downsample_points(oversampled_pts,grid_size_);
         all_pts.push_back(oversampled_pts);
         // ROS_INFO_STREAM("pose r fore \n"<<rotations[6]);
@@ -819,9 +800,9 @@ namespace avoidance_intervals{
         marker.pose.orientation.y = 0.0;
         marker.pose.orientation.z = 0.0;
         marker.pose.orientation.w = 1.0;
-        marker.scale.x = 0.05;
-        marker.scale.y = 0.05;
-        marker.scale.z = 0.05;
+        marker.scale.x = 0.02;
+        marker.scale.y = 0.02;
+        marker.scale.z = 0.02;
         marker.color.a = 1.0; // Don't forget to set the alpha!
         marker.color.r = 0.0;
         marker.color.g = 0.0;
@@ -869,9 +850,9 @@ namespace avoidance_intervals{
         marker.pose.orientation.y = 0.0;
         marker.pose.orientation.z = 0.0;
         marker.pose.orientation.w = 1.0;
-        marker.scale.x = 0.05;
-        marker.scale.y = 0.05;
-        marker.scale.z = 0.05;
+        marker.scale.x = 0.02;
+        marker.scale.y = 0.02;
+        marker.scale.z = 0.02;
         marker.color.a = 1.0; // Don't forget to set the alpha!
         marker.color.r = 0.0;
         marker.color.g = 0.0;
@@ -917,9 +898,9 @@ namespace avoidance_intervals{
         marker.pose.orientation.y = 0.0;
         marker.pose.orientation.z = 0.0;
         marker.pose.orientation.w = 1.0;
-        marker.scale.x = 0.05;
-        marker.scale.y = 0.05;
-        marker.scale.z = 0.05;
+        marker.scale.x = 0.02;
+        marker.scale.y = 0.02;
+        marker.scale.z = 0.02;
         marker.color.a = 1.0; // Don't forget to set the alpha!
         marker.color.r = 0.0;
         marker.color.g = 0.0;
@@ -966,9 +947,9 @@ namespace avoidance_intervals{
         marker.pose.orientation.y = 0.0;
         marker.pose.orientation.z = 0.0;
         marker.pose.orientation.w = 1.0;
-        marker.scale.x = 0.05;
-        marker.scale.y = 0.05;
-        marker.scale.z = 0.05;
+        marker.scale.x = 0.02;
+        marker.scale.y = 0.02;
+        marker.scale.z = 0.02;
         marker.color.a = 1.0; // Don't forget to set the alpha!
         marker.color.r = 0.0;
         marker.color.g = 0.0;
@@ -1032,17 +1013,17 @@ namespace avoidance_intervals{
                 data.push_back(std::stof(substr.c_str()));
             }   
             t_steps.clear();   
-            std::cout<<"thread "<<thread_num<<":";
+            // std::cout<<"thread "<<thread_num<<":";
             if (!first_line) {
                 t_steps.push_back(last_time);
-                std::cout<<"last time:"<<last_time<<", ";
+                // std::cout<<"last time:"<<last_time<<", ";
             }
-            std::cout<<"this time:"<<data[0]<<", ";  
+            // std::cout<<"this time:"<<data[0]<<", ";  
             if ((!last_line)||(i<in_lines.size()-1)) {
                 t_steps.push_back(data[0]+time_diff);
-                std::cout<<"next time:"<<data[0]+time_diff<<", ";
+                // std::cout<<"next time:"<<data[0]+time_diff<<", ";
             }
-            std::cout<<std::endl;
+            // std::cout<<std::endl;
             forward_kinematics(std::vector<float>(data.begin(),data.end()),t_steps);
             time_diff = data[0]-last_time;
             last_time=data[0];
@@ -1050,7 +1031,8 @@ namespace avoidance_intervals{
         if (!last_line) end_time_ = data[0];
     }
 
-    std::vector<Eigen::VectorXf> skeleton::read_human_task(int task_num) {
+    std::vector<Eigen::VectorXf> skeleton::read_human_task(int task_num, Eigen::Isometry3f transform) {
+        transform_to_world = transform;
         if (raw_limb_points.empty()){
             for (int i=0;i<link_lengths_.size();i++) {
                 if (i==2) continue;
@@ -1074,15 +1056,18 @@ namespace avoidance_intervals{
 
             ROS_INFO_STREAM("all lines "<<all_lines.size());
             myfile.close();
-            int num_lines = all_lines.size();
+            int num_lines = all_lines.size()-1;
             int num_lines_per_thread = ceil((float)num_lines/(float)num_threads_);
             for (int i = 0;i<num_threads_;i++) {
                 std::string prev_line;
                 std::string next_line;
+                bool last_line = ((i+1)*num_lines_per_thread>=num_lines) || (i==num_threads_-1);
                 if (i>0) prev_line = all_lines[i*num_lines_per_thread-1];
-                if (i<num_threads_-1) next_line = all_lines[(i+1)*num_lines_per_thread];
+                // if (i<num_threads_-1) next_line = all_lines[(i+1)*num_lines_per_thread];
+                if (!last_line) next_line = all_lines[(i+1)*num_lines_per_thread];
                 ROS_INFO_STREAM("starting thread "<<i<<", start line "<<i*num_lines_per_thread<<", last line "<<std::min((i+1)*num_lines_per_thread,num_lines));
                 threads.at(i)=std::thread(&skeleton::read_thread,this,std::vector<std::string>(all_lines.begin()+i*num_lines_per_thread,all_lines.begin()+std::min((i+1)*num_lines_per_thread,num_lines)),prev_line,next_line,i);
+                if (last_line) break;
             }
             for (int i=0;i<num_threads_;i++)
             {

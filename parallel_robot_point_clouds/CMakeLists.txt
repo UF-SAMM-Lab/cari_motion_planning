@@ -13,17 +13,15 @@ find_package(catkin REQUIRED COMPONENTS
   geometry_msgs
   avoidance_intervals
 )
-find_package(fcl REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES parallel_robot_point_clouds
   CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 geometry_msgs avoidance_intervals
-  DEPENDS FCL
+  DEPENDS
 )
 include_directories(
   include
   ${catkin_INCLUDE_DIRS}
-  ${FCL_INCLUDE_DIRS}
 )
 
 add_library(${PROJECT_NAME}  
@@ -34,7 +32,6 @@ add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EX
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
-  ${FCL_LIBRARIES}
 )
 
 install(TARGETS ${PROJECT_NAME}

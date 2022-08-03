@@ -79,7 +79,9 @@ public:
   /** \brief Clear the data structures used by the planner */
   virtual void clear() override;
   avoidance_intervals::modelPtr avoid_model_;
-
+  void computeTransitions(double &tf, double &v0, double &vf, double &a1, double &a2, double v_max, double &t1, double &t2, bool recur);
+  void time_parameterize(std::vector<Eigen::VectorXd> waypoints, std::vector<double> waypoint_times, std::vector<Eigen::VectorXd> &slow_sequence, std::vector<double> &slow_seq_times);
+  
 protected:
   // ros::NodeHandle m_nh;
   moveit::core::RobotModelConstPtr robot_model_;
@@ -98,6 +100,7 @@ protected:
   Eigen::VectorXd m_lb;
   Eigen::VectorXd m_ub;
   Eigen::VectorXd max_velocity_;
+  Eigen::VectorXd max_accels_;
   double t_pad_ =0.0;
   std::string group_;
   bool m_tube_sampler;
@@ -127,6 +130,7 @@ private:
   std::thread spinner_thread;
   void spinThread(void);
   float grid_spacing = 0.1;
+  double max_accel_time;
 
 };
 

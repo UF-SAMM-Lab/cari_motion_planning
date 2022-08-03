@@ -56,7 +56,7 @@ public:
 
   virtual void add();
   virtual void remove();
-  void setMinTime(Eigen::VectorXd inv_max_speed_);
+  void setMinTime(Eigen::VectorXd inv_max_speed_, double max_accel_time);
 
   virtual bool isNet()
   {

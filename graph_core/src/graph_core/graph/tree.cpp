@@ -169,7 +169,7 @@ bool Tree::extendOnly(NodePtr& closest_node, NodePtr &new_node, ConnectionPtr &c
     if (cost==std::numeric_limits<double>::infinity()) return false;
     // new_node->min_time = std::min(closest_node->min_time+cost,new_node->min_time);
     conn = std::make_shared<Connection>(closest_node, new_node);
-    conn->setMinTime(inv_max_speed_);
+    conn->setMinTime(inv_max_speed_,min_accel_time);
     conn->setAvoidIntervals(avoid_ints,last_pass_time);
     // PATH_COMMENT_STREAM("adding connection:"<<cost<<", "<<n_time<<","<<avoid_ints.size());
     // PATH_COMMENT_STREAM("adding connection:"<<cost<<", "<<n_time<<","<<avoid_ints.size());
@@ -282,7 +282,7 @@ bool Tree::extendToNode(const NodePtr& node,
   // PATH_COMMENT_STREAM("setting cost for connection");
   conn->setCost(cost);
   conn->setAvoidIntervals(avoid_ints,last_pass_time);
-  conn->setMinTime(inv_max_speed_);
+  conn->setMinTime(inv_max_speed_,min_accel_time);
   // PATH_COMMENT_STREAM("new node connection done");
 
   return true;
@@ -545,7 +545,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       if (time_avoid_) {
         conn->setParentTime(n_time);
         conn->setAvoidIntervals(avoid_ints,last_pass_time);
-        conn->setMinTime(inv_max_speed_);
+        conn->setMinTime(inv_max_speed_,min_accel_time);
       } 
       conn->add();
       conn->setCost(cost_near_to_node);
@@ -639,7 +639,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       if (time_avoid_) {
         conn->setParentTime(node_time);
         conn->setAvoidIntervals(avoid_ints,last_pass_time);
-        conn->setMinTime(inv_max_speed_);
+        conn->setMinTime(inv_max_speed_,min_accel_time);
       }
       conn->add();      
       conn->setCost(cost_node_to_near);
@@ -687,7 +687,7 @@ void Tree::rewireNearToTheirChildren (NodePtr n) {
     // ConnectionPtr conn = std::make_shared<Connection>(n, n_child);
     conn->setParentTime(node_time);
     conn->setAvoidIntervals(avoid_ints,last_pass_time);
-    conn->setMinTime(inv_max_speed_);
+    conn->setMinTime(inv_max_speed_,min_accel_time);
     conn->add();   
     conn->setCost(cost_n_to_child);
     std::cout<<"rewire near to children, parent has:"<<conn->getParent()->parent_connections_.size()<<" parents\n";
@@ -713,7 +713,7 @@ void Tree::rewireNearToBetterParents (NodePtr n) {
     // ConnectionPtr conn = std::make_shared<Connection>(n, n_child);
     conn->setParentTime(node_time);
     conn->setAvoidIntervals(avoid_ints,last_pass_time);
-    conn->setMinTime(inv_max_speed_);
+    conn->setMinTime(inv_max_speed_,min_accel_time);
     conn->add();   
     conn->setCost(cost_parent_to_n);
     std::cout<<"rewire near to parents, parent has:"<<conn->getParent()->parent_connections_.size()<<" parents\n";

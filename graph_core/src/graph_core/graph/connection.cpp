@@ -117,9 +117,9 @@ void Connection::setCost(const double& cost)
   child_->updateMinTime(cost);
 }
 
-void Connection::setMinTime(Eigen::VectorXd inv_max_speed_)
+void Connection::setMinTime(Eigen::VectorXd inv_max_speed_, double max_accel_time)
 {
-  min_time_=(inv_max_speed_.cwiseProduct(parent_->getConfiguration() - child_->getConfiguration())).cwiseAbs().maxCoeff();
+  min_time_=(inv_max_speed_.cwiseProduct(parent_->getConfiguration() - child_->getConfiguration())).cwiseAbs().maxCoeff()+max_accel_time;
 }
 
 std::ostream& operator<<(std::ostream& os, const Connection& connection)

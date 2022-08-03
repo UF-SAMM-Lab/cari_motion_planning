@@ -22,8 +22,6 @@ find_package(catkin REQUIRED COMPONENTS
   parallel_robot_point_clouds
   )
 
-message(WARNING ${catkin_INCLUDE_DIRS})
-
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES graph_core
