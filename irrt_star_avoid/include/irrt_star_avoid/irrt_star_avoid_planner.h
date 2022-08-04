@@ -80,7 +80,7 @@ public:
   virtual void clear() override;
   avoidance_intervals::modelPtr avoid_model_;
   void computeTransitions(double &tf, double &v0, double &vf, double &a1, double &a2, double v_max, double &t1, double &t2, bool recur);
-  void time_parameterize(std::vector<Eigen::VectorXd> waypoints, std::vector<double> waypoint_times, std::vector<Eigen::VectorXd> &slow_sequence, std::vector<double> &slow_seq_times);
+  void time_parameterize(std::vector<Eigen::VectorXd> waypoints, std::vector<double> waypoint_times, std::vector<Eigen::VectorXd> &sequence, std::vector<Eigen::VectorXd> &seq_vels, std::vector<Eigen::VectorXd> &seq_accs, std::vector<double> &seq_times);
   
 protected:
   // ros::NodeHandle m_nh;

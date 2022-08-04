@@ -93,7 +93,7 @@ void Node::remoteParentConnection(const ConnectionPtr &connection)
   }
   else
   {
-    if (std::find(potential_parent_connections_.begin(), potential_parent_connections_.end(), connection) != potential_parent_connections_.end()) potential_parent_connections_.push_back(connection);
+    if (std::find(potential_parent_connections_.begin(), potential_parent_connections_.end(), connection) == potential_parent_connections_.end()) potential_parent_connections_.push_back(connection);
 
     parent_connections_.erase(it);
   }

@@ -39,7 +39,7 @@ TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen
   t_pad_(t_pad)
 {
   Eigen::VectorXd dt = max_speed_.array()/max_acc_.array();
-  max_dt = 0.1*dt.maxCoeff();
+  max_dt = 0.8*dt.maxCoeff();
   PATH_COMMENT_STREAM("max dt:"<<max_dt);
   int i = 0;
   for (i=0;i<dt.size();i++) if (dt[i]==max_dt) break;

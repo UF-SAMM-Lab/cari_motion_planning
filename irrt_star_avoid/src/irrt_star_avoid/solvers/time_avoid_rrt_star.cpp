@@ -61,24 +61,24 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
   init_ = true;
   NodePtr new_node;
   // ROS_INFO_STREAM("attempting connection between start and goal node:"<<goal_node_);
-  if(start_tree_->connectToNode(goal_node_, new_node,max_time))  //for direct connection to goal
-  {
-  // double node_time=0;
-  // std::vector<Eigen::Vector3f> avoid_ints;
-  // float last_pass_time;
-  // double cost_start_to_goal = metrics_->cost(start_tree_->getNodes()[0], goal_node_, node_time,avoid_ints,last_pass_time);
-  // if (checker_->checkPath(start_tree_->getNodes()[0]->getConfiguration(), goal_node_->getConfiguration()) && (cost_start_to_goal<std::numeric_limits<double>::infinity()))
+  // if(start_tree_->connectToNode(goal_node_, new_node,max_time))  //for direct connection to goal
   // {
-  //   start_tree_->addNode(goal_node_);
+  double node_time=0;
+  std::vector<Eigen::Vector3f> avoid_ints;
+  float last_pass_time;
+  double cost_start_to_goal = metrics_->cost(start_tree_->getNodes()[0], goal_node_, node_time,avoid_ints,last_pass_time);
+  if (checker_->checkPath(start_tree_->getNodes()[0]->getConfiguration(), goal_node_->getConfiguration()) && (cost_start_to_goal<std::numeric_limits<double>::infinity()))
+  {
+    start_tree_->addNode(goal_node_);
 
-  //   ConnectionPtr conn = std::make_shared<Connection>(start_tree_->getNodes()[0], goal_node_);
+    ConnectionPtr conn = std::make_shared<Connection>(start_tree_->getNodes()[0], goal_node_);
 
-  //   conn->setParentTime(node_time);
-  //   conn->setAvoidIntervals(avoid_ints,last_pass_time);
-  //   conn->setMinTime(start_tree_->inv_max_speed_,start_tree_->min_accel_time);
+    conn->setParentTime(node_time);
+    conn->setAvoidIntervals(avoid_ints,last_pass_time);
+    conn->setMinTime(start_tree_->inv_max_speed_,start_tree_->min_accel_time);
     
-  //   conn->add();      
-  //   conn->setCost(cost_start_to_goal);
+    conn->add();      
+    conn->setCost(cost_start_to_goal);
 
   //   std::cout<<"nodes 1:\n";
   //   for (NodePtr n:start_tree_->getNodes()) std::cout<<*n;
@@ -93,7 +93,7 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
 
     path_cost_ = goal_node_->parent_connections_[0]->getCost();
     // ROS_INFO_STREAM("path cost is "<<path_cost_);
-    sampler_->setCost(path_cost_);
+    sampler_->setCost(std::numeric_limits<double>::infinity());
     // ROS_INFO_STREAM("set sampler cost");
     // ROS_INFO_STREAM("added goal node "<<goal_node_);
 
@@ -139,7 +139,7 @@ bool TimeAvoidRRTStar::update(PathPtr& solution)
 //this is for adding new nodes
 bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& solution)
 {
-  // PATH_COMMENT_STREAM("update w/ config\n"<<configuration);
+  // std::cout<<"sample "<<configuration.transpose()<<std::endl;
   // PATH_COMMENT_STREAM("init:"<<init_);
   if (!init_) {
     // PATH_COMMENT_STREAM("exit update, not init");
@@ -181,7 +181,7 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
 
     path_cost_ = start_tree_->costToNode(goal_node_) ;
     cost_ = path_cost_+goal_cost_;
-    sampler_->setCost(path_cost_);
+    sampler_->setCost(std::numeric_limits<double>::infinity());
   }
   solution = solution_;
   // PATH_COMMENT_STREAM("num nodes "<<start_tree_->getNodes().size());
@@ -218,7 +218,7 @@ bool TimeAvoidRRTStar::update(const NodePtr& n, PathPtr& solution)
     //path min cost is the cost (time of occupancy) of the goal node
     path_cost_ = goal_node_->parent_connections_.at(0)->getCost();
     cost_ = path_cost_+goal_cost_;
-    sampler_->setCost(path_cost_);
+    sampler_->setCost(std::numeric_limits<double>::infinity());
   }
   solution = solution_;
   return improved;

@@ -94,7 +94,8 @@ Eigen::MatrixXf ParallelRobotPointClouds::pt_intersection(Eigen::Isometry3f &lin
     if (already_checked) continue;
     is_collision = true;
     for (int j=0;j<3;j++) {
-      if (((-0.5*link_boxes[link_id][j]-grid_spacing_)>transformed_pts.col(i)[j]) || (transformed_pts.col(i)[j]>(0.5*link_boxes[link_id][j]+grid_spacing_))) {
+      //+-grid_spacing_
+      if (((-0.5*link_boxes[link_id][j])>transformed_pts.col(i)[j]) || (transformed_pts.col(i)[j]>(0.5*link_boxes[link_id][j]))) {
         is_collision = false;
         break;
       }
