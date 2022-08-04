@@ -48,8 +48,8 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle, 
   ROS_INFO_STREAM("num links"<<link_shapes.size());
   for (int i=0;i<int(links.size());i++) {
     std::string link_name = links[i]->getName();
-    ROS_INFO_STREAM("link name "<<link_name);
     if (link_name.find("link")!=std::string::npos) {
+      ROS_INFO_STREAM("link name "<<link_name);
     // if (link_name.substr(link_name.length()-4) == "link") {
       link_shapes[i] = links[i]->getShapes();
       if (link_shapes[i].size()>0){
@@ -100,6 +100,7 @@ Eigen::MatrixXf ParallelRobotPointClouds::pt_intersection(Eigen::Isometry3f &lin
       }
     }
     if (is_collision) {
+      // displayCollisionPoint(0.05,transformed_pts.col(i));
       model_pts_already_checked[i] = true;
       mtx.lock();
       avoid_ints.insert(std::end(avoid_ints),std::begin(model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_), std::end(model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_));
@@ -226,7 +227,14 @@ void ParallelRobotPointClouds::collisionThread(int thread_idx)
 
     bool success = true; //bool to set false if path can not be found
     state->setVariablePositions(configuration);
+
+    // for (int i=0;i<n_dof;i++) {
+    //     displayRobot(i,link_boxes[i],link_transforms[i].translation(),Eigen::Quaternionf(link_transforms[i].rotation()));
+    // }
     
+    // std::cout<<"press enter\n";
+    // std::cin.ignore();
+
     for (int i=0;i<n_dof;i++) {
       Eigen::Isometry3f offset_transform;
       offset_transform.setIdentity();
@@ -234,17 +242,14 @@ void ParallelRobotPointClouds::collisionThread(int thread_idx)
       link_transforms[i] = Eigen::Isometry3f(state->getGlobalLinkTransform(robot_links[i]).cast<float>()*offset_transform);
       Eigen::MatrixXf tmp = pt_intersection(link_transforms[i], i, thread_idx);
       // if (thread_idx==0) displayRobot(i,link_boxes[i],link_transforms[i].translation(),Eigen::Quaternionf(link_transforms[i].rotation()));
-      if (thread_idx==0) {
-        clearRobot();
-        // ROS_INFO_STREAM("link:"<<i<<",side:"<<link_boxes[i].side.transpose());
-        displayRobot(i,link_boxes[i],link_transforms[i].translation(),Eigen::Quaternionf(link_transforms[i].rotation()));
-        std::cout<<"press enter\n";
-        std::cin.ignore();
-        show_transformed_pts(tmp);
-        displayRobot(i,link_boxes[i],Eigen::Vector3f(0,0,0),Eigen::Quaternionf(1,0,0,0));
-        std::cout<<"press enter\n";
-        std::cin.ignore();
-      }
+      // if (thread_idx==0) {
+      //   clearRobot();
+      //   // ROS_INFO_STREAM("link:"<<i<<",side:"<<link_boxes[i].side.transpose());
+      //   show_transformed_pts(tmp);
+      //   displayRobot(i,link_boxes[i],Eigen::Vector3f(0,0,0),Eigen::Quaternionf(1,0,0,0));
+      //   std::cout<<"press enter\n";
+      //   std::cin.ignore();
+      // }
     }
 
     // ROS_INFO_STREAM("push enter");
@@ -375,7 +380,7 @@ void ParallelRobotPointClouds::displayCollisionPoint(float radius,Eigen::Vector3
   marker.scale.z = 2*radius;
   marker.color.a = 1.0; // Don't forget to set the alpha!
   marker.color.r = 1.0;
-  marker.color.g = 0.0;
+  marker.color.g = 1.0;
   marker.color.b = 0.0;
   geometry_msgs::Point p;
   p.x = 0;

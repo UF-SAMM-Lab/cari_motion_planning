@@ -388,6 +388,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
     pathplan::NodePtr goal_node=std::make_shared<pathplan::Node>(goal_configuration);
     COMMENT("adding goal to tree");
+    std::cout<<*goal_node;
     solver->addGoal(goal_node);
     at_least_a_goal=true;
   }
@@ -417,13 +418,15 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
   // searching initial solutions
   pathplan::PathPtr solution = solver->getSolution() ;
+  std::cout<<"solution nodes:"<<solver->getStartTree()->getNodes().size()<<std::endl;
+  for (NodePtr n:solver->getStartTree()->getNodes()) std::cout<<*n;
   bool found_a_solution=false;
   unsigned int iteration=0;
   ros::WallTime plot_time=ros::WallTime::now()-ros::WallDuration(100);
   double cost_of_first_solution;
   while (((ros::WallTime::now()-start_time)<max_planning_time) || (iteration<max_iterations))
   {
-    PATH_COMMENT_STREAM("iteration number:"<<iteration);
+    // PATH_COMMENT_STREAM("iteration number:"<<iteration);
     iteration++;
     if (m_stop)
     {
@@ -678,6 +681,7 @@ void IRRTStarAvoid::computeTransitions(double &tf, double &v0, double &vf, doubl
 }
 
 void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, std::vector<double> waypoint_times, std::vector<Eigen::VectorXd> &slow_sequence, std::vector<double> &slow_seq_times) {
+    double start_offset = waypoint_times[0];
     std::vector<Eigen::VectorXd> q_array;
     std::vector<int> q_splits;
     int n_dof = int(max_velocity_.size());
@@ -720,10 +724,10 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
     std::vector<int> seq_ids;
     for (int j=1;j<int(waypoints.size());j++) {
         double tf =  wp_t_steps[j-1];
-        double v0 = phase_space_slopes[j-1];
-        double vf = phase_space_slopes[j];
-        double a1 = segment_acc_lim[j-1];
-        double a2 = segment_acc_lim[j-1];
+        double v0 = 10*phase_space_slopes[j-1];
+        double vf = 10*phase_space_slopes[j];
+        double a1 = 10*segment_acc_lim[j-1];
+        double a2 = 10*segment_acc_lim[j-1];
         double t1;
         double t2;
         computeTransitions(tf,v0,vf,a1,a2,double(num_q_steps_per_hz)/double((q_splits[j]-q_splits[j-1])), t1, t2, true);
@@ -758,21 +762,25 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
               sequence.push_back(q_array.at(q_id));
               // std::cout<<",";
               seq_ids.push_back(q_id);
-              seq_times.push_back(i_dbl/double(hz));
+              seq_times.push_back(i_dbl/double(hz)+start_offset);
           }
         } else {
             sequence.push_back(q_array.at(0));
             seq_ids.push_back(0);
-            seq_times.push_back(0.0);
+            seq_times.push_back(start_offset);
         }
     }
     int sample_hz = 100;
+    if (start_offset>0) {
+      slow_sequence.push_back(sequence[0]);
+      slow_seq_times.push_back(0.0);
+    }
     for (int j=0;j<sequence.size()-int(hz/sample_hz);j+=int(hz/sample_hz)) {
       slow_sequence.push_back(sequence[j]);
-      slow_seq_times.push_back(double(j)/double(hz));
+      slow_seq_times.push_back(double(j)/double(hz)+start_offset);
     }
     slow_sequence.push_back(sequence.back());
-    slow_seq_times.push_back(double(sequence.size())/double(hz));
+    slow_seq_times.push_back(double(sequence.size())/double(hz)+start_offset);
 
 }
 

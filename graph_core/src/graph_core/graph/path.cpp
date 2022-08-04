@@ -412,7 +412,7 @@ std::vector<Eigen::VectorXd> Path::getWaypoints()
   std::cout<<connections_.at(0)->getParent()->getConfiguration().transpose()<<std::endl;
   wp.push_back(connections_.at(0)->getParent()->getConfiguration());
   for (const ConnectionPtr& conn : connections_) {
-    std::cout<<"wpt:"<<conn->getChild()->getConfiguration().transpose()<<std::endl;
+    std::cout<<conn->getParent()->getConfiguration().transpose()<<", wpt:"<<conn->getChild()->getConfiguration().transpose()<<std::endl;
     wp.push_back(conn->getChild()->getConfiguration());
   }
   return wp;
@@ -434,7 +434,7 @@ std::vector<double> Path::getTiming()
     for (int i=0;i<tmp_cons.size();i++) {
       std::cout<<"i:"<<i<<", interval "<<tmp_cons[i].transpose()<<std::endl;
     }
-    std::cout<<"parent time:"<<conn->getParentTime()<<", "<<conn->getParent()->min_time<<","<<conn->getMinTime()<<","<<conn->getChild()->potential_parent_connections_.size()<<std::endl;
+    std::cout<<conn->getParent()->getConfiguration().transpose()<<"->"<<conn->getChild()->getConfiguration().transpose()<<", parent time:"<<conn->getParentTime()<<", "<<conn->getParent()->min_time<<","<<conn->getMinTime()<<","<<conn->getChild()->potential_parent_connections_.size()<<std::endl;
     times.push_back(conn->getParentTime());
   }
   ROS_INFO("last connection...");

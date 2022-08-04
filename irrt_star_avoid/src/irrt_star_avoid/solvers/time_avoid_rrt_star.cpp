@@ -63,7 +63,25 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
   // ROS_INFO_STREAM("attempting connection between start and goal node:"<<goal_node_);
   if(start_tree_->connectToNode(goal_node_, new_node,max_time))  //for direct connection to goal
   {
+  // double node_time=0;
+  // std::vector<Eigen::Vector3f> avoid_ints;
+  // float last_pass_time;
+  // double cost_start_to_goal = metrics_->cost(start_tree_->getNodes()[0], goal_node_, node_time,avoid_ints,last_pass_time);
+  // if (checker_->checkPath(start_tree_->getNodes()[0]->getConfiguration(), goal_node_->getConfiguration()) && (cost_start_to_goal<std::numeric_limits<double>::infinity()))
+  // {
+  //   start_tree_->addNode(goal_node_);
 
+  //   ConnectionPtr conn = std::make_shared<Connection>(start_tree_->getNodes()[0], goal_node_);
+
+  //   conn->setParentTime(node_time);
+  //   conn->setAvoidIntervals(avoid_ints,last_pass_time);
+  //   conn->setMinTime(start_tree_->inv_max_speed_,start_tree_->min_accel_time);
+    
+  //   conn->add();      
+  //   conn->setCost(cost_start_to_goal);
+
+  //   std::cout<<"nodes 1:\n";
+  //   for (NodePtr n:start_tree_->getNodes()) std::cout<<*n;
     // ROS_INFO_STREAM("new node"<<new_node);
     // goal_node_ = new_node;
     // start_tree_->goal_node_ = goal_node_;
@@ -73,18 +91,20 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
     solution_->setTree(start_tree_);
     // ROS_INFO_STREAM("created the start tree");
 
-    path_cost_ = solution_->cost();
+    path_cost_ = goal_node_->parent_connections_[0]->getCost();
     // ROS_INFO_STREAM("path cost is "<<path_cost_);
     sampler_->setCost(path_cost_);
     // ROS_INFO_STREAM("set sampler cost");
-    // start_tree_->addNode(goal_node_);
     // ROS_INFO_STREAM("added goal node "<<goal_node_);
 
+    // std::cout<<"nodes 2:\n";
+    // for (NodePtr n:start_tree_->getNodes()) std::cout<<*n;
     solved_ = true;
     // PATH_COMMENT_STREAM("A direct solution is found\n" << *solution_);
   }
   else
   {
+    // std::cout<<"adding node:"<<*goal_node_;
     start_tree_->addNode(goal_node_);
     path_cost_ = std::numeric_limits<double>::max();
     // PATH_COMMENT_STREAM("No direct solution is found " << path_cost_);
@@ -144,7 +164,7 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
     old_path_cost = std::numeric_limits<double>::max();
   }
 
-  // PATH_COMMENT_STREAM("old path cost:"<<old_path_cost);
+  // PATH_COMMENT_STREAM("old path cost:");
 
   bool improved = start_tree_->rewire(configuration, r_rewire_);
   // PATH_COMMENT_STREAM("number of nodes in tree: "<<start_tree_->getNumberOfNodes());

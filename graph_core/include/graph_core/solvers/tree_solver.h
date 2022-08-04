@@ -290,7 +290,7 @@ public:
   }
 
   void setInvMaxTime(const Eigen::VectorXd inv_max_speed, const double max_accel_time) {
-    ROS_INFO_STREAM("inv max spd:"<<inv_max_speed.transpose());
+    // ROS_INFO_STREAM("inv max spd:"<<inv_max_speed.transpose());
     start_tree_->inv_max_speed_= inv_max_speed;
     start_tree_->min_accel_time=max_accel_time;
   }

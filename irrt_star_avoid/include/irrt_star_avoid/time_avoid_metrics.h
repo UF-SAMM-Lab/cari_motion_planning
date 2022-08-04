@@ -43,7 +43,6 @@ class TimeAvoidMetrics: public Metrics
 {
 protected:
   Eigen::VectorXd max_speed_;
-  Eigen::VectorXd inv_max_speed_;
   Eigen::VectorXd max_acc_;
   double nu_=1e-2;
   double t_pad_=0;
@@ -51,6 +50,7 @@ protected:
 
 public:
   double max_dt;
+  Eigen::VectorXd inv_max_speed_;
   // ParallelRobotPointCloudsPtr pc_avoid_checker;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen::VectorXd& max_acc, const double &nu=1e-2, const double &t_pad=0.0);
@@ -60,6 +60,8 @@ public:
                               
   double utopia(const Eigen::VectorXd& configuration1,
                       const Eigen::VectorXd& configuration2);
+
+  bool interval_intersection(float avd_int_1_start, float avd_int_1_end, float conn_int_start, float conn_int_end);
 
 
 };

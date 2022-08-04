@@ -39,7 +39,7 @@ TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen
   t_pad_(t_pad)
 {
   Eigen::VectorXd dt = max_speed_.array()/max_acc_.array();
-  max_dt = 0.7*dt.maxCoeff();
+  max_dt = 0.1*dt.maxCoeff();
   PATH_COMMENT_STREAM("max dt:"<<max_dt);
   int i = 0;
   for (i=0;i<dt.size();i++) if (dt[i]==max_dt) break;
@@ -47,6 +47,13 @@ TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen
   inv_max_speed_=max_speed_.cwiseInverse();
 
   name="time avoid metrics";
+}
+
+bool TimeAvoidMetrics::interval_intersection(float avd_int_1_start, float avd_int_1_end, float conn_int_start, float conn_int_end) {
+  if ((avd_int_1_start-t_pad_<conn_int_start) && (conn_int_start<avd_int_1_end+t_pad_)) return true;
+  if ((avd_int_1_start-t_pad_<conn_int_end) && (conn_int_end<avd_int_1_end+t_pad_)) return true;
+  if ((conn_int_start<avd_int_1_start+t_pad_) && (avd_int_1_end-t_pad_<conn_int_end)) return true;
+  return false;
 }
 
 //JF - need node1 instead of config1
@@ -126,7 +133,12 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
             //if time to reach new node is within an avoidance interval +/- padding then set time to reach new node to the end of the avoidance interval
             //repeat check with the time to reach the parent node when parent time is increased
             //ensuring the entire path from parent to new node is not in an avoidance interval
-            if (((avoid_ints[r][0]-t_pad_<tmp_c_new) && (tmp_c_new<avoid_ints[r][1]+t_pad_)) || ((avoid_ints[r][0]-t_pad_<near_time) && (near_time<avoid_ints[r][1]+t_pad_))) {
+            //need to check if connection intveral is within connection interval
+            //if any part of the avoidance interval overlaps the connection interval (near_time to tmp_c_new)
+            // std::cout<<parent->getConfiguration().transpose()<<"->"<<new_node->getConfiguration().transpose()<<std::endl;
+            // std::cout<<avoid_ints[r][0]<<","<<avoid_ints[r][1]<<","<<tmp_c_new<<","<<near_time<<std::endl;
+            if (interval_intersection(avoid_ints[r][0],avoid_ints[r][1],near_time,tmp_c_new)) {
+            // if (((avoid_ints[r][0]-t_pad_<tmp_c_new) && (tmp_c_new<avoid_ints[r][1]+t_pad_)) || ((avoid_ints[r][0]-t_pad_<near_time) && (near_time<avoid_ints[r][1]+t_pad_))) {
                 tmp_time = avoid_ints[r][1]+node_time_new + t_pad_;
                 if (tmp_time>tmp_c_new) {
                     tmp_c_new = tmp_time;
