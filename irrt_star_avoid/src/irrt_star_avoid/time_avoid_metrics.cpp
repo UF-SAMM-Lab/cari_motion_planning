@@ -58,7 +58,7 @@ bool TimeAvoidMetrics::interval_intersection(float avd_int_1_start, float avd_in
 
 //JF - need node1 instead of config1
 double TimeAvoidMetrics::cost(const NodePtr& parent,
-                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time)
+                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist)
 {
 
     // PATH_COMMENT_STREAM("time avoid metrics cost fn 1");
@@ -111,12 +111,13 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
       if (conn->getChild()==new_node) {
         avoid_ints = conn->getAvoidIntervals();
         last_pass_time = conn->getLPT();
+        min_human_dist = conn->getMinHumanDist();
         conn_found = true;
         break;
       }
     }
     if (!conn_found) {
-      pc_avoid_checker->checkPath(parent->getConfiguration(), new_node->getConfiguration(), avoid_ints, last_pass_time);
+      min_human_dist = pc_avoid_checker->checkPath(parent->getConfiguration(), new_node->getConfiguration(), avoid_ints, last_pass_time);
     }
     // PATH_COMMENT_STREAM("last pass time:"<<last_pass_time);
     if (c_new>last_pass_time){

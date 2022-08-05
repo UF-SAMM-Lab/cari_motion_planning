@@ -66,7 +66,8 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
   double node_time=0;
   std::vector<Eigen::Vector3f> avoid_ints;
   float last_pass_time;
-  double cost_start_to_goal = metrics_->cost(start_tree_->getNodes()[0], goal_node_, node_time,avoid_ints,last_pass_time);
+  float min_human_dist;
+  double cost_start_to_goal = metrics_->cost(start_tree_->getNodes()[0], goal_node_, node_time,avoid_ints,last_pass_time,min_human_dist);
   if (checker_->checkPath(start_tree_->getNodes()[0]->getConfiguration(), goal_node_->getConfiguration()) && (cost_start_to_goal<std::numeric_limits<double>::infinity()))
   {
     start_tree_->addNode(goal_node_);
@@ -74,7 +75,7 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
     ConnectionPtr conn = std::make_shared<Connection>(start_tree_->getNodes()[0], goal_node_);
 
     conn->setParentTime(node_time);
-    conn->setAvoidIntervals(avoid_ints,last_pass_time);
+    conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
     conn->setMinTime(start_tree_->inv_max_speed_,start_tree_->min_accel_time);
     
     conn->add();      

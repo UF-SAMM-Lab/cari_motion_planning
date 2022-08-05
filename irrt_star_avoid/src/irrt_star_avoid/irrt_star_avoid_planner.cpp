@@ -506,18 +506,18 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   // END OF THE IMPORTANT PART
   // =========================
 
-  std::vector<NodePtr> all_nodes = solver->getStartTree()->getNodes();
-  for (NodePtr n:all_nodes) {
-    std::cout<<"n: "<<n->getConfiguration().transpose()<<std::endl;
-    for (ConnectionPtr c:n->parent_connections_) {
-      std::cout<<"n_parent: "<<c->getParent()->getConfiguration().transpose()<<", cost:"<<c->getCost()<<std::endl;
-    }
-  }
+  // std::vector<NodePtr> all_nodes = solver->getStartTree()->getNodes();
+  // for (NodePtr n:all_nodes) {
+  //   std::cout<<"n: "<<n->getConfiguration().transpose()<<std::endl;
+  //   for (ConnectionPtr c:n->parent_connections_) {
+  //     std::cout<<"n_parent: "<<c->getParent()->getConfiguration().transpose()<<", cost:"<<c->getCost()<<std::endl;
+  //   }
+  // }
 
-  std::cout<<"goal children:"<<solver->getGoal()->child_connections_.size()<<std::endl;
-  for (ConnectionPtr c:solver->getGoal()->potential_parent_connections_) {
-    std::cout<<"goal parent:"<<c->getParent()->getConfiguration().transpose()<<", cost:"<<c->getCost()<<std::endl;
-  }
+  // std::cout<<"goal children:"<<solver->getGoal()->child_connections_.size()<<std::endl;
+  // for (ConnectionPtr c:solver->getGoal()->potential_parent_connections_) {
+  //   std::cout<<"goal parent:"<<c->getParent()->getConfiguration().transpose()<<", cost:"<<c->getCost()<<std::endl;
+  // }
   
   COMMENT("Get waypoints");
   std::vector<Eigen::VectorXd> waypoints=solution->getWaypoints();// PUT WAY POINTS
@@ -764,10 +764,10 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
 
     for (int j=1;j<int(waypoints.size());j++) {
         double tf =  wp_t_steps[j-1];
-        double v0 = 100*phase_space_slopes[j-1];
-        double vf = 100*phase_space_slopes[j];
-        double a1 = 100*segment_acc_lim[j-1];
-        double a2 = 100*segment_acc_lim[j-1];
+        double v0 = phase_space_slopes[j-1];
+        double vf = phase_space_slopes[j];
+        double a1 = segment_acc_lim[j-1];
+        double a2 = segment_acc_lim[j-1];
         double t1;
         double t2;
         computeTransitions(tf,v0,vf,a1,a2,double(num_q_steps_per_hz)/double((q_splits[j]-q_splits[j-1])), t1, t2, true);

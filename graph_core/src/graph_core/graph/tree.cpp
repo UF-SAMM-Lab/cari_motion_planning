@@ -167,15 +167,16 @@ bool Tree::extendOnly(NodePtr& closest_node, NodePtr &new_node, ConnectionPtr &c
   double n_time = 0;
   if (time_avoid_) {
     std::vector<Eigen::Vector3f> avoid_ints;
+    float min_human_dist;
     float last_pass_time;
     //is it connecting to an a node with inf cost?
-    cost = metrics_->cost(closest_node, new_node, n_time,avoid_ints,last_pass_time);
+    cost = metrics_->cost(closest_node, new_node, n_time,avoid_ints,last_pass_time,min_human_dist);
     // PATH_COMMENT_STREAM("new node cost:"<<cost);
     if (cost==std::numeric_limits<double>::infinity()) return false;
     // new_node->min_time = std::min(closest_node->min_time+cost,new_node->min_time);
     conn = std::make_shared<Connection>(closest_node, new_node);
     conn->setMinTime(inv_max_speed_,min_accel_time);
-    conn->setAvoidIntervals(avoid_ints,last_pass_time);
+    conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
     // PATH_COMMENT_STREAM("adding connection:"<<cost<<", "<<n_time<<","<<avoid_ints.size());
     // PATH_COMMENT_STREAM("adding connection:"<<cost<<", "<<n_time<<","<<avoid_ints.size());
     // for (int i=0;i<avoid_ints.size();i++) {
@@ -270,9 +271,10 @@ bool Tree::extendToNode(const NodePtr& node,
   double cost; 
   double n_time = 0;
   std::vector<Eigen::Vector3f> avoid_ints;
+  float min_human_dist;
   float last_pass_time;
   if (time_avoid_) {
-    cost = metrics_->cost(closest_node, new_node, n_time, avoid_ints,last_pass_time);
+    cost = metrics_->cost(closest_node, new_node, n_time, avoid_ints,last_pass_time,min_human_dist);
   } else {
     cost = metrics_->cost(closest_node, new_node);
   }
@@ -287,7 +289,7 @@ bool Tree::extendToNode(const NodePtr& node,
   conn->setParentTime(n_time);
   // PATH_COMMENT_STREAM("setting cost for connection");
   conn->setCost(cost);
-  conn->setAvoidIntervals(avoid_ints,last_pass_time);
+  conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
   conn->setMinTime(inv_max_speed_,min_accel_time);
   // PATH_COMMENT_STREAM("new node connection done");
 
@@ -526,9 +528,10 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       double n_time = 0;
       double cost_near_to_node;
       std::vector<Eigen::Vector3f> avoid_ints;
+      float min_human_dist;
       float last_pass_time;
       if (time_avoid_) {
-        cost_near_to_node = metrics_->cost(n, node, n_time, avoid_ints,last_pass_time);
+        cost_near_to_node = metrics_->cost(n, node, n_time, avoid_ints,last_pass_time,min_human_dist);
       } else {
         cost_near_to_node = metrics_->cost(n, node);
       }
@@ -552,7 +555,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       //edge cost is l2 distance or time to reach new node
       if (time_avoid_) {
         conn->setParentTime(n_time);
-        conn->setAvoidIntervals(avoid_ints,last_pass_time);
+        conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
         conn->setMinTime(inv_max_speed_,min_accel_time);
       } 
       conn->add();
@@ -626,12 +629,14 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       //JF - if standard cost fn, get l2 distance between nodes
       double node_time=0;
       double cost_node_to_near;
+      
+      float min_human_dist;
       std::vector<Eigen::Vector3f> avoid_ints;
       float last_pass_time;
       if (!time_avoid_) {
         cost_node_to_near = metrics_->cost(node->getConfiguration(), n->getConfiguration());
       } else { //JF - else get time to reach node n via node
-        cost_node_to_near = metrics_->cost(node, n, node_time,avoid_ints,last_pass_time);
+        cost_node_to_near = metrics_->cost(node, n, node_time,avoid_ints,last_pass_time,min_human_dist);
       }
       //if the cost to reach n via node is not less than cost to reach n via n.parent, then skip
       // if ((cost_to_node + cost_node_to_near) >= cost_to_near)
@@ -657,7 +662,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       ConnectionPtr conn = std::make_shared<Connection>(node, n);
       if (time_avoid_) {
         conn->setParentTime(node_time);
-        conn->setAvoidIntervals(avoid_ints,last_pass_time);
+        conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
         conn->setMinTime(inv_max_speed_,min_accel_time);
       }
       conn->add();      
@@ -697,7 +702,8 @@ void Tree::rewireNearToTheirChildren (NodePtr n) {
     std::vector<Eigen::Vector3f> avoid_ints;
     double node_time=0;
     float last_pass_time;
-    double cost_n_to_child = metrics_->cost(n, n_child, node_time,avoid_ints,last_pass_time);
+    float min_human_dist;
+    double cost_n_to_child = metrics_->cost(n, n_child, node_time,avoid_ints,last_pass_time,min_human_dist);
     if (cost_n_to_child >= cost_to_child) continue;      
     // if (!checker_->checkPath(n_p->getConfiguration(), n->getConfiguration())) continue;      
     if (!n_child->parent_connections_.empty()) {
@@ -705,7 +711,7 @@ void Tree::rewireNearToTheirChildren (NodePtr n) {
     }
     // ConnectionPtr conn = std::make_shared<Connection>(n, n_child);
     conn->setParentTime(node_time);
-    conn->setAvoidIntervals(avoid_ints,last_pass_time);
+    conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
     conn->setMinTime(inv_max_speed_,min_accel_time);
     conn->add();   
     conn->setCost(cost_n_to_child);
@@ -715,9 +721,17 @@ void Tree::rewireNearToTheirChildren (NodePtr n) {
 
 void Tree::rewireNearToBetterParents (NodePtr n) {
   double cost_to_n = costToNode(n);
-  // std::cout<<"rewire n has:"<<n->parent_connections_.size()<<" potential parents\n";
-  for (ConnectionPtr conn:n->potential_parent_connections_) {
+  // std::cout<<"rewire n has:"<<n->potential_parent_connections_.size()<<" potential parents\n";
+  for (int i=0;i<n->potential_parent_connections_.size();i++) {
+    ConnectionPtr conn;
+    try {
+      conn = n->potential_parent_connections_[i];
+    }
+    catch (...) {
+     continue; 
+    }
     if (!conn) continue;
+    if (!conn->getAdded()) continue;
     if (conn==n->parent_connections_.front()) continue;
     // std::cout<<"test\n";
     // std::cout<<*conn;
@@ -727,7 +741,8 @@ void Tree::rewireNearToBetterParents (NodePtr n) {
     std::vector<Eigen::Vector3f> avoid_ints;
     double node_time=0;
     float last_pass_time;
-    double cost_parent_to_n = metrics_->cost(n_parent, n, node_time,avoid_ints,last_pass_time);
+    float min_human_dist;
+    double cost_parent_to_n = metrics_->cost(n_parent, n, node_time,avoid_ints,last_pass_time,min_human_dist);
     if (cost_parent_to_n >= cost_to_n) continue;      
     // if (!checker_->checkPath(n_p->getConfiguration(), n->getConfiguration())) continue;      
     if (!n->parent_connections_.empty()) {
@@ -735,7 +750,7 @@ void Tree::rewireNearToBetterParents (NodePtr n) {
     }
     // ConnectionPtr conn = std::make_shared<Connection>(n, n_child);
     conn->setParentTime(node_time);
-    conn->setAvoidIntervals(avoid_ints,last_pass_time);
+    conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
     conn->setMinTime(inv_max_speed_,min_accel_time);
     conn->add();   
     conn->setCost(cost_parent_to_n);

@@ -64,6 +64,7 @@ protected:
 
   std::vector<std::vector<std::vector<double>>> queues_;
   std::vector<std::thread> threads;
+  std::vector<float> min_dists;
   std::vector<planning_scene::PlanningScenePtr> planning_scenes_;
   std::vector<Eigen::Vector3f> collision_points;
   std::vector<Eigen::Vector3f> link_bb_offsets;
@@ -76,13 +77,13 @@ protected:
   std::mutex stop_mutex;
   void resetQueue();
   void queueUp(const Eigen::VectorXd &q);
-  void checkAllQueues(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time);
+  float checkAllQueues(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time);
   void collisionThread(int thread_idx);
   void queueConnection(const Eigen::VectorXd& configuration1,
                        const Eigen::VectorXd& configuration2);
   void sort_reduce_link_pts(std::vector<Eigen::Vector3f> &link_pts);
   void show_transformed_pts(Eigen::MatrixXf &transformed_pts);
-  Eigen::MatrixXf pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id);
+  float pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id);
 
   collision_detection::CollisionRequest req_;
   collision_detection::CollisionResult res_;
@@ -105,7 +106,7 @@ public:
 
   // virtual void setPlanningScene(planning_scene::PlanningScenePtr &planning_scene);
 
-  virtual void checkPath(const Eigen::VectorXd& configuration1,
+  virtual float checkPath(const Eigen::VectorXd& configuration1,
                                                const Eigen::VectorXd& configuration2, 
                                                std::vector<Eigen::Vector3f> &avoid_ints,
                                                float &last_pass_time);

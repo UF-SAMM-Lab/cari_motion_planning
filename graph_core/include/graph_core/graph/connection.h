@@ -45,6 +45,7 @@ private:
   std::vector<Eigen::Vector3f> avoidance_intervals_;
   float last_pass_time_;
   double min_time_;
+  float min_human_dist;
 
 public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
@@ -72,10 +73,11 @@ public:
 
   void setCost(const double& cost);
   
-  void setAvoidIntervals(std::vector<Eigen::Vector3f> avoid_ints, float last_pass_time)
+  void setAvoidIntervals(std::vector<Eigen::Vector3f> avoid_ints, float last_pass_time, double min_separation_dist)
   {
     last_pass_time_ = last_pass_time;
     avoidance_intervals_ = avoid_ints;
+    min_human_dist = min_separation_dist;
   }
   void setMinTime(const double& min_time)
   {
@@ -100,6 +102,14 @@ public:
   double getMinTime()
   {
     return min_time_;
+  }
+  bool getAdded()
+  {
+    return added_;
+  }
+  double getMinHumanDist()
+  {
+    return min_human_dist;
   }
   const NodePtr& getParent() const
   {
