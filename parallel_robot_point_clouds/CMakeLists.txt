@@ -12,11 +12,12 @@ find_package(catkin REQUIRED COMPONENTS
   velocity_scaling_iso15066
   geometry_msgs
   avoidance_intervals
+  velocity_scaling_iso15066
 )
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES parallel_robot_point_clouds
-  CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 geometry_msgs avoidance_intervals
+  CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 geometry_msgs avoidance_intervals velocity_scaling_iso15066
   DEPENDS
 )
 include_directories(

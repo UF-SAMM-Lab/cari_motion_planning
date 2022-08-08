@@ -47,13 +47,14 @@ protected:
   double nu_=1e-2;
   double t_pad_=0;
   int slow_joint;
+  bool use_iso15066_;
 
 public:
   double max_dt;
   Eigen::VectorXd inv_max_speed_;
   // ParallelRobotPointCloudsPtr pc_avoid_checker;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen::VectorXd& max_acc, const double &nu=1e-2, const double &t_pad=0.0);
+  TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen::VectorXd& max_acc, const double &nu=1e-2, const double &t_pad=0.0, bool use_iso15066=false);
 
   double cost(const NodePtr& parent,
                               const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist);

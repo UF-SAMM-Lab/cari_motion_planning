@@ -102,7 +102,15 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   urdf_model.initParam("robot_description");
 
   COMMENT("create metrics");
-  metrics=std::make_shared<pathplan::TimeAvoidMetrics>(max_velocity_,max_accels_,1e-2, t_pad_);
+  bool use_iso15066 = false;
+
+  if (!m_nh.getParam("use_iso15066",use_iso15066))
+  {
+    ROS_DEBUG("use_iso15066 is not set, default=false");
+    use_iso15066=false;
+  }
+
+  metrics=std::make_shared<pathplan::TimeAvoidMetrics>(max_velocity_,max_accels_,1e-2, t_pad_,use_iso15066);
   base_metrics = std::static_pointer_cast<pathplan::Metrics>(metrics);
 
   // COMMENT("check planning scene");
@@ -195,6 +203,13 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
 
   avoid_model_ = std::make_shared<avoidance_intervals::model>(workspace_lb,workspace_ub,grid_spacing,collision_thread_,m_nh);
 
+
+  COMMENT("init parallel avoid point checker");
+  point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(m_nh, robot_model_,group_,avoid_model_,max_velocity_,collision_thread_,collision_distance,grid_spacing);
+
+  COMMENT("settign metrics point cloud checker");
+  metrics->setPointCloudChecker(point_cloud_checker);
+
 }
 
 void IRRTStarAvoid::setPlanningScene ( const planning_scene::PlanningSceneConstPtr& planning_scene )
@@ -258,12 +273,8 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   COMMENT("init parallel collision checker");
   checker=std::make_shared<pathplan::ParallelMoveitCollisionChecker>(ptr,group_,collision_thread_,collision_distance);
 
+  point_cloud_checker->updatePlanningScene(ptr);
 
-  COMMENT("init parallel avoid point checker");
-  point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(m_nh, ptr,group_,avoid_model_,collision_thread_,collision_distance,grid_spacing);
-
-  COMMENT("settign metrics point cloud checker");
-  metrics->setPointCloudChecker(point_cloud_checker);
   COMMENT("getting robot start state");
   moveit::core::RobotState start_state(robot_model_);
   moveit::core::robotStateMsgToRobotState(request_.start_state,start_state);

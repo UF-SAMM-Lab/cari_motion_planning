@@ -37,6 +37,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <eigen3/Eigen/Core>
 #include <moveit_msgs/PlanningScene.h>
 #include <moveit/planning_scene/planning_scene.h>
+#include <rosdyn_core/primitives.h>
+#include <velocity_scaling_iso15066/ssm15066.h>
 
 namespace pathplan
 {
@@ -48,9 +50,11 @@ private:
   std::vector<bool> model_pts_already_checked;
   ros::Publisher pub_pt;
   std::vector<Eigen::Vector3f> avoid_ints;
+  std::vector<std::vector<Eigen::Vector3f>> th_avoid_ints;
   std::mutex mtx;
   std::vector<Eigen::MatrixXf> link_raw_pts;
 protected:
+  Eigen::VectorXd max_q_dot_;
   bool fcl_check;
   ros::NodeHandle nh;
   int threads_num_;
@@ -58,13 +62,19 @@ protected:
   bool stop_check_;
   bool at_least_a_collision_;
   double grid_spacing_;
+  double max_cart_acc_;
+  double reaction_time;
+  double dist_dec_;
+  double term1_;
+  double min_hrc_distance_;
 
   std::string group_name_;
   double min_distance_;
 
-  std::vector<std::vector<std::vector<double>>> queues_;
+  std::vector<std::vector<std::pair<int,std::vector<double>>>> queues_;
   std::vector<std::thread> threads;
   std::vector<float> min_dists;
+  std::vector<Eigen::VectorXd> tangential_vels;
   std::vector<planning_scene::PlanningScenePtr> planning_scenes_;
   std::vector<Eigen::Vector3f> collision_points;
   std::vector<Eigen::Vector3f> link_bb_offsets;
@@ -77,25 +87,30 @@ protected:
   std::mutex stop_mutex;
   void resetQueue();
   void queueUp(const Eigen::VectorXd &q);
-  float checkAllQueues(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time);
+  void checkAllQueues(std::vector<Eigen::Vector3f> &combined_avoidance_intervals, float &last_pass_time);
   void collisionThread(int thread_idx);
   void queueConnection(const Eigen::VectorXd& configuration1,
                        const Eigen::VectorXd& configuration2);
   void sort_reduce_link_pts(std::vector<Eigen::Vector3f> &link_pts);
   void show_transformed_pts(Eigen::MatrixXf &transformed_pts);
-  float pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id);
+  void pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id);
 
   collision_detection::CollisionRequest req_;
   collision_detection::CollisionResult res_;
   std::vector<Eigen::MatrixXf> link_pts;
   std::vector<Eigen::Vector3f> link_pts_vec;
   int num_link_pts = 0;
+  const moveit::core::JointModelGroup* joint_model_group;
+  ssm15066::DeterministicSSMPtr ssm_;
+  rosdyn::ChainPtr chain_;
+
 public:
   avoidance_intervals::modelPtr model_;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   
-  ParallelRobotPointClouds(ros::NodeHandle node_handle, const planning_scene::PlanningScenePtr& planning_scene,
+  ParallelRobotPointClouds(ros::NodeHandle node_handle, moveit::core::RobotModelConstPtr robot_model,
                                  const std::string& group_name,const avoidance_intervals::modelPtr& model,
+                                  const Eigen::VectorXd& max_vels,
                                  const int& threads_num=4,
                                  const double& min_distance = 0.01,
                                  const double& grid_spacing = 0.05);
@@ -106,7 +121,7 @@ public:
 
   // virtual void setPlanningScene(planning_scene::PlanningScenePtr &planning_scene);
 
-  virtual float checkPath(const Eigen::VectorXd& configuration1,
+  virtual void checkPath(const Eigen::VectorXd& configuration1,
                                                const Eigen::VectorXd& configuration2, 
                                                std::vector<Eigen::Vector3f> &avoid_ints,
                                                float &last_pass_time);
@@ -132,6 +147,9 @@ public:
   void displayRobot(int i,Eigen::Vector3f sides,Eigen::Vector3f pos, Eigen::Quaternionf quat);
   void displayCollisionPoint(float radius,Eigen::Vector3f pos);
   void clearRobot(void);
+  double checkISO15066(const Eigen::VectorXd& configuration1,
+                                              const Eigen::VectorXd& configuration2, double length, float t1, float t2, unsigned int nsteps) ;
+  void updatePlanningScene(const planning_scene::PlanningScenePtr &planning_scene);
 
 };
 typedef std::shared_ptr<ParallelRobotPointClouds> ParallelRobotPointCloudsPtr;

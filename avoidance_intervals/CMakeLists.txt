@@ -12,6 +12,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   velocity_scaling_iso15066
   std_msgs
+  message_generation
   human_motion_prediction
 )
 
@@ -19,10 +20,20 @@ find_package(catkin REQUIRED COMPONENTS
 # find_package(human_motion_prediction REQUIRED)
 find_package(Eigen3 3.3 REQUIRED)
 
+add_message_files(
+  FILES
+  joint_seq.msg
+  joint_seq_elem.msg
+) 
+generate_messages(
+  DEPENDENCIES
+  std_msgs
+)
+
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES avoidance_intervals
-  CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 std_msgs human_motion_prediction
+  CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 std_msgs human_motion_prediction message_generation
   DEPENDS EIGEN3
 )
 include_directories(
@@ -65,6 +76,7 @@ target_link_libraries(test_model
 
 add_dependencies(test_model ${catkin_EXPORTED_TARGETS})
 install(TARGETS test_model DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION})
+
 
 #############
 ## Install ##

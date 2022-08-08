@@ -21,6 +21,8 @@
 #include <thread>
 #include <algorithm>
 #include <fstream>
+#include <avoidance_intervals/joint_seq.h>
+#include <avoidance_intervals/joint_seq_elem.h>
 
 namespace avoidance_intervals{
 
@@ -60,6 +62,7 @@ namespace avoidance_intervals{
 
     class model {
         public:
+        std::vector<std::pair<float,Eigen::MatrixXd>> joint_seq;
         Eigen::MatrixXd ranges;
         Eigen::VectorXf range_down;
         Eigen::VectorXf range_up;
@@ -76,6 +79,9 @@ namespace avoidance_intervals{
         void displayAllRequest(void);
         Eigen::Matrix3Xf avoid_cart_pts;
         std::mutex ext_mutex;
+        float get_t_step(void) {
+            return t_step_;
+        }
         private:
         std::vector<std::thread> threads;
         std::vector<Eigen::VectorXf> avoid_pts_;
@@ -91,28 +97,33 @@ namespace avoidance_intervals{
         void displayRequestCallback(const std_msgs::Float32::ConstPtr& msg);
         void callbackThread(int start, int end, int h);
         void subscribeTopic();
+        void subscribe_sequence(const avoidance_intervals::joint_seq::ConstPtr& msg);
         ros::Subscriber poses_sub;
         ros::Subscriber disp_sub;
         ros::Subscriber disp_all_sub;
+        ros::Subscriber sub_seq;
         ros::Publisher disp_pub;
         protected:
         int num_threads_;
         ros::NodeHandle nh_;
+        float t_step_;
     };
     typedef std::shared_ptr<model> modelPtr;
 
     class skeleton {
         public:
+            std::vector<std::pair<float,std::vector<Eigen::Vector3f>>> joint_seq;
             mutable std::mutex _mtx;
             mutable std::mutex _mtx_read;
             std::vector<Eigen::MatrixXf> raw_limb_points;
             std::vector<Eigen::Vector4f> transformed_points;
             std::vector<Eigen::Vector4f> ready_points;
             skeleton(ros::NodeHandle nh, const std::string topic_name,double grid_size, double t_step);
-            void forward_kinematics(std::vector<float> pose_elements,std::vector<double> t_steps);//,std_msgs::Float32MultiArray prediction);
+            void forward_kinematics(std::vector<float> pose_elements,std::vector<double> t_steps, int idx);//,std_msgs::Float32MultiArray prediction);
             void callback(const human_motion_prediction::human_pose::ConstPtr& msg);
             void publish_pts(std::vector<Eigen::VectorXf> pts);
-            void read_thread(std::vector<std::string> in_lines, std::string prev_line, std::string next_line,int thread_num);
+            void read_thread(std::vector<std::string> in_lines, std::string prev_line, std::string next_line,int thread_num, int start_id);
+            void publish_sequence(void);
             std::vector<Eigen::VectorXf> read_human_task(int task_num, Eigen::Isometry3f transform);
             double end_time_;
             double t_step_;
@@ -127,6 +138,7 @@ namespace avoidance_intervals{
             ros::Subscriber sub_skeletons;
             ros::NodeHandle nh_;
             ros::Publisher pts_pub_;
+            ros::Publisher seq_pub;
             ros::Publisher vis_pub_;
     };
 }

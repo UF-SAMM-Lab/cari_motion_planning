@@ -194,7 +194,8 @@ namespace avoidance_intervals{
         }
 
         model_pt_idx.clear();
-        avoid_cart_pts.resize(0,0);
+        avoid_cart_pts.resize(3,0);
+        joint_seq.clear();
     }
 
     void model::generate_model_cloud(void) {
@@ -266,6 +267,14 @@ namespace avoidance_intervals{
             model_display_pub_topic="/human_markers";
         }
         disp_pub = nh_.advertise<visualization_msgs::Marker>(model_display_pub_topic,0,true);
+
+        std::string human_seq_topic;
+        if (!nh_.getParam("human_seq_topic",human_seq_topic))
+        {
+            ROS_DEBUG("human_seq_topic is not defined, using /human_model_seq");
+            human_seq_topic="/human_model_seq";
+        }
+        sub_seq = nh_.subscribe<avoidance_intervals::joint_seq>(human_seq_topic,1,&model::subscribe_sequence,this);
 
     }
 
@@ -454,6 +463,20 @@ namespace avoidance_intervals{
         }
     }
 
+    void model::subscribe_sequence(const avoidance_intervals::joint_seq::ConstPtr& msg) {
+        std::cout<<"receiving the sequence\n";
+        joint_seq.clear();
+        for (int i=0;i< msg->sequence.size();i++) {
+            Eigen::MatrixXd joint_pos(3,msg->sequence[i].joint_pos.data.size());
+            int c = 0;
+            for (int j=0;j<msg->sequence[i].joint_pos.data.size();j++) {
+                joint_pos.col(c)[j%3] = msg->sequence[i].joint_pos.data[j];
+                if ((j>0)&&(j%3==0)) c++;
+            }
+            joint_seq.push_back(std::pair<float,Eigen::MatrixXd>(msg->sequence[i].time.data,joint_pos));
+        }
+    }
+
     void merge_intervals(std::vector<Eigen::Vector3f> intervals, std::vector<Eigen::Vector3f> &combined_intervals, float &last_pass_time ) {
         // ROS_INFO_STREAM("intervals size:"<<intervals.size());
         last_pass_time = std::numeric_limits<float>::infinity();
@@ -595,11 +618,18 @@ namespace avoidance_intervals{
         {
             ROS_DEBUG("human_model_topic is not defined, using /human_model");
             human_model_topic="/human_model";
+        }   
+        std::string human_seq_topic;
+        if (!nh_.getParam("human_seq_topic",human_seq_topic))
+        {
+            ROS_DEBUG("human_seq_topic is not defined, using /human_model_seq");
+            human_seq_topic="/human_model_seq";
         }
         pts_pub_ = nh_.advertise<std_msgs::Float32MultiArray>( human_model_topic, 0, true);
+        seq_pub = nh_.advertise<avoidance_intervals::joint_seq>( human_seq_topic, 0, true);
     }
 
-    void skeleton::forward_kinematics(std::vector<float> pose_elements,std::vector<double> t_steps) {
+    void skeleton::forward_kinematics(std::vector<float> pose_elements,std::vector<double> t_steps, int idx) {
         // ROS_INFO_STREAM("forward kinematics "<<pose_elements.size());
         // if (prediction.data[31]>0) {
         //     ROS_INFO_STREAM("error");
@@ -618,25 +648,37 @@ namespace avoidance_intervals{
             quats.push_back(q);
             // ROS_INFO_STREAM("quat "<<q.w()<<" "<<q.vec().transpose());
         }
+        std::vector<Eigen::Vector3f> joint_locations;
+        joint_locations.push_back(pelvis_loc);
         Eigen::Quaternionf z_spine = quats[0]*z_axis_quat*quats[0].inverse();
         Eigen::Vector3f spine_top = pelvis_loc+link_lengths_[0]*z_spine.vec();
+        joint_locations.push_back(spine_top);
         // ROS_INFO_STREAM("spine top "<<spine_top.transpose());
         Eigen::Quaternionf z_neck = quats[1]*z_axis_quat*quats[1].inverse();
         Eigen::Vector3f head = spine_top+link_lengths_[1]*z_neck.vec();
+        joint_locations.push_back(head);
         // ROS_INFO_STREAM("head top "<<head.transpose());
         Eigen::Quaternionf z_shoulders = quats[2]*z_axis_quat*quats[2].inverse();
         Eigen::Vector3f l_shoulder = spine_top-0.5*link_lengths_[2]*z_shoulders.vec();
+        joint_locations.push_back(l_shoulder);
         // ROS_INFO_STREAM("l_shoulder "<<l_shoulder.transpose());
         Eigen::Quaternionf z_e1 = quats[3]*z_axis_quat*quats[3].inverse();
         Eigen::Vector3f e1 = l_shoulder+link_lengths_[3]*z_e1.vec();
+        joint_locations.push_back(e1 );
         Eigen::Quaternionf z_w1 = quats[4]*z_axis_quat*quats[4].inverse();
         Eigen::Vector3f w1 = e1+(link_lengths_[4]+0.1)*z_w1.vec();
+        joint_locations.push_back(w1);
         Eigen::Vector3f r_shoulder = spine_top+0.5*link_lengths_[2]*z_shoulders.vec();
+        joint_locations.push_back(r_shoulder);
         // ROS_INFO_STREAM("r_shoulder "<<r_shoulder.transpose());
         Eigen::Quaternionf z_e2 = quats[5]*z_axis_quat*quats[5].inverse();
         Eigen::Vector3f e2 = r_shoulder+link_lengths_[5]*z_e2.vec();
+        joint_locations.push_back(e2);
         Eigen::Quaternionf z_w2 = quats[6]*z_axis_quat*quats[6].inverse();
         Eigen::Vector3f w2 = e2+(link_lengths_[6]+0.1)*z_w2.vec();
+        joint_locations.push_back(w2);
+
+        joint_seq[idx] = std::pair<float,std::vector<Eigen::Vector3f>>(pose_elements[0],joint_locations);
 
         std::vector<Eigen::Matrix3f> rotations;
         std::vector<Eigen::MatrixXf> all_pts;
@@ -751,7 +793,7 @@ namespace avoidance_intervals{
                 if (i<w-1) {
                     t_steps.push_back(data[(i+1)*h]);
                 }
-                forward_kinematics(std::vector<float>(data.begin()+i*h,data.begin()+(i+1)*h-1),t_steps);
+                forward_kinematics(std::vector<float>(data.begin()+i*h,data.begin()+(i+1)*h-1),t_steps,i);
             }
         }
         // ROS_INFO_STREAM("t2");
@@ -983,7 +1025,7 @@ namespace avoidance_intervals{
         
     }
 
-    void skeleton::read_thread(std::vector<std::string> in_lines, std::string prev_line, std::string next_line,int thread_num) {
+    void skeleton::read_thread(std::vector<std::string> in_lines, std::string prev_line, std::string next_line,int thread_num, int start_id) {
         bool first_line = true;
         bool last_line = false;
         double last_time = 0.0;
@@ -1024,7 +1066,7 @@ namespace avoidance_intervals{
                 // std::cout<<"next time:"<<data[0]+time_diff<<", ";
             }
             // std::cout<<std::endl;
-            forward_kinematics(std::vector<float>(data.begin(),data.end()),t_steps);
+            forward_kinematics(std::vector<float>(data.begin(),data.end()),t_steps,start_id+i);
             time_diff = data[0]-last_time;
             last_time=data[0];
         }
@@ -1057,6 +1099,7 @@ namespace avoidance_intervals{
             ROS_INFO_STREAM("all lines "<<all_lines.size());
             myfile.close();
             int num_lines = all_lines.size()-1;
+            joint_seq.resize(num_lines);
             int num_lines_per_thread = ceil((float)num_lines/(float)num_threads_);
             for (int i = 0;i<num_threads_;i++) {
                 std::string prev_line;
@@ -1066,7 +1109,7 @@ namespace avoidance_intervals{
                 // if (i<num_threads_-1) next_line = all_lines[(i+1)*num_lines_per_thread];
                 if (!last_line) next_line = all_lines[(i+1)*num_lines_per_thread];
                 ROS_INFO_STREAM("starting thread "<<i<<", start line "<<i*num_lines_per_thread<<", last line "<<std::min((i+1)*num_lines_per_thread,num_lines));
-                threads.at(i)=std::thread(&skeleton::read_thread,this,std::vector<std::string>(all_lines.begin()+i*num_lines_per_thread,all_lines.begin()+std::min((i+1)*num_lines_per_thread,num_lines)),prev_line,next_line,i);
+                threads.at(i)=std::thread(&skeleton::read_thread,this,std::vector<std::string>(all_lines.begin()+i*num_lines_per_thread,all_lines.begin()+std::min((i+1)*num_lines_per_thread,num_lines)),prev_line,next_line,i,i*num_lines_per_thread);
                 if (last_line) break;
             }
             for (int i=0;i<num_threads_;i++)
@@ -1100,6 +1143,23 @@ namespace avoidance_intervals{
             return avoid_pts;
         }
 
+    }
+
+    void skeleton::publish_sequence(void) {
+        avoidance_intervals::joint_seq joint_sequence_msg;
+        avoidance_intervals::joint_seq_elem joint_seq_elem_msg;
+        std::cout<<"publishing the sequence of length:"<<int(joint_seq.size())<<std::endl;
+        for (int i=0;i<joint_seq.size();i++) {
+            joint_seq_elem_msg.time.data = joint_seq[i].first;
+            joint_seq_elem_msg.joint_pos.data.clear();
+            for (int j=0;j<joint_seq[i].second.size();j++) {
+                for (int k=0;k<3;k++) {
+                    joint_seq_elem_msg.joint_pos.data.push_back(joint_seq[i].second[j][k]);
+                }
+            }
+            joint_sequence_msg.sequence.push_back(joint_seq_elem_msg);
+        }
+        seq_pub.publish(joint_sequence_msg);
     }
 
 }
