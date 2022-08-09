@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(avoidance_intervals)
 add_compile_options(-std=c++14 -funroll-loops -Wall -Ofast)
-set(CMAKE_BUILD_TYPE Release)
+#set(CMAKE_BUILD_TYPE Release)
 #add_compile_options(-std=c++11)
-#set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 
 message(WARNING "find packages")
 find_package(catkin REQUIRED COMPONENTS
@@ -14,6 +14,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
   human_motion_prediction
+  geometry_msgs
 )
 
 # message(WARNING "find human motion predicition")
@@ -33,7 +34,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES avoidance_intervals
-  CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 std_msgs human_motion_prediction message_generation
+  CATKIN_DEPENDS moveit_core moveit_ros_planning roscpp velocity_scaling_iso15066 std_msgs human_motion_prediction message_generation geometry_msgs
   DEPENDS EIGEN3
 )
 include_directories(

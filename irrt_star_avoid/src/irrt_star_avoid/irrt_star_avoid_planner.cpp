@@ -399,7 +399,6 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
     pathplan::NodePtr goal_node=std::make_shared<pathplan::Node>(goal_configuration);
     COMMENT("adding goal to tree");
-    std::cout<<*goal_node;
     solver->addGoal(goal_node);
     at_least_a_goal=true;
   }
@@ -429,8 +428,8 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
   // searching initial solutions
   pathplan::PathPtr solution = solver->getSolution() ;
-  std::cout<<"solution nodes:"<<solver->getStartTree()->getNodes().size()<<std::endl;
-  for (NodePtr n:solver->getStartTree()->getNodes()) std::cout<<*n;
+  // std::cout<<"solution nodes:"<<solver->getStartTree()->getNodes().size()<<std::endl;
+  // for (NodePtr n:solver->getStartTree()->getNodes()) std::cout<<*n;
   bool found_a_solution=false;
   unsigned int iteration=0;
   ros::WallTime plot_time=ros::WallTime::now()-ros::WallDuration(100);
@@ -450,7 +449,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     // solver->update(solution); //samples for a new node and udpates the node-graph
     if (solver->update(solution))
     {
-      // ROS_DEBUG("Improved in %u iterations", iter);
+      ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost());
       solver->setSolved(true);
       // improved = true;
     }
@@ -612,18 +611,18 @@ void IRRTStarAvoid::spinThread(void) {
 }
 
 void IRRTStarAvoid::computeTransitions(double &tf, double &v0, double &vf, double &a1, double &a2, double v_max, double &t1, double &t2, bool recur) {
-    ROS_INFO_STREAM("start tf:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1:"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
+    // ROS_INFO_STREAM("start tf:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1:"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
   if (vf<=v0) a2 = -abs(a2);
   double a = 0.5*(a1-a2);
   double b = a2*tf-(vf-v0)*(a2/a1);
   double c = 1+0.5*(vf-v0)*(vf-v0)/a1-vf*tf;
-  ROS_INFO_STREAM("a:"<<a<<",b:"<<b<<",c:"<<c);
+  // ROS_INFO_STREAM("a:"<<a<<",b:"<<b<<",c:"<<c);
   double dt2_1;
   double dt2_2;
   double dt2;
   if (a!=0) {
     double r=b*b-4*a*c;
-    ROS_INFO_STREAM("r:"<<r);
+    // ROS_INFO_STREAM("r:"<<r);
     if (r<0) {
       double a_tf = a2*a2;
       double b_tf = 4*a*vf-2*a2*a2/a1*(vf-v0);
@@ -660,16 +659,16 @@ void IRRTStarAvoid::computeTransitions(double &tf, double &v0, double &vf, doubl
   if (!recur) {
     return;
   }
-  ROS_INFO_STREAM("t1:"<<t1<<", t2:"<<t2);
+  // ROS_INFO_STREAM("t1:"<<t1<<", t2:"<<t2);
   if (t1>tf) {
     a2 = -a2;
     computeTransitions(tf,v0,vf,a1,a2,v_max,t1,t2,false);
-    ROS_INFO_STREAM("tfc:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
+    // ROS_INFO_STREAM("tfc:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
   }
   if (t1<0) {
     a1 = -a1;
     computeTransitions(tf,v0,vf,a1,a2,v_max,t1,t2,false);
-    ROS_INFO_STREAM("tfb:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
+    // ROS_INFO_STREAM("tfb:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
   }
   if (dt2<0) {
     double tf_2, t1_2, t2_2, a1_2, a2_2;
@@ -680,9 +679,9 @@ void IRRTStarAvoid::computeTransitions(double &tf, double &v0, double &vf, doubl
     a2_2 = -a2;
 
     computeTransitions(tf_2,v0,vf,a1_2,a2_2,v_max,t1_2,t2_2,false);
-    ROS_INFO_STREAM("tf2:"<<tf_2<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1_2<<",a2:"<<a2_2<<",t1:"<<t1_2<<",t2:"<<t2_2);
+    // ROS_INFO_STREAM("tf2:"<<tf_2<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1_2<<",a2:"<<a2_2<<",t1:"<<t1_2<<",t2:"<<t2_2);
     tf = (1+0.5*(vf-v0)*(vf-v0)/a1)/vf;
-    ROS_INFO_STREAM("tf2:"<<tf);
+    // ROS_INFO_STREAM("tf2:"<<tf);
     if (tf_2<tf) {
       tf=tf_2;
       t1 = t1_2;
@@ -691,11 +690,11 @@ void IRRTStarAvoid::computeTransitions(double &tf, double &v0, double &vf, doubl
       a2 = a2_2;
     } else {
         computeTransitions(tf,v0,vf,a1,a2,v_max,t1,t2,false);
-        ROS_INFO_STREAM("tfa:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
+        // ROS_INFO_STREAM("tfa:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
     }
   }
   double v_mid = v0+a1*t1;
-    ROS_INFO_STREAM("v_mid:"<<v_mid<<", v_max:"<<v_max);
+    // ROS_INFO_STREAM("v_mid:"<<v_mid<<", v_max:"<<v_max);
   if (v_mid>v_max) {
     t1 = (v_max-v0)/a1;
     dt2 = (vf-v_max)/a2;
@@ -725,6 +724,7 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
     for (int i=1;i<int(waypoints.size());i++) {
         Eigen::VectorXd diff = waypoints[i]-waypoints[i-1];
         int num_pts = ceil((diff.array().abs()/max_velocity_.array()).maxCoeff()*num_q_steps_per_hz*hz+1);
+        if (waypoints[i].isApprox(waypoints[i-1])) num_pts = 1;
         int t_steps = ceil((waypoint_times[i]-waypoint_times[i-1])*hz);
         wp_t_steps.push_back(t_steps);
         Eigen::VectorXd dq = diff/num_pts;
@@ -759,19 +759,32 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
       seq_vels.push_back(Eigen::VectorXd::Zero(n_dof));
       seq_accs.push_back(Eigen::VectorXd::Zero(n_dof));
       seq_times.push_back(0.0);
-      ROS_INFO_STREAM("seq time:"<<seq_times.back());
-      ROS_INFO_STREAM(sequence.back().transpose());
-      ROS_INFO_STREAM(seq_vels.back().transpose());
-      ROS_INFO_STREAM(seq_accs.back().transpose());
+      // ROS_INFO_STREAM("seq time:"<<seq_times.back());
+      // ROS_INFO_STREAM(sequence.back().transpose());
+      // ROS_INFO_STREAM(seq_vels.back().transpose());
+      // ROS_INFO_STREAM(seq_accs.back().transpose());
     }
     sequence.push_back(q_array[0]);
     seq_vels.push_back(Eigen::VectorXd::Zero(n_dof));
     seq_accs.push_back(Eigen::VectorXd::Zero(n_dof));
     seq_times.push_back(prev_tf);
-    ROS_INFO_STREAM("seq time:"<<seq_times.back());
-    ROS_INFO_STREAM(sequence.back().transpose());
-    ROS_INFO_STREAM(seq_vels.back().transpose());
-    ROS_INFO_STREAM(seq_accs.back().transpose());
+    // ROS_INFO_STREAM("seq time:"<<seq_times.back());
+    // ROS_INFO_STREAM(sequence.back().transpose());
+    // ROS_INFO_STREAM(seq_vels.back().transpose());
+    // ROS_INFO_STREAM(seq_accs.back().transpose());
+
+    if ((int(q_array.size())==2) && (q_array[0].isApprox(q_array[1]))) {
+      sequence.push_back(q_array[0]);
+      seq_vels.push_back(Eigen::VectorXd::Zero(n_dof));
+      seq_accs.push_back(Eigen::VectorXd::Zero(n_dof));
+      seq_times.push_back(prev_tf);
+      // ROS_INFO_STREAM("seq time:"<<seq_times.back());
+      // ROS_INFO_STREAM(sequence.back().transpose());
+      // ROS_INFO_STREAM(seq_vels.back().transpose());
+      // ROS_INFO_STREAM(seq_accs.back().transpose());
+      // ROS_INFO_STREAM("same point, return");
+      return;
+    }
 
     for (int j=1;j<int(waypoints.size());j++) {
         double tf =  wp_t_steps[j-1];
@@ -782,7 +795,7 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
         double t1;
         double t2;
         computeTransitions(tf,v0,vf,a1,a2,double(num_q_steps_per_hz)/double((q_splits[j]-q_splits[j-1])), t1, t2, true);
-        ROS_INFO_STREAM(j<<"tf:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
+        // ROS_INFO_STREAM(j<<"tf:"<<tf<<",v0:"<<v0<<",vf:"<<vf<<",a1"<<a1<<",a2:"<<a2<<",t1:"<<t1<<",t2:"<<t2);
         if (tf>0) {
           double intercept = -0.5*a1*t1*t1;
           double slope = v0+a1*t1;
@@ -821,10 +834,10 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
           seq_vels.push_back(v0*num_pts*phase_step_to_q_steps[j-1]*hz);
           seq_accs.push_back(a1*num_pts*phase_step_to_q_steps[j-1]*hz*hz);
           seq_times.push_back(prev_tf);
-          ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
-          ROS_INFO_STREAM(sequence.back().transpose());
-          ROS_INFO_STREAM(seq_vels.back().transpose());
-          ROS_INFO_STREAM(seq_accs.back().transpose());
+          // ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
+          // ROS_INFO_STREAM(sequence.back().transpose());
+          // ROS_INFO_STREAM(seq_vels.back().transpose());
+          // ROS_INFO_STREAM(seq_accs.back().transpose());
 
           p=slope*t1+intercept;
           q_id = int(p*num_pts)+q_splits[j-1];
@@ -832,19 +845,19 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
           seq_vels.push_back(slope*num_pts*phase_step_to_q_steps[j-1]*hz);
           seq_accs.push_back(a1*num_pts*phase_step_to_q_steps[j-1]*hz*hz);
           seq_times.push_back(t1/double(hz)+prev_tf);
-          ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
-          ROS_INFO_STREAM(sequence.back().transpose());
-          ROS_INFO_STREAM(seq_vels.back().transpose());
-          ROS_INFO_STREAM(seq_accs.back().transpose());
+          // ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
+          // ROS_INFO_STREAM(sequence.back().transpose());
+          // ROS_INFO_STREAM(seq_vels.back().transpose());
+          // ROS_INFO_STREAM(seq_accs.back().transpose());
 
           sequence.push_back(q_array.at(q_id+1));
           seq_vels.push_back(slope*num_pts*phase_step_to_q_steps[j-1]*hz);
           seq_accs.push_back(Eigen::VectorXd::Zero(n_dof));
           seq_times.push_back(t1/double(hz)+prev_tf);
-          ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
-          ROS_INFO_STREAM(sequence.back().transpose());
-          ROS_INFO_STREAM(seq_vels.back().transpose());
-          ROS_INFO_STREAM(seq_accs.back().transpose());
+          // ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
+          // ROS_INFO_STREAM(sequence.back().transpose());
+          // ROS_INFO_STREAM(seq_vels.back().transpose());
+          // ROS_INFO_STREAM(seq_accs.back().transpose());
 
           p=1-vf*(tf-t2)+0.5*a2*(tf-t2)*(tf-t2);
           q_id = int(p*num_pts)+q_splits[j-1];
@@ -852,37 +865,37 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
           seq_vels.push_back(slope*num_pts*phase_step_to_q_steps[j-1]*hz);
           seq_accs.push_back(Eigen::VectorXd::Zero(n_dof));
           seq_times.push_back(t2/double(hz)+prev_tf);
-          ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
-          ROS_INFO_STREAM(sequence.back().transpose());
-          ROS_INFO_STREAM(seq_vels.back().transpose());
-          ROS_INFO_STREAM(seq_accs.back().transpose());
+          // ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
+          // ROS_INFO_STREAM(sequence.back().transpose());
+          // ROS_INFO_STREAM(seq_vels.back().transpose());
+          // ROS_INFO_STREAM(seq_accs.back().transpose());
 
           sequence.push_back(q_array.at(q_id+1));
           seq_vels.push_back(slope*num_pts*phase_step_to_q_steps[j-1]*hz);
           seq_accs.push_back(a2*num_pts*phase_step_to_q_steps[j-1]*hz*hz);
           seq_times.push_back(t2/double(hz)+prev_tf);
-          ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
-          ROS_INFO_STREAM(sequence.back().transpose());
-          ROS_INFO_STREAM(seq_vels.back().transpose());
-          ROS_INFO_STREAM(seq_accs.back().transpose());
+          // ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
+          // ROS_INFO_STREAM(sequence.back().transpose());
+          // ROS_INFO_STREAM(seq_vels.back().transpose());
+          // ROS_INFO_STREAM(seq_accs.back().transpose());
 
           sequence.push_back(q_array.at(q_splits[j]-1));
           seq_vels.push_back(vf*num_pts*phase_step_to_q_steps[j-1]*hz);
           seq_accs.push_back(a2*num_pts*phase_step_to_q_steps[j-1]*hz*hz);
           seq_times.push_back(tf/double(hz)+prev_tf);
-          ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
-          ROS_INFO_STREAM(sequence.back().transpose());
-          ROS_INFO_STREAM(seq_vels.back().transpose());
-          ROS_INFO_STREAM(seq_accs.back().transpose());
+          // ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
+          // ROS_INFO_STREAM(sequence.back().transpose());
+          // ROS_INFO_STREAM(seq_vels.back().transpose());
+          // ROS_INFO_STREAM(seq_accs.back().transpose());
 
           sequence.push_back(q_array.at(q_splits[j]-1));
           seq_vels.push_back(vf*num_pts*phase_step_to_q_steps[j-1]*hz);
           seq_accs.push_back(Eigen::VectorXd::Zero(n_dof));
           seq_times.push_back(tf/double(hz)+prev_tf);
-          ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
-          ROS_INFO_STREAM(sequence.back().transpose());
-          ROS_INFO_STREAM(seq_vels.back().transpose());
-          ROS_INFO_STREAM(seq_accs.back().transpose());
+          // ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
+          // ROS_INFO_STREAM(sequence.back().transpose());
+          // ROS_INFO_STREAM(seq_vels.back().transpose());
+          // ROS_INFO_STREAM(seq_accs.back().transpose());
           prev_tf = seq_times.back();
 
         } else {
@@ -891,10 +904,10 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
             seq_accs.push_back(Eigen::VectorXd::Zero(n_dof));
             seq_times.push_back(prev_tf);
             seq_ids.push_back(0);
-            ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
-            ROS_INFO_STREAM(sequence.back().transpose());
-            ROS_INFO_STREAM(seq_vels.back().transpose());
-            ROS_INFO_STREAM(seq_accs.back().transpose());
+            // ROS_INFO_STREAM(j<<"seq time:"<<seq_times.back());
+            // ROS_INFO_STREAM(sequence.back().transpose());
+            // ROS_INFO_STREAM(seq_vels.back().transpose());
+            // ROS_INFO_STREAM(seq_accs.back().transpose());
         }
     }
     // int sample_hz = 100;

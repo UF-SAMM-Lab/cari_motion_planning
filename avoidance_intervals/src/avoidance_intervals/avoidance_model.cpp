@@ -1034,9 +1034,12 @@ namespace avoidance_intervals{
         std::string substr;
         std::getline(ss,substr,',');     
         double t0 = std::stof(substr.c_str());
-        ss=std::stringstream(in_lines[1]); 
-        double t1 = std::stof(substr.c_str());
-        double time_diff = t1-t0;
+        double time_diff = 0.0;
+        if (int(in_lines.size())>1) {
+            ss=std::stringstream(in_lines[1]); 
+            double t1 = std::stof(substr.c_str());
+            time_diff = t1-t0;
+        }
         std::vector<double> t_steps; 
         if (!prev_line.empty()) {
             first_line = false;
@@ -1098,7 +1101,7 @@ namespace avoidance_intervals{
 
             ROS_INFO_STREAM("all lines "<<all_lines.size());
             myfile.close();
-            int num_lines = all_lines.size()-1;
+            int num_lines = all_lines.size();
             joint_seq.resize(num_lines);
             int num_lines_per_thread = ceil((float)num_lines/(float)num_threads_);
             for (int i = 0;i<num_threads_;i++) {
@@ -1109,6 +1112,7 @@ namespace avoidance_intervals{
                 // if (i<num_threads_-1) next_line = all_lines[(i+1)*num_lines_per_thread];
                 if (!last_line) next_line = all_lines[(i+1)*num_lines_per_thread];
                 ROS_INFO_STREAM("starting thread "<<i<<", start line "<<i*num_lines_per_thread<<", last line "<<std::min((i+1)*num_lines_per_thread,num_lines));
+                std::cout<<std::vector<std::string>(all_lines.begin(),all_lines.begin()+std::min((i+1)*num_lines_per_thread,num_lines)).size()<<std::endl;
                 threads.at(i)=std::thread(&skeleton::read_thread,this,std::vector<std::string>(all_lines.begin()+i*num_lines_per_thread,all_lines.begin()+std::min((i+1)*num_lines_per_thread,num_lines)),prev_line,next_line,i,i*num_lines_per_thread);
                 if (last_line) break;
             }
@@ -1145,11 +1149,12 @@ namespace avoidance_intervals{
 
     }
 
-    void skeleton::publish_sequence(void) {
+    void skeleton::publish_sequence(double start_time) {
         avoidance_intervals::joint_seq joint_sequence_msg;
         avoidance_intervals::joint_seq_elem joint_seq_elem_msg;
-        std::cout<<"publishing the sequence of length:"<<int(joint_seq.size())<<std::endl;
-        for (int i=0;i<joint_seq.size();i++) {
+        int start_i = std::min(int(floor(start_time/t_step_)),int(joint_seq.size())-1);
+        std::cout<<"publishing the sequence of length:"<<int(joint_seq.size())-start_i<<" starting from step "<<start_i<<std::endl;
+        for (int i=start_i;i<joint_seq.size();i++) {
             joint_seq_elem_msg.time.data = joint_seq[i].first;
             joint_seq_elem_msg.joint_pos.data.clear();
             for (int j=0;j<joint_seq[i].second.size();j++) {
@@ -1160,6 +1165,20 @@ namespace avoidance_intervals{
             joint_sequence_msg.sequence.push_back(joint_seq_elem_msg);
         }
         seq_pub.publish(joint_sequence_msg);
+    }
+
+    geometry_msgs::PoseArray skeleton::get_pose_at_time(double t) {
+        geometry_msgs::PoseArray poses;
+        geometry_msgs::Pose p;
+        int idx = round(t/t_step_);
+        if (idx>int(joint_seq.size())-1) return poses;
+        for (int j=0;j<joint_seq[idx].second.size();j++) {
+            p.position.x = joint_seq[idx].second[j][0];
+            p.position.y = joint_seq[idx].second[j][1];
+            p.position.z = joint_seq[idx].second[j][2];
+            poses.poses.push_back(p);
+        }
+        return poses;
     }
 
 }

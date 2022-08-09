@@ -39,6 +39,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <moveit/planning_scene/planning_scene.h>
 #include <rosdyn_core/primitives.h>
 #include <velocity_scaling_iso15066/ssm15066.h>
+#include <cmath>
 
 namespace pathplan
 {
@@ -148,7 +149,7 @@ public:
   void displayCollisionPoint(float radius,Eigen::Vector3f pos);
   void clearRobot(void);
   double checkISO15066(const Eigen::VectorXd& configuration1,
-                                              const Eigen::VectorXd& configuration2, double length, float t1, float t2, unsigned int nsteps) ;
+                                              const Eigen::VectorXd& configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) ;
   void updatePlanningScene(const planning_scene::PlanningScenePtr &planning_scene);
 
 };

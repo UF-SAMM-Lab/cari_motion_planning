@@ -103,7 +103,7 @@ public:
       l_box_ = l_box_.cwiseMax(lower_bound_);
       u_box_ = start_configuration.cwiseMax(stop_configuration)+q_dist_;
       u_box_ = u_box_.cwiseMin(upper_bound_);
-      setCost(cost);
+      // setCost(cost);
     }
     else {
       inf_cost_ = true;

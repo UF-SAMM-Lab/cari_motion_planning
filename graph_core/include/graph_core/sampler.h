@@ -107,7 +107,7 @@ public:
   }
 
   virtual Eigen::VectorXd sample();
-  void setCost(const double& cost);
+  virtual void setCost(const double& cost);
 
   virtual bool inBounds(const Eigen::VectorXd& q);
   virtual bool collapse()

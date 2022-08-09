@@ -127,11 +127,19 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
         success = false;
         // break;
     }
+    min_human_dist = 1.0;
+    if (use_iso15066_) {
+      // std::cout<<"c_new changed from "<<c_new<<" to ";
+      c_new = pc_avoid_checker->checkISO15066(parent->getConfiguration(),new_node->getConfiguration(),dist_new.norm(),c_near,c_new,ceil(dist_new.norm()/0.1),min_human_dist);
+      // std::cout<<c_new<<" with iso15066\n";
+    }
     //if avoidance intervals, loop over avoidance intervals to determine soonest time of passage from parent to new node
     if (!avoid_ints.empty() && success){
         bool found_avoid = false;
         double tmp_time = 0.0;
         double tmp_c_new = c_new;
+        double extra_time_to_avoid_slow_down;
+        double prev_slow_cost;
         for (int r=0;r<avoid_ints.size();r++) {
             // std::cout<<avoid_ints[r].transpose()<<std::endl;
             //if time to reach new node is within an avoidance interval +/- padding then set time to reach new node to the end of the avoidance interval
@@ -149,19 +157,20 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
                     near_time = avoid_ints[r][1]+t_pad_;
                 }
                 if (use_iso15066_) { //in case a little more slow down prevents an iso15066 slow down
-                  double extra_time_to_avoid_slow_down = 0.0;
-                  double prev_slow_cost = std::numeric_limits<double>::infinity();
-                  for (int i=0;i<100;i++) {
-                    double slow_cost = pc_avoid_checker->checkISO15066(parent->getConfiguration(),new_node->getConfiguration(),dist_new.norm(),near_time,tmp_time+i*0.1,1);
-                    std::cout<<"iso15066 cost:"<<slow_cost<<std::endl;
-                    if ((i>0) && (slow_cost>prev_slow_cost)) {
-                      extra_time_to_avoid_slow_down = prev_slow_cost-tmp_time;
-                      break;
-                    }
+                  extra_time_to_avoid_slow_down = std::numeric_limits<double>::infinity();
+                  prev_slow_cost = std::numeric_limits<double>::infinity();
+                  for (int i=0;i<5;i++) {
+                    double slow_cost = pc_avoid_checker->checkISO15066(parent->getConfiguration(),new_node->getConfiguration(),dist_new.norm(),near_time,tmp_time+double(i),ceil(dist_new.norm()/0.1),min_human_dist);
+                    // std::cout<<"iso15066 cost:"<<slow_cost<<std::endl;
+                    // if ((i>0) && (slow_cost>prev_slow_cost)) {
+                    //   extra_time_to_avoid_slow_down = prev_slow_cost-tmp_time;
+                    // }
+                    extra_time_to_avoid_slow_down = std::min(slow_cost-tmp_time,extra_time_to_avoid_slow_down);
+                    
                     prev_slow_cost = slow_cost;
                   }
                   tmp_time += extra_time_to_avoid_slow_down;
-                  std::cout<<" new iso time:"<<tmp_time<<std::endl;
+                  // std::cout<<" new iso time:"<<tmp_time<<std::endl;
                   if (tmp_time>tmp_c_new) {
                       tmp_c_new = tmp_time;
                       // near_time = avoid_ints[r][1]+t_pad_+extra_time_to_avoid_slow_down;
@@ -176,14 +185,27 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
         }
         if (found_avoid) {
             c_new = tmp_c_new;
-        }
+        } 
+        // else if (use_iso15066_) { //in case a little more slow down prevents an iso15066 slow down
+        //   extra_time_to_avoid_slow_down = 0.0;
+        //   prev_slow_cost = std::numeric_limits<double>::infinity();
+        //   for (int i=0;i<5;i++) {
+        //     double slow_cost = pc_avoid_checker->checkISO15066(parent->getConfiguration(),new_node->getConfiguration(),dist_new.norm(),near_time,tmp_c_new+double(i),ceil(dist_new.norm()/0.1),min_human_dist);
+        //     // std::cout<<"iso15066 cost:"<<slow_cost<<std::endl;
+        //     // if ((i>0) && (slow_cost>prev_slow_cost)) {
+        //     //   extra_time_to_avoid_slow_down = prev_slow_cost-tmp_time;
+        //     // }
+        //     extra_time_to_avoid_slow_down = std::min(slow_cost-tmp_c_new,extra_time_to_avoid_slow_down);
+            
+        //     prev_slow_cost = slow_cost;
+        //   }
+        //   tmp_c_new += extra_time_to_avoid_slow_down;
+        //   c_new = tmp_c_new;
+        // }
+        
         c_new = std::max(c_new,tmp_c_new);
 
         // std::cout<<"c_new, near time"<<c_new<<","<<near_time<<std::endl;
-      } else if (use_iso15066_) {
-        std::cout<<"c_new changed from "<<c_new<<" to ";
-        c_new = pc_avoid_checker->checkISO15066(parent->getConfiguration(),new_node->getConfiguration(),dist_new.norm(),c_near,c_new,dist_new.norm()/0.1);
-        std::cout<<c_new<<" with iso15066\n";
       }
     // PATH_COMMENT_STREAM("cnear:"<<c_near<<", c new:"<<c_near + time_new<<", c_new:"<<c_new<<", parent min time:"<<parent->min_time<<", last pass time:"<<last_pass_time<<","<<avoid_ints.size());
 

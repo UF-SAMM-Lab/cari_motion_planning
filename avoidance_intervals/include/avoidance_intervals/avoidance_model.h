@@ -14,6 +14,8 @@
 #include <std_msgs/Float32.h>
 #include <std_msgs/Float32MultiArray.h>
 #include <std_msgs/MultiArrayDimension.h>
+#include <geometry_msgs/PoseArray.h>
+#include <geometry_msgs/Pose.h>
 #include <string>
 #include <sstream>
 #include <exception>
@@ -123,8 +125,9 @@ namespace avoidance_intervals{
             void callback(const human_motion_prediction::human_pose::ConstPtr& msg);
             void publish_pts(std::vector<Eigen::VectorXf> pts);
             void read_thread(std::vector<std::string> in_lines, std::string prev_line, std::string next_line,int thread_num, int start_id);
-            void publish_sequence(void);
+            void publish_sequence(double start_time);
             std::vector<Eigen::VectorXf> read_human_task(int task_num, Eigen::Isometry3f transform);
+            geometry_msgs::PoseArray get_pose_at_time(double t);
             double end_time_;
             double t_step_;
             bool ready =  false;

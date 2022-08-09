@@ -50,7 +50,7 @@ Eigen::VectorXd TimeInformedSampler::sample()
       ball.setRandom();
       ball *= std::pow(ud_(gen_), 1.0 / (double)ndof_) / ball.norm();
 
-      Eigen::VectorXd q = q_range_ * ball + q_mid_;
+      Eigen::VectorXd q = q_range_.cwiseProduct(ball) + q_mid_;
 
       bool in_of_bounds = true;
       for (unsigned int iax = 0; iax < ndof_; iax++)
@@ -92,11 +92,28 @@ void TimeInformedSampler::setCost(const double &cost)
   cost_ = cost;
   inf_cost_ = cost_ >= std::numeric_limits<double>::infinity();
 
-  if (cost_ < utopia_)
+  // if (cost_ < utopia_)
+  // {
+  //   ROS_WARN("cost is %f, utopia_ is %f", cost_, utopia_);
+  //   cost_ = utopia_;
+  // }
+
+  if (!inf_cost_)
   {
-    ROS_WARN("cost is %f, utopia_ is %f", cost_, utopia_);
-    cost_ = utopia_;
+    //generate bounds of hyperrectangle
+    q_dist_ = 0.5*(cost*max_vel_-(stop_configuration_-start_configuration_).cwiseAbs());
+    l_box_ = start_configuration_.cwiseMin(stop_configuration_)-q_dist_;
+    l_box_ = l_box_.cwiseMax(lower_bound_);
+    u_box_ = start_configuration_.cwiseMax(stop_configuration_)+q_dist_;
+    u_box_ = u_box_.cwiseMin(upper_bound_);
   }
+  else {
+    l_box_ = lower_bound_;
+    u_box_ = upper_bound_;
+  }
+
+  q_range_ = (u_box_-l_box_);
+  q_mid_ = 0.5*(u_box_+l_box_);
 
 
   specific_volume_=1.0;

@@ -472,26 +472,37 @@ void ParallelRobotPointClouds::displayCollisionPoint(float radius,Eigen::Vector3
 }
 
 double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configuration1,
-                                              const Eigen::VectorXd& configuration2, double length, float t1, float t2, unsigned int nsteps) {
+                                              const Eigen::VectorXd& configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) {
     float nominal_time = t2-t1;
+    min_human_dist = 1.0;
+    // std::cout<<int(model_->joint_seq.size());
     if (model_->joint_seq.empty()) return t2;
     double model_t_step = model_->joint_seq[1].first - model_->joint_seq[0].first;
-    Eigen::VectorXd nominal_velocity= (configuration1 - configuration2)/nominal_time;
+    Eigen::VectorXd nominal_velocity= (configuration2 - configuration1)/nominal_time;
     double cost=0;
     double inv_nsteps = 1.0 / nsteps;
     double segment_time = nominal_time / nsteps;
-    for (unsigned int istep = 0; istep < nsteps; istep++)
+    for (unsigned int istep = 0; istep < nsteps+1; istep++)
     { 
-      int step_num = std::min(int((t1+istep*segment_time)/model_t_step),int(model_->joint_seq.size())-1);
-      ssm_->setPointCloud(model_->joint_seq[step_num].second);
-      Eigen::VectorXd q = configuration1 + (configuration2 - configuration1) * inv_nsteps * (istep+0.5);
+      int step_num = int((t1+(double)istep*segment_time)/model_t_step);
+      if (step_num<model_->joint_seq.size()) {
+        ssm_->setPointCloud(model_->joint_seq[step_num].second);
+      } else {
+        ssm_->setPointCloud(Eigen::Matrix3Xd());
+      }
+      Eigen::VectorXd q = configuration1 + (configuration2 - configuration1) * inv_nsteps * (double)istep;
 
       double scaling=ssm_->computeScaling(q,nominal_velocity);
-      if (scaling==0.0) std::cout<<"zero speed\n";
+      min_human_dist = (float)scaling;
+      // std::cout<<","<<min_human_dist<<",";
+
+      // std::cout<<q.transpose()<<", scale:"<<scaling<<", "<<model_t_step<<std::endl;
+      // if (scaling==0.0) std::cout<<"zero speed\n";
       cost+=segment_time/(scaling+1e-6); //avoid division by zero
     }
+    // std::cout<<std::endl;
 
-    return cost+t1;
+    return cost+(double)t1;
     // state->setVariablePositions(configuration1);
     // Eigen::MatrixXd jacobian = state->getJacobian(joint_model_group);
     // Eigen::MatrixXd robot_cart_vels1 = jacobian.colwise()*max_q_dot_;

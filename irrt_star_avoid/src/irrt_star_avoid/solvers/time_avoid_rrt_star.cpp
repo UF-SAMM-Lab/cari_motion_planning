@@ -94,7 +94,7 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
 
     path_cost_ = goal_node_->parent_connections_[0]->getCost();
     // ROS_INFO_STREAM("path cost is "<<path_cost_);
-    sampler_->setCost(std::numeric_limits<double>::infinity());
+    sampler_->setCost(path_cost_);
     // ROS_INFO_STREAM("set sampler cost");
     // ROS_INFO_STREAM("added goal node "<<goal_node_);
 
@@ -181,8 +181,8 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
     solution_->setTree(start_tree_);
 
     path_cost_ = start_tree_->costToNode(goal_node_) ;
-    cost_ = path_cost_+goal_cost_;
-    sampler_->setCost(std::numeric_limits<double>::infinity());
+    cost_ = path_cost_;
+    sampler_->setCost(cost_);
   }
   solution = solution_;
   // PATH_COMMENT_STREAM("num nodes "<<start_tree_->getNodes().size());
@@ -218,8 +218,8 @@ bool TimeAvoidRRTStar::update(const NodePtr& n, PathPtr& solution)
     solution_->setTree(start_tree_);
     //path min cost is the cost (time of occupancy) of the goal node
     path_cost_ = goal_node_->parent_connections_.at(0)->getCost();
-    cost_ = path_cost_+goal_cost_;
-    sampler_->setCost(std::numeric_limits<double>::infinity());
+    cost_ = path_cost_;
+    sampler_->setCost(cost_);
   }
   solution = solution_;
   return improved;

@@ -430,19 +430,19 @@ std::vector<double> Path::getTiming()
   
   for (const ConnectionPtr& conn : connections_) {
     std::vector<Eigen::Vector3f> tmp_cons = conn->getAvoidIntervals();
-    std::cout<<tmp_cons.size()<<std::endl;
-    for (int i=0;i<tmp_cons.size();i++) {
-      std::cout<<"i:"<<i<<", interval "<<tmp_cons[i].transpose()<<std::endl;
-    }
+    // std::cout<<tmp_cons.size()<<std::endl;
+    // for (int i=0;i<tmp_cons.size();i++) {
+    //   std::cout<<"i:"<<i<<", interval "<<tmp_cons[i].transpose()<<std::endl;
+    // }
     std::cout<<conn->getParent()->getConfiguration().transpose()<<"->"<<conn->getChild()->getConfiguration().transpose()<<std::endl;
-    std::cout<<", parent time:"<<conn->getParentTime()<<", "<<conn->getParent()->min_time<<","<<conn->getMinTime()<<","<<conn->getChild()->potential_parent_connections_.size()<<", cost:"<<conn->getCost()<<std::endl;
+    std::cout<<", parent time:"<<conn->getParentTime()<<", cost:"<<conn->getCost()<<", slow down factor:"<<conn->getMinHumanDist()<<std::endl;
     times.push_back(conn->getParentTime());
   }
   ROS_INFO("last connection...");
   ConnectionPtr conn = connections_.back();
-  std::cout<<"goal time...\n";
+  // std::cout<<"goal time...\n";
   std::cout<<"goal time: "<<conn->getCost()<<std::endl;
-  std::cout<<"parent time:"<<conn->getParentTime()<<", "<<conn->getParent()->min_time<<","<<conn->getMinTime()<<","<<conn->getChild()->potential_parent_connections_.size()<<std::endl;
+  // std::cout<<"parent time:"<<conn->getParentTime()<<", "<<conn->getParent()->min_time<<","<<conn->getMinTime()<<","<<conn->getChild()->potential_parent_connections_.size()<<std::endl;
 
   times.push_back(conn->getCost());
 
