@@ -497,8 +497,20 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
       // std::cout<<","<<min_human_dist<<",";
 
       // std::cout<<q.transpose()<<", scale:"<<scaling<<", "<<model_t_step<<std::endl;
-      // if (scaling==0.0) std::cout<<"zero speed\n";
-      cost+=segment_time/(scaling+1e-6); //avoid division by zero
+      double max_seg_time = segment_time/(scaling+1e-6);
+      if (scaling==0.0) {
+        for (int i=0;i<10;i++) {
+          if (step_num+i<model_->joint_seq.size()) {
+            ssm_->setPointCloud(model_->joint_seq[step_num+i].second);
+            scaling=ssm_->computeScaling(q,nominal_velocity);
+            if (scaling>0) { 
+              max_seg_time = segment_time/scaling;
+              break;
+            }
+          }
+        }
+      }
+      cost+=max_seg_time; //avoid division by zero
     }
     // std::cout<<std::endl;
 

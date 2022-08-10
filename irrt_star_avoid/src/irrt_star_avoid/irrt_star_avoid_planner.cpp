@@ -176,6 +176,12 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
     allow_goal_collision=false;
   }
 
+  if (!m_nh.getParam("max_connection_cost",max_connection_cost))
+  {
+    ROS_DEBUG("max_connection_cost is not set, default=60.0");
+    max_connection_cost=60.0;
+  }
+
   m_ud = std::uniform_real_distribution<double>(0, 1);
     
   COMMENT("init avoidance model");
@@ -533,6 +539,15 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   std::vector<Eigen::VectorXd> waypoints=solution->getWaypoints();// PUT WAY POINTS
   COMMENT("Get waypoint timing");
   std::vector<double> waypoint_times=solution->getTiming();// PUT WAY POINTS
+  std::vector<double> tmp_waypoint_times = waypoint_times;
+  if (tmp_waypoint_times[0]>max_connection_cost) tmp_waypoint_times[0] = max_connection_cost;
+  for (int i=1;i<tmp_waypoint_times.size();i++) {
+    if ((waypoint_times[i]-waypoint_times[i-1])>max_connection_cost) {
+      tmp_waypoint_times[i] = tmp_waypoint_times[i-1]+max_connection_cost;
+      ROS_WARN("fixing waypoint timing");
+    }
+  }
+
   std::vector<Eigen::VectorXd> wp_sequence;
   std::vector<Eigen::VectorXd> wp_vels;
   std::vector<Eigen::VectorXd> wp_accs;

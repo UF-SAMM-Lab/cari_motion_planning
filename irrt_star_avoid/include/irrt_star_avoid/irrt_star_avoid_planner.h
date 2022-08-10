@@ -124,6 +124,7 @@ protected:
   bool display_flag=false;
   int max_iterations = 0;
   bool allow_goal_collision = false;
+  double max_connection_cost;
 
 private:
   ros::Publisher vis_pub_;

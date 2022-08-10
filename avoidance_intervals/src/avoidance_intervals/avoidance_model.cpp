@@ -679,6 +679,7 @@ namespace avoidance_intervals{
         joint_locations.push_back(w2);
 
         joint_seq[idx] = std::pair<float,std::vector<Eigen::Vector3f>>(pose_elements[0],joint_locations);
+        quat_seq[idx] = std::pair<float,std::vector<Eigen::Quaternionf>>(pose_elements[0],quats);
 
         std::vector<Eigen::Matrix3f> rotations;
         std::vector<Eigen::MatrixXf> all_pts;
@@ -1103,6 +1104,7 @@ namespace avoidance_intervals{
             myfile.close();
             int num_lines = all_lines.size();
             joint_seq.resize(num_lines);
+            quat_seq.resize(num_lines);
             int num_lines_per_thread = ceil((float)num_lines/(float)num_threads_);
             for (int i = 0;i<num_threads_;i++) {
                 std::string prev_line;
@@ -1179,6 +1181,11 @@ namespace avoidance_intervals{
             poses.poses.push_back(p);
         }
         return poses;
+    }
+    std::vector<Eigen::Quaternionf> skeleton::get_quats_at_time(double t) {
+        int idx = round(t/t_step_);
+        if (idx>int(joint_seq.size())-1) return std::vector<Eigen::Quaternionf>();
+        return quat_seq[idx].second;
     }
 
 }

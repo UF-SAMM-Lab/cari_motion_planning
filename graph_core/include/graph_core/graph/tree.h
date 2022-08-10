@@ -220,7 +220,7 @@ public:
   void rewireTimeAvoidCheckChildren(NodePtr n, int iterations);
   std::vector<NodePtr> getNodesToNode(NodePtr node);
   std::vector<NodePtr> getNodesFromNode(NodePtr node);
-  void rewireNearToTheirChildren (NodePtr n);
+  void rewireNearToTheirChildren (NodePtr n,int i);
   void rewireNearToBetterParents (NodePtr n);
 };
 

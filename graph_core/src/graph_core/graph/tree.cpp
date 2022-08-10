@@ -653,9 +653,9 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       if (!n->parent_connections_.empty()) {
         //when removing a parent, note that the parent node could potentially be a parent of this node again
         n->parent_connections_.at(0)->remove();
-        if (n==goal_node_) {
-          PATH_COMMENT_STREAM("GOAL NODE REWIRE:"<<goal_node_->potential_parent_connections_.size());
-        }
+        // if (n==goal_node_) {
+        //   PATH_COMMENT_STREAM("GOAL NODE REWIRE:"<<goal_node_->potential_parent_connections_.size());
+        // }
       }
       // std::cout<<"Test\n";
       //make new connection between node and n
@@ -674,7 +674,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       // std::cout<<"test2\n";
 
       if (time_avoid_) {
-        rewireNearToTheirChildren(n);
+        rewireNearToTheirChildren(n,0);
         rewireNearToBetterParents(n);
       }
       //should i call rewire_only on all child nodes of node n?
@@ -693,7 +693,8 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
   return improved;
 }
 
-void Tree::rewireNearToTheirChildren (NodePtr n) {
+void Tree::rewireNearToTheirChildren (NodePtr n,int i) {
+  if (i>2) return;
   double cost_to_n = costToNode(n);
   // std::cout<<"rewire n has:"<<n->child_connections_.size()<<" children\n";
   for (ConnectionPtr conn:n->child_connections_) {
@@ -715,6 +716,7 @@ void Tree::rewireNearToTheirChildren (NodePtr n) {
     conn->setMinTime(inv_max_speed_,min_accel_time);
     conn->add();   
     conn->setCost(cost_n_to_child);
+    rewireNearToTheirChildren(n_child,i+1);
     // std::cout<<"rewire near to children, parent has:"<<conn->getParent()->parent_connections_.size()<<" parents\n";
   }
 }

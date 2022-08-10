@@ -115,6 +115,7 @@ namespace avoidance_intervals{
     class skeleton {
         public:
             std::vector<std::pair<float,std::vector<Eigen::Vector3f>>> joint_seq;
+            std::vector<std::pair<float,std::vector<Eigen::Quaternionf>>> quat_seq;
             mutable std::mutex _mtx;
             mutable std::mutex _mtx_read;
             std::vector<Eigen::MatrixXf> raw_limb_points;
@@ -128,6 +129,7 @@ namespace avoidance_intervals{
             void publish_sequence(double start_time);
             std::vector<Eigen::VectorXf> read_human_task(int task_num, Eigen::Isometry3f transform);
             geometry_msgs::PoseArray get_pose_at_time(double t);
+            std::vector<Eigen::Quaternionf> get_quats_at_time(double t);
             double end_time_;
             double t_step_;
             bool ready =  false;
