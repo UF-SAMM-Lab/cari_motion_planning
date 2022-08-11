@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(graph_core)
 add_compile_options(-std=c++14 -funroll-loops -Wall -Ofast)
-#set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Release)
+#set(CMAKE_BUILD_TYPE Debug)
 
 
 find_package(catkin REQUIRED COMPONENTS
@@ -64,7 +64,7 @@ add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}/graph/path.cpp
   src/${PROJECT_NAME}/graph/graph_display.cpp
   src/${PROJECT_NAME}/solvers/multigoal.cpp
-  #src/${PROJECT_NAME}/solvers/time_multigoal.cpp
+  src/${PROJECT_NAME}/solvers/time_multigoal.cpp
   src/${PROJECT_NAME}/solvers/tree_solver.cpp
   src/${PROJECT_NAME}/solvers/birrt.cpp
   src/${PROJECT_NAME}/solvers/rrt_star.cpp

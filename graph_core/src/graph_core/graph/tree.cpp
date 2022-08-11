@@ -286,11 +286,13 @@ bool Tree::extendToNode(const NodePtr& node,
   // }
   // PATH_COMMENT_STREAM("end of ints");
   conn->add();
-  conn->setParentTime(n_time);
+  if (time_avoid_) conn->setParentTime(n_time);
   // PATH_COMMENT_STREAM("setting cost for connection");
   conn->setCost(cost);
-  conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
-  conn->setMinTime(inv_max_speed_,min_accel_time);
+  if (time_avoid_) {
+    conn->setAvoidIntervals(avoid_ints,last_pass_time,min_human_dist);
+    conn->setMinTime(inv_max_speed_,min_accel_time);
+  }
   // PATH_COMMENT_STREAM("new node connection done");
 
   return true;

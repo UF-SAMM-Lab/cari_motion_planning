@@ -37,7 +37,7 @@ namespace avoidance_intervals{
     std::vector<Eigen::VectorXf> determine_intervals(std::vector<Eigen::Vector4f> points, float end_time, int id, visualization_msgs::Marker &marker) {
         // ROS_INFO_STREAM("end time:"<<end_time);
         std::sort(points.begin(),points.end(),eigen_sort_rows_by_columns);
-        display_markers(points,marker);
+        // display_markers(points,marker);
         double min_t = points.at(0)[3];
         double max_t = min_t;
         double dt = 0.2;
@@ -741,9 +741,9 @@ namespace avoidance_intervals{
         all_pts.push_back(oversampled_pts);
         // ROS_INFO_STREAM("pose r fore \n"<<rotations[6]);
         // ROS_INFO_STREAM("end");
-        visualization_msgs::Marker marker;
-        display_markers(all_pts,marker);
-        if (marker.points.size()>0) vis_pub_.publish(marker);
+        // visualization_msgs::Marker marker;
+        // // display_markers(all_pts,marker);
+        // if (marker.points.size()>0) vis_pub_.publish(marker);
         // ROS_INFO_STREAM("waiting for enter");
         // std::cin.ignore();
         std::vector<Eigen::Vector4f> reduced_pts = remove_duplicates_add_time(all_pts,pose_elements[0],t_steps,t_step_);
