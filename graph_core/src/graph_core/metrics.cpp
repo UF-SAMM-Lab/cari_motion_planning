@@ -39,7 +39,7 @@ Metrics::Metrics()
 double Metrics::cost(const NodePtr& node1,
                      const NodePtr& node2)
 {
-  PATH_COMMENT_STREAM("metrics cost fn 1");
+  // PATH_COMMENT_STREAM("metrics cost fn 1");
   return cost(node1->getConfiguration(), node2->getConfiguration());
 }
 
@@ -47,14 +47,14 @@ double Metrics::cost(const NodePtr& node1,
 double Metrics::cost(const Eigen::VectorXd& configuration1,
                      const Eigen::VectorXd& configuration2)
 {
-  PATH_COMMENT_STREAM("metrics cost fn 2");
+  // PATH_COMMENT_STREAM("metrics cost fn 2");
   return (configuration1 - configuration2).norm();
 }
 
 double Metrics::cost(const NodePtr& parent,
                               const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints,float &last_pass_time, float &min_human_dist)
 {
-  PATH_COMMENT_STREAM("metrics cost fn 3");
+  // PATH_COMMENT_STREAM("metrics cost fn 3");
   return cost(parent,new_node);
 }
 

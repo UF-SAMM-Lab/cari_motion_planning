@@ -79,7 +79,7 @@ public:
     gen_{rd_()}//gen_(time(0))
   {
     ud_ = std::uniform_real_distribution<double>(0, 1);
-    std::cout<<"test1\n";
+    // std::cout<<"test1\n";
     ndof_ = lower_bound_.rows();
     ellipse_center_ = 0.5 * (start_configuration_ + stop_configuration_);
     focii_distance_ = (start_configuration_ - stop_configuration_).norm();
@@ -89,7 +89,7 @@ public:
 
     rot_matrix_ = computeRotationMatrix(start_configuration_, stop_configuration_);
 
-    std::cout<<"test2\n";
+    // std::cout<<"test2\n";
     ROS_DEBUG_STREAM("rot_matrix_:\n" << rot_matrix_);
     ROS_DEBUG_STREAM("ellipse center" << ellipse_center_.transpose());
     ROS_DEBUG_STREAM("focii_distance_" << focii_distance_);

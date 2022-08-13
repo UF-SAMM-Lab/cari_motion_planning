@@ -196,7 +196,7 @@ bool Tree::extendOnly(NodePtr& closest_node, NodePtr &new_node, ConnectionPtr &c
 
   connection = conn;
   addNode(new_node);
-  // ROS_INFO_STREAM("added node1:"<<new_node<<"\n"<<*new_node);
+  // ROS_INFO_STREAM("added node1:"<<new_node);
   // addNode(new_node,false);
 
   return true;
@@ -260,7 +260,7 @@ bool Tree::extendToNode(const NodePtr& node,
   {
     attached = true;
     new_node = node;
-    std::cout<<"attaching:"<<*new_node;
+    // std::cout<<"attaching:"<<*new_node;
   }
   else
   {
@@ -390,9 +390,9 @@ bool Tree::connectToNode(const NodePtr &node, NodePtr &new_node, const double &m
   {
     NodePtr tmp_node;
     // PATH_COMMENT_STREAM("calling extend");
-    std::cout<<*node;
+    // std::cout<<*node;
     success = extendToNode(node, tmp_node); //tmp_node will be a new node in direction of parent->node
-    std::cout<<"after extend:"<<*node;
+    // std::cout<<"after extend:"<<*node;
     if (success)
     {
       // PATH_COMMENT_STREAM("extended\n"<<*node<<"\n to \n"<<*tmp_node);
@@ -497,6 +497,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
   double cost_node_to_near;
   if(rewire_parent)
   {
+    // ROS_INFO_STREAM("node parents:"<<node->getParents().size());
     // ROS_INFO_STREAM("try to find a better parent between "<<near_nodes.size()<<" nodes w/ time avoid:"<<time_avoid_);
     NodePtr nearest_node = node->getParents().at(0);
     // std::cout<<"node:"<<*node<<std::endl;
@@ -543,6 +544,8 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       //   if (cost_near_to_node >= cost_to_node)
       //     continue;
       // }
+
+      if ((!time_avoid_) && (((cost_near_to_node + cost_to_near) >= cost_to_node))) continue;
       //check for collisions between robot and real-time obstacles at configs along path from parent to node
       //JF - need to ensure the predicted obstacles are not part of this planning scene
       // if ((n!=goal_node_)||(nodes_->l2_dist(n,goal_node_->getConfiguration())>2)) {
@@ -551,7 +554,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       // }
       //a better parent has been found and doesn't cause collision
       //remove old parent
-
+      if (!time_avoid_) node->parent_connections_.at(0)->remove();
       //make a new connect from better parent to node
       ConnectionPtr conn = std::make_shared<Connection>(n, node);
       //edge cost is l2 distance or time to reach new node
@@ -562,13 +565,15 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       } 
       conn->add();
       conn->setCost(cost_near_to_node);
-
       // if (((cost_to_near + cost_near_to_node) >= cost_to_node)) {
-      if (((cost_near_to_node) >= cost_to_node)) {
-        conn->remove();
-        continue;
-      } else {
-        node->parent_connections_.at(0)->remove();
+      if (time_avoid_) {
+        if (((cost_near_to_node) >= cost_to_node)) {
+          conn->removeCache();
+          continue;
+        } else {
+          // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
+          node->parent_connections_.at(0)->removeCache();
+        }
       }
       // std::cout<<"cost to node:"<<cost_to_node<<", new cost:"<<cost_to_near + cost_near_to_node<<std::endl;
       // std::cout<<"from node:"<<*n<<std::endl;
@@ -643,18 +648,28 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       //if the cost to reach n via node is not less than cost to reach n via n.parent, then skip
       // if ((cost_to_node + cost_node_to_near) >= cost_to_near)
       //   continue;
-
-      if ((cost_node_to_near) >= cost_to_near)
-        continue;
+      if (time_avoid_) {
+        if ((cost_node_to_near) >= cost_to_near)
+          continue;
+      } else {
+        if ((cost_node_to_near+cost_to_node) >= cost_to_near)
+          continue;
+      }
       //node could still be a better parent to n, check for collision between node and n
       if ((n!=goal_node_)||(nodes_->l2_dist(n,goal_node_->getConfiguration())>2)) {
         if (!checker_->checkPath(node->getConfiguration(), n->getConfiguration()))
           continue;
       }
+
+      // ROS_INFO_STREAM("node parents rewire child:"<<node->parent_connections_.size());
       //node is a better parent for n and path is collision free, remove old n.parent
       if (!n->parent_connections_.empty()) {
         //when removing a parent, note that the parent node could potentially be a parent of this node again
-        n->parent_connections_.at(0)->remove();
+        if (time_avoid_) {
+          n->parent_connections_.at(0)->removeCache();
+        } else {
+          n->parent_connections_.at(0)->remove();
+        }
         // if (n==goal_node_) {
         //   PATH_COMMENT_STREAM("GOAL NODE REWIRE:"<<goal_node_->potential_parent_connections_.size());
         // }
@@ -676,8 +691,14 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       // std::cout<<"test2\n";
 
       if (time_avoid_) {
+        // ROS_INFO_STREAM("here");
         rewireNearToTheirChildren(n,0);
+        // ROS_INFO_STREAM("here1");
         rewireNearToBetterParents(n);
+        // ROS_INFO_STREAM("here2");
+        improved = !goal_node_->getParents().empty();
+      } else {
+        improved = true;
       }
       //should i call rewire_only on all child nodes of node n?
 
@@ -687,7 +708,7 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       // }
       // PATH_COMMENT_STREAM("end of ints");
 
-      improved = !goal_node_->getParents().empty();
+      
     }
   }
   // std::cout<<"rewire child hass:"<<node->parent_connections_.size()<<" parents\n";
@@ -708,9 +729,10 @@ void Tree::rewireNearToTheirChildren (NodePtr n,int i) {
     float min_human_dist;
     double cost_n_to_child = metrics_->cost(n, n_child, node_time,avoid_ints,last_pass_time,min_human_dist);
     if (cost_n_to_child >= cost_to_child) continue;      
-    // if (!checker_->checkPath(n_p->getConfiguration(), n->getConfiguration())) continue;      
+    // if (!checker_->checkPath(n_p->getConfiguration(), n->getConfiguration())) continue;  
+      // ROS_INFO_STREAM("node parents rewire child1:"<<n_child->parent_connections_.size());    
     if (!n_child->parent_connections_.empty()) {
-      n_child->parent_connections_.at(0)->remove();
+        n_child->parent_connections_.at(0)->removeCache();
     }
     // ConnectionPtr conn = std::make_shared<Connection>(n, n_child);
     conn->setParentTime(node_time);
@@ -748,9 +770,10 @@ void Tree::rewireNearToBetterParents (NodePtr n) {
     float min_human_dist;
     double cost_parent_to_n = metrics_->cost(n_parent, n, node_time,avoid_ints,last_pass_time,min_human_dist);
     if (cost_parent_to_n >= cost_to_n) continue;      
-    // if (!checker_->checkPath(n_p->getConfiguration(), n->getConfiguration())) continue;      
+    // if (!checker_->checkPath(n_p->getConfiguration(), n->getConfiguration())) continue;  
+      // ROS_INFO_STREAM("node parents rewire child2:"<<n->parent_connections_.size());        
     if (!n->parent_connections_.empty()) {
-      n->parent_connections_.at(0)->remove();
+      n->parent_connections_.at(0)->removeCache();
     }
     // ConnectionPtr conn = std::make_shared<Connection>(n, n_child);
     conn->setParentTime(node_time);
@@ -1184,7 +1207,7 @@ bool Tree::rewire(const Eigen::VectorXd &configuration, double r_rewire, NodePtr
     // ROS_INFO_STREAM("fail:"<<*new_node);
     return false;
   }
-  // ROS_INFO_STREAM("success:\n"<<*new_node);
+  // ROS_INFO_STREAM("success:"<<new_node);
   // PATH_COMMENT_STREAM("rewire only");
   return rewireOnly(new_node,r_rewire);
 }
@@ -1237,6 +1260,7 @@ double Tree::costToNode(NodePtr node)
   if (!time_avoid_) {
     while (node != root_)
     {
+      ROS_INFO_STREAM("getting cost:"<<node);
       if (node->parent_connections_.size() != 1)
       {
         ROS_ERROR_STREAM("a tree node should have exactly a parent. this node has "<<node->parent_connections_.size()<<": "<<*node);

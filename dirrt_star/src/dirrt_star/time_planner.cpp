@@ -279,6 +279,7 @@ bool TimeBasedMultiGoalPlanner::solve ( planning_interface::MotionPlanDetailedRe
     }
 
     solver->update(solution);
+    ROS_INFO_STREAM("iteration:"<<iteration);
     if (!found_a_solution && solver->solved())
     {
       assert(solution);

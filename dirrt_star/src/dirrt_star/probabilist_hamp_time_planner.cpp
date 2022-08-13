@@ -39,10 +39,16 @@ ProbabilisticHAMPTimeBasedMultiGoalPlanner::ProbabilisticHAMPTimeBasedMultiGoalP
 {
   probabilistic_avoidance_metrics_=std::make_shared<pathplan::ProbabilistcAvoidanceTimeMetrics>(max_velocity_,nu_,nh_);
   avoidance_metrics_=probabilistic_avoidance_metrics_;
+  metrics_=avoidance_metrics_;
+  world_frame_=avoidance_metrics_->getBaseFrame();
+  T_word_camera.setIdentity();
+  camera_frame_=world_frame_;
+  subscribeTopic();
 }
 
 void ProbabilisticHAMPTimeBasedMultiGoalPlanner::subscribeTopic()
 {
+  ROS_INFO("Starting probabilistic hamp time subscribers");
   std::string poses_topic;
   if (!nh_.getParam("occupancy_topic",poses_topic))
   {
@@ -57,6 +63,7 @@ void ProbabilisticHAMPTimeBasedMultiGoalPlanner::subscribeTopic()
 
 void ProbabilisticHAMPTimeBasedMultiGoalPlanner::occupancyCallback(const sensor_msgs::PointCloudConstPtr& msg)
 {
+  ROS_INFO("occupancy callback");
   Eigen::Vector3d point;
   avoidance_metrics_->cleanPoints();
   if (msg->header.frame_id != camera_frame_)

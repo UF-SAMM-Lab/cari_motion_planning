@@ -49,6 +49,8 @@ public:
 
   void addPointOccupancy(const Eigen::Vector3d& point, const double& occupancy);
   void cleanPoints();
+  double cost(const Eigen::VectorXd& configuration1,
+                                  const Eigen::VectorXd& configuration2);
 
   virtual MetricsPtr clone();
 

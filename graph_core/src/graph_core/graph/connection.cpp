@@ -65,15 +65,27 @@ void Connection::remove()
   if (!added_)
     return;
 
-  // added_ = false;
-  // if (parent_)
-  // {
-  //   if (std::find(parent_->potential_parent_connections_.begin(), parent_->potential_parent_connections_.end(), pointer()) != parent_->potential_parent_connections_.end()) parent_->potential_parent_connections_.push_back(pointer());
+  added_ = false;
+  if (parent_)
+  {
+    parent_->remoteChildConnection(pointer());
+  }
+  else
+    ROS_FATAL("parent already destroied");
 
-  //   parent_->remoteChildConnection(pointer());
-  // }
-  // else
-  //   ROS_FATAL("parent already destroied");
+  if (child_)
+  {
+    child_->remoteParentConnection(pointer());
+  }
+  else
+    ROS_FATAL("child already destroied");
+
+}
+
+void Connection::removeCache()
+{
+  if (!added_)
+    return;
 
   if (child_)
   {

@@ -51,14 +51,41 @@ void ProbabilistcAvoidanceTimeMetrics::addPointOccupancy(const Eigen::Vector3d &
 {
   points_.conservativeResize(3, points_.cols()+1);
   points_.col(points_.cols()-1) = point;
-  occupancy_.conservativeResize(points_.cols()+1,1);
+  occupancy_.conservativeResize(points_.cols(),1);
   occupancy_(points_.cols()-1)=std::max(0.0,std::min(occupancy,1.0));
+  // ROS_WARN("setting the ssm point cloud");
   probabilistic_ssm_->setPointCloud(points_,occupancy_);
 }
 
 MetricsPtr ProbabilistcAvoidanceTimeMetrics::clone()
 {
   return std::make_shared<ProbabilistcAvoidanceTimeMetrics>(max_speed_,nu_,nh_);
+}
+
+double ProbabilistcAvoidanceTimeMetrics::cost(const Eigen::VectorXd& configuration1,
+                                  const Eigen::VectorXd& configuration2)
+{
+  ROS_WARN_STREAM("prob ssm point cloud size:"<<probabilistic_ssm_->getPointCloudSize());
+  double nominal_time = (inv_max_speed_.cwiseProduct(configuration1 - configuration2)).cwiseAbs().maxCoeff()+nu_*(configuration2-configuration1).norm();
+  if (nominal_time==0.0)
+    return 0.0;
+
+  Eigen::VectorXd nominal_velocity= (configuration2 - configuration1)/nominal_time;
+
+  double length = (configuration1 - configuration2).norm();
+  double cost=0;
+  unsigned int nsteps = std::ceil(length / step_);
+  double inv_nsteps = 1.0 / nsteps;
+  double segment_time = nominal_time / nsteps;
+
+  for (unsigned int istep = 0; istep < nsteps; istep++)
+  {
+    Eigen::VectorXd q = configuration1 + (configuration2 - configuration1) * inv_nsteps * (istep+0.5);
+
+    double scaling=probabilistic_ssm_->computeScaling(q,nominal_velocity);
+    cost+=segment_time/(scaling+1e-6); //avoid division by zero
+  }
+  return cost;
 }
 
 

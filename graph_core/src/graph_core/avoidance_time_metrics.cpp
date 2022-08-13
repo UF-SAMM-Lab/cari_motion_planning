@@ -91,11 +91,12 @@ void AvoidanceTimeMetrics::addPoint(const Eigen::Vector3d &point)
 double AvoidanceTimeMetrics::cost(const Eigen::VectorXd& configuration1,
                                   const Eigen::VectorXd& configuration2)
 {
+  ROS_WARN_STREAM("ssm point cloud size:"<<ssm_->getPointCloudSize());
   double nominal_time = (inv_max_speed_.cwiseProduct(configuration1 - configuration2)).cwiseAbs().maxCoeff()+nu_*(configuration2-configuration1).norm();
   if (nominal_time==0.0)
     return 0.0;
 
-  Eigen::VectorXd nominal_velocity= (configuration1 - configuration2)/nominal_time;
+  Eigen::VectorXd nominal_velocity= (configuration2 - configuration1)/nominal_time;
 
   double length = (configuration1 - configuration2).norm();
   double cost=0;

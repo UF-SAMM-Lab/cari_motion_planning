@@ -42,7 +42,7 @@ HAMPTimeBasedMultiGoalPlanner::HAMPTimeBasedMultiGoalPlanner ( const std::string
   world_frame_=avoidance_metrics_->getBaseFrame();
   T_word_camera.setIdentity();
   camera_frame_=world_frame_;
-
+  ROS_INFO("hamp init subscribe");
   subscribeTopic();
 }
 

@@ -455,9 +455,12 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     // solver->update(solution); //samples for a new node and udpates the node-graph
     if (solver->update(solution))
     {
-      ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost());
+      ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost()<<" improved");
       solver->setSolved(true);
       // improved = true;
+    } else {
+
+      ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost()<<" not improved");
     }
     // PATH_COMMENT_STREAM("found a solution:"<<found_a_solution<<", solver solved:"<<solver->solved());
     if (!found_a_solution && solver->solved())
@@ -547,6 +550,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
       ROS_WARN("fixing waypoint timing");
     }
   }
+  waypoint_times = tmp_waypoint_times;
 
   std::vector<Eigen::VectorXd> wp_sequence;
   std::vector<Eigen::VectorXd> wp_vels;

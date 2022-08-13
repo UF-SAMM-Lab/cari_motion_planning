@@ -158,7 +158,7 @@ void KdNode::near(const Eigen::VectorXd& configuration,
                   std::multimap<double, NodePtr> &nodes)
 {
 
-  PATH_COMMENT_STREAM("near radius "<<radius);
+  // PATH_COMMENT_STREAM("near radius "<<radius);
   double distance=(configuration-node_->getConfiguration()).norm();
 
   if ((not deleted_) and distance<radius)

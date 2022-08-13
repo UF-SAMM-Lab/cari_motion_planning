@@ -55,9 +55,9 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
     return false;
   if (!goal_node_)
     return false;
-  goal_cost_ = std::numeric_limits<double>::max()/utopia_tolerance_/1.05;
+  goal_cost_ = 0.0;
 
-  best_utopia_ = goal_cost_;
+  best_utopia_ = std::numeric_limits<double>::max()/utopia_tolerance_/1.05;
   init_ = true;
   NodePtr new_node;
   // ROS_INFO_STREAM("attempting connection between start and goal node:"<<goal_node_);
@@ -167,15 +167,17 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
 
   // PATH_COMMENT_STREAM("old path cost:");
 
+  // PATH_COMMENT_STREAM("number of nodes in tree0: "<<start_tree_->getNumberOfNodes());
   bool improved = start_tree_->rewire(configuration, r_rewire_);
   // PATH_COMMENT_STREAM("number of nodes in tree: "<<start_tree_->getNumberOfNodes());
   if (improved)
   {
-    // PATH_COMMENT_STREAM("improved");
+    PATH_COMMENT_STREAM("improved"<<goal_node_->parent_connections_.size()<<", "<<start_tree_->costToNode(goal_node_)<<", "<<old_path_cost);
     //this is a problem
     // PATH_COMMENT_STREAM("solution_improved");
     if (start_tree_->costToNode(goal_node_)  >= (old_path_cost - 1e-8))
       return false;
+    PATH_COMMENT_STREAM(start_tree_->costToNode(goal_node_));
     solution_ = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node_), metrics_, checker_);
     // PATH_COMMENT_STREAM("solution:\n"<<*solution_);
     solution_->setTree(start_tree_);
