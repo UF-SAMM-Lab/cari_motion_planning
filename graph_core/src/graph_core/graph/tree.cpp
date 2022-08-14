@@ -189,7 +189,7 @@ bool Tree::extendOnly(NodePtr& closest_node, NodePtr &new_node, ConnectionPtr &c
   } else {
     cost = metrics_->cost(closest_node, new_node);
     conn = std::make_shared<Connection>(closest_node, new_node);
-    // PATH_COMMENT_STREAM("adding connection:"<<cost);
+    PATH_COMMENT_STREAM("adding connection:"<<closest_node<<","<<new_node);
     conn->add();
     conn->setCost(cost);
   }
@@ -597,7 +597,11 @@ bool Tree::rewireOnly(NodePtr& node, double r_rewire, const int& what_rewire)
       //JF - if node cost is l2 distance between parent and node, then sum cost to parent with parent->node cost
       // if (cummulative_cost_) {
       // cost_to_node = cost_to_near + cost_near_to_node;
-      cost_to_node = cost_near_to_node;
+      if (time_avoid_) {
+        cost_to_node = cost_near_to_node;
+      } else {
+        cost_to_node = cost_near_to_node+cost_to_near;
+      }
         // node->min_time = cost_to_node;
       // } else { //JF - else node cost is total time to reach node
       //   cost_to_node = cost_near_to_node;
@@ -1260,7 +1264,7 @@ double Tree::costToNode(NodePtr node)
   if (!time_avoid_) {
     while (node != root_)
     {
-      ROS_INFO_STREAM("getting cost:"<<node);
+      // ROS_INFO_STREAM("getting cost:"<<node);
       if (node->parent_connections_.size() != 1)
       {
         ROS_ERROR_STREAM("a tree node should have exactly a parent. this node has "<<node->parent_connections_.size()<<": "<<*node);

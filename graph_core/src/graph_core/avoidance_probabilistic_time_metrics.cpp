@@ -65,7 +65,7 @@ MetricsPtr ProbabilistcAvoidanceTimeMetrics::clone()
 double ProbabilistcAvoidanceTimeMetrics::cost(const Eigen::VectorXd& configuration1,
                                   const Eigen::VectorXd& configuration2)
 {
-  ROS_WARN_STREAM("prob ssm point cloud size:"<<probabilistic_ssm_->getPointCloudSize());
+  // ROS_WARN_STREAM("prob ssm point cloud size:"<<probabilistic_ssm_->getPointCloudSize());
   double nominal_time = (inv_max_speed_.cwiseProduct(configuration1 - configuration2)).cwiseAbs().maxCoeff()+nu_*(configuration2-configuration1).norm();
   if (nominal_time==0.0)
     return 0.0;

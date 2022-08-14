@@ -166,7 +166,7 @@ bool TimeMultigoalSolver::isBestSolution(const int &index)
     }
     if (status_.at(igoal)==GoalStatus::done)
       continue;
-    ROS_DEBUG("Best solution costs. Total cost = %f, Path cost= %f. Goal cost  =%f",cost_,path_cost_,goal_cost_);
+    ROS_INFO("Best solution costs. Total cost = %f, Path cost= %f. Goal cost  =%f",cost_,path_cost_,goal_cost_);
     ROS_DEBUG("Goal %u. Total cost = %f, Path cost= %f. Goal cost  =%f",igoal,costs_.at(igoal), path_costs_.at(igoal),goal_costs_.at(igoal));
     ROS_DEBUG("Goal %u. sampler cost = %f",igoal,path_cost_+goal_cost_-goal_costs_.at(igoal));
 
@@ -253,7 +253,7 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
 
   for (unsigned int igoal=0;igoal<goal_nodes_.size();igoal++)
   {
-    ROS_INFO_STREAM("igoal"<<igoal);
+    // ROS_INFO_STREAM("igoal"<<igoal);
     NodePtr new_start_node, new_goal_node;
     bool add_to_start, add_to_goal;
     Eigen::VectorXd configuration = time_samplers_.at(igoal)->sample();
@@ -341,24 +341,24 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
 
       break;
     case GoalStatus::refine:
-      ROS_INFO("refine");
+      // ROS_INFO("refine");
       if (start_tree_->rewire(time_samplers_.at(igoal)->sample(), r_rewire)) //TODO add weight goal
       {
-        ROS_INFO("refine2");
+        // ROS_INFO("refine2");
         if (start_tree_->costToNode(goal_nodes_.at(igoal)) >= (path_costs_.at(igoal) - 1e-8))
           continue;
 
-        ROS_INFO("refine3");
+        // ROS_INFO("refine3");
         solutions_.at(igoal) = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_nodes_.at(igoal)), metrics_, checker_);
         solutions_.at(igoal)->setTree(start_tree_);
 
         double cost_0=solutions_.at(igoal)->cost();
         size_t waypoints0=solutions_.at(igoal)->getWaypoints().size();
         ros::WallTime tsimpl=ros::WallTime::now();
-        ROS_INFO("simplifying");
+        // ROS_INFO("simplifying");
         solutions_.at(igoal)->simplify(solutions_.at(igoal)->cost());
         size_t waypoints1=solutions_.at(igoal)->getWaypoints().size();
-        ROS_INFO("simplify: cost from %f to %f (waypoints %zu->%zu) in %f second",cost_0,solutions_.at(igoal)->cost(),waypoints0,waypoints1,(ros::WallTime::now()-tsimpl).toSec());
+        ROS_DEBUG("simplify: cost from %f to %f (waypoints %zu->%zu) in %f second",cost_0,solutions_.at(igoal)->cost(),waypoints0,waypoints1,(ros::WallTime::now()-tsimpl).toSec());
 
         double cost_1=solutions_.at(igoal)->cost();
         ros::WallTime twarp=ros::WallTime::now();
@@ -366,7 +366,7 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
         {
           solutions_.at(igoal)->warp(0.1*solutions_.at(igoal)->cost(),0.01);
         }
-        ROS_INFO("warp: cost from %f to %f in %f second",cost_1,solutions_.at(igoal)->cost(),(ros::WallTime::now()-twarp).toSec());
+        ROS_DEBUG("warp: cost from %f to %f in %f second",cost_1,solutions_.at(igoal)->cost(),(ros::WallTime::now()-twarp).toSec());
 
 
         path_costs_.at(igoal) = solutions_.at(igoal)->cost();
