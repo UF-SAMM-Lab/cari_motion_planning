@@ -86,6 +86,7 @@ bool TimeBasedInformedSampler::inBounds(const Eigen::VectorXd& q)
 
   double check_cost=((q-start_configuration_).cwiseProduct(inv_max_speed_)).cwiseAbs().maxCoeff()+
       ((q-stop_configuration_ ).cwiseProduct(inv_max_speed_)).cwiseAbs().maxCoeff();
+  // ROS_INFO_STREAM("check cost:"<<check_cost);
   return  (check_cost<cost_);
 
 }
@@ -109,7 +110,23 @@ Eigen::VectorXd TimeBasedInformedSampler::sample()
       ROS_ERROR_THROTTLE(1,"Unable to find a sample in the informed set, cost =%f",cost_);
       return InformedSampler::sample();
     }
-    q=ellipse_center_+0.5*cost_*Eigen::MatrixXd::Random(ndof_, 1).cwiseProduct(max_speed_);
+    Eigen::VectorXd tmp = 0.5*cost_*max_speed_;
+    // ROS_INFO_STREAM("upper_bound_:"<<upper_bound_.transpose());
+    Eigen::VectorXd upper_lim = tmp.cwiseMin(upper_bound_-ellipse_center_);
+    // ROS_INFO_STREAM("upper_lim:"<<upper_lim.transpose());
+    tmp = -1.0*tmp;
+    Eigen::VectorXd lower_lim = tmp.cwiseMax(lower_bound_-ellipse_center_);
+    // ROS_INFO_STREAM("lower_lim:"<<lower_lim.transpose());
+    Eigen::VectorXd rand_part = (0.5*Eigen::MatrixXd::Random(ndof_, 1)+Eigen::MatrixXd::Constant(ndof_,1,0.5));
+    // ROS_INFO_STREAM("rnd:"<<rand_part.transpose());
+    Eigen::VectorXd q2 = rand_part.cwiseProduct(upper_lim-lower_lim)+lower_lim;
+    // ROS_INFO_STREAM("tmp:"<<q2.transpose());
+    // Eigen::VectorXd rng = (upper_bound_-ellipse_center_).cwiseMin(ellipse_center_-lower_bound_);
+    // for (int i = 0;i<ndof_;i++) tmp[i] = fmod(tmp[i],rng[i]);
+    // ROS_INFO_STREAM("tmp:"<<tmp.transpose());
+    q=ellipse_center_+q2;
+    // ROS_INFO_STREAM("ellipse_center_:"<<ellipse_center_.transpose());
+    // ROS_INFO_STREAM("q:"<<q.transpose());
     if (inBounds(q))
     {
       return q;

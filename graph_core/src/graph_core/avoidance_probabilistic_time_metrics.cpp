@@ -85,6 +85,7 @@ double ProbabilistcAvoidanceTimeMetrics::cost(const Eigen::VectorXd& configurati
     double scaling=probabilistic_ssm_->computeScaling(q,nominal_velocity);
     cost+=segment_time/(scaling+1e-6); //avoid division by zero
   }
+  // ROS_INFO_STREAM("cost:"<<cost);
   return cost;
 }
 

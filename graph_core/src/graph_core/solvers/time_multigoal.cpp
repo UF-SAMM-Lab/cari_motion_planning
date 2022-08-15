@@ -79,12 +79,18 @@ bool TimeMultigoalSolver::addGoal(const NodePtr& goal_node, const double &max_ti
   TreePtr goal_tree;
   GoalStatus status;
   NodePtr new_node;
+
+  start_tree_->goal_node_ = goal_node;
+  ROS_INFO_STREAM("goal node:"<<goal_node->getConfiguration().transpose());
+  
   ROS_DEBUG("check direct connection");
 
   unsigned int index=goal_nodes_.size();
   if (start_tree_->connectToNode(goal_node, new_node,max_time))
   {
-
+    start_tree_->addNode(goal_node);
+    std::vector<NodePtr> all_nodes = start_tree_->getNodes();
+    for (int i=0;i<all_nodes.size();i++) ROS_INFO_STREAM(all_nodes[i]->getConfiguration().transpose());
     ROS_DEBUG("there is direct connection");
     solution = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node), metrics_, checker_);
     solution->setTree(start_tree_);
@@ -348,7 +354,7 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
         if (start_tree_->costToNode(goal_nodes_.at(igoal)) >= (path_costs_.at(igoal) - 1e-8))
           continue;
 
-        // ROS_INFO("refine3");
+        ROS_INFO("refine3");
         solutions_.at(igoal) = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_nodes_.at(igoal)), metrics_, checker_);
         solutions_.at(igoal)->setTree(start_tree_);
 
@@ -383,7 +389,7 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
       }
       else
       {
-        ROS_INFO("improvement");
+        // ROS_INFO("improvement");
         double cost_1=solutions_.at(igoal)->cost();
         ros::WallTime twarp=ros::WallTime::now();
         solutions_.at(igoal)->warp(0.1*solutions_.at(igoal)->cost(),0.01);
@@ -404,7 +410,7 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
     }
   }
 
-  ROS_INFO("returning");
+  // ROS_INFO("returning");
 
   solution = solution_;
   return global_improvement;
