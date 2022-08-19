@@ -179,10 +179,9 @@ namespace avoidance_intervals{
         avoid_pts_ = avoid_pts;
         ROS_INFO_STREAM("loop points "<<avoid_pts.size());
         pts_mtx.unlock();
+        clear_model_cloud();
         if (!avoid_pts_.empty()) {
             generate_model_cloud();
-        } else {
-            clear_model_cloud();
         }
     }
 
