@@ -504,7 +504,7 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
             ssm_->setPointCloud(model_->joint_seq[step_num+i].second);
             scaling=ssm_->computeScaling(q,nominal_velocity);
             if (scaling>0.1) { 
-              max_seg_time = segment_time/scaling;
+              max_seg_time = (segment_time+double(i*0.1))/scaling;
               break;
             }
           }
