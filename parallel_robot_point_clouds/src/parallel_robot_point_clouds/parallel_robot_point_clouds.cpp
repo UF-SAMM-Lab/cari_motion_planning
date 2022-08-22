@@ -498,12 +498,12 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
 
       // std::cout<<q.transpose()<<", scale:"<<scaling<<", "<<model_t_step<<std::endl;
       double max_seg_time = segment_time/(scaling+1e-6);
-      if (scaling==0.0) {
+      if (scaling<0.1) {
         for (int i=0;i<30;i++) {
           if (step_num+i<model_->joint_seq.size()) {
             ssm_->setPointCloud(model_->joint_seq[step_num+i].second);
             scaling=ssm_->computeScaling(q,nominal_velocity);
-            if (scaling>0) { 
+            if (scaling>0.1) { 
               max_seg_time = segment_time/scaling;
               break;
             }

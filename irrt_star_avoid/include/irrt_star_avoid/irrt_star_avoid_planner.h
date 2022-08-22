@@ -125,6 +125,7 @@ protected:
   int max_iterations = 0;
   bool allow_goal_collision = false;
   double max_connection_cost;
+  double speed_override = 1.0;
 
 private:
   ros::Publisher vis_pub_;

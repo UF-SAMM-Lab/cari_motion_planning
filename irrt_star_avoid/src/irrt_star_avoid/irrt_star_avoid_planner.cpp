@@ -83,6 +83,15 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   max_accels_.resize(m_dof);
   t_pad_ = 0.0;
 
+  int speed_override_int = 100;
+  if (!m_nh.getParam("speed_override",speed_override_int))
+  {
+    ROS_DEBUG("speed_override is not set, default=100");
+    speed_override_int=100;
+  }
+  speed_override = (double)speed_override_int/100.0;
+  
+
   COMMENT("read bounds");
   for (unsigned int idx=0;idx<m_dof;idx++)
   {
@@ -92,7 +101,7 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
     {
       m_lb(idx)=bounds.min_position_;
       m_ub(idx)=bounds.max_position_;
-      max_velocity_(idx)=bounds.max_velocity_;
+      max_velocity_(idx)=bounds.max_velocity_/speed_override;
       max_accels_(idx)=bounds.max_acceleration_;
     }
   }

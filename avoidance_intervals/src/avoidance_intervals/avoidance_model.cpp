@@ -179,10 +179,9 @@ namespace avoidance_intervals{
         avoid_pts_ = avoid_pts;
         ROS_INFO_STREAM("loop points "<<avoid_pts.size());
         pts_mtx.unlock();
+        clear_model_cloud();
         if (!avoid_pts_.empty()) {
             generate_model_cloud();
-        } else {
-            clear_model_cloud();
         }
     }
 
@@ -677,6 +676,8 @@ namespace avoidance_intervals{
         Eigen::Quaternionf z_w2 = quats[6]*z_axis_quat*quats[6].inverse();
         Eigen::Vector3f w2 = e2+(link_lengths_[6]+0.1)*z_w2.vec();
         joint_locations.push_back(w2);
+        Eigen::Vector3f spine_mid = 0.5*(spine_top+pelvis_loc);
+        joint_locations.push_back(spine_mid);
 
         joint_seq[idx] = std::pair<float,std::vector<Eigen::Vector3f>>(pose_elements[0],joint_locations);
         quat_seq[idx] = std::pair<float,std::vector<Eigen::Quaternionf>>(pose_elements[0],quats);
