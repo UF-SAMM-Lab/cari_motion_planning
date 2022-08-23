@@ -25,6 +25,7 @@ include_directories(
 )
 
 add_library(${PROJECT_NAME}
+  src/${PROJECT_NAME}/multigoal_planner_ssm.cpp
   src/${PROJECT_NAME}/multigoal_planner.cpp
   src/${PROJECT_NAME}/time_planner.cpp
   src/${PROJECT_NAME}/hamp_time_planner.cpp

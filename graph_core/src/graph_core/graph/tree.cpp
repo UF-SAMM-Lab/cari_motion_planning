@@ -302,6 +302,9 @@ namespace pathplan
     //   std::cout<<avoid_ints[i].transpose()<<std::endl;
     // }
     // PATH_COMMENT_STREAM("end of ints");
+    if (!time_avoid_) {
+      if (!new_node->parent_connections_.empty()) new_node->parent_connections_[0]->remove();
+    }
     conn->add();
     if (time_avoid_)
       conn->setParentTime(n_time);
@@ -545,7 +548,8 @@ namespace pathplan
         // }
         // PATH_COMMENT_STREAM("test.........................");
         // cost of near node
-        // ROS_INFO_STREAM("rewire"<<*n);
+        // ROS_INFO_STREAM("rewire"<<*node);
+        // ROS_INFO_STREAM("to"<<*n);
         double cost_to_near = costToNode(n);
         // ROS_INFO_STREAM("rewire"<<goal_node_<<" 2.1"<<*goal_node_);
         // ROS_INFO_STREAM("num nodes:"<<getNodes().size());
@@ -673,6 +677,8 @@ namespace pathplan
           // ROS_INFO_STREAM("nearest child:" << n->getConfiguration().transpose() << "," << n->parent_connections_[0]->getCost() << "," << n->parent_connections_[0]->getParent()->getConfiguration().transpose());
         // ROS_INFO_STREAM("near node:"<<n->getConfiguration().transpose());
         // l2 distance or time to reach node n
+        // ROS_INFO_STREAM("rewire"<<*n);
+        // ROS_INFO_STREAM("to"<<*node);
         double cost_to_near = std::numeric_limits<double>::infinity();
         // ROS_INFO_STREAM("rewire3"<<*n);
         if (time_avoid_)
@@ -1402,6 +1408,7 @@ namespace pathplan
 
     while (node != root_)
     {
+      // ROS_INFO_STREAM(*node);
       if (node->parent_connections_.size() != 1)
       {
         ROS_ERROR("a tree node should have only a parent");

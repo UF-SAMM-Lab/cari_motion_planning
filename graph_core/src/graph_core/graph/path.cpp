@@ -412,7 +412,7 @@ std::vector<Eigen::VectorXd> Path::getWaypoints()
   // std::cout<<connections_.at(0)->getParent()->getConfiguration().transpose()<<std::endl;
   wp.push_back(connections_.at(0)->getParent()->getConfiguration());
   for (const ConnectionPtr& conn : connections_) {
-    std::cout<<conn->getParent()->getConfiguration().transpose()<<", wpt:"<<conn->getChild()->getConfiguration().transpose()<<std::endl;
+    // std::cout<<conn->getParent()->getConfiguration().transpose()<<", wpt:"<<conn->getChild()->getConfiguration().transpose()<<std::endl;
     wp.push_back(conn->getChild()->getConfiguration());
   }
   return wp;

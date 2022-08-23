@@ -88,15 +88,21 @@ bool PathPlanerManager::initialize(const moveit::core::RobotModelConstPtr& model
       continue;
     }
 
+    ROS_INFO_STREAM(type);
+
     std::shared_ptr<planning_interface::PlanningContext> ptr;
     if (!type.compare("DIRRT"))
     {
       ROS_ERROR("DIRRT has been replaced by Multigoal");
       //ptr= std::make_shared<DIRRTStar>(ns+"/"+p.first,p.second,model);
     }
-    else if (!type.compare("Multigoal"))
+    else if (type == "Multigoal")
     {
       ptr= std::make_shared<MultigoalPlanner>(ns+"/"+p.first,p.second,model);
+    }
+    else if (type == "MultigoalSSM")
+    {
+      ptr= std::make_shared<MultigoalPlannerSSM>(ns+"/"+p.first,p.second,model);
     }
    else if (!type.compare("TimeBasedMultigoal"))
    {

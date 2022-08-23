@@ -26,14 +26,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 
-#include <dirrt_star/multigoal_planner.h>
+#include <dirrt_star/multigoal_planner_ssm.h>
 
 
 
 namespace pathplan {
 namespace dirrt_star {
 
-MultigoalPlanner::MultigoalPlanner ( const std::string& name,
+MultigoalPlannerSSM::MultigoalPlannerSSM ( const std::string& name,
                        const std::string& group,
                        const moveit::core::RobotModelConstPtr& model ) :
   PlanningContext ( name, group ),
@@ -43,7 +43,7 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
   m_nh.setCallbackQueue(&m_queue);
 
 
-  COMMENT("create MultigoalPlanner, name =%s, group = %s", name.c_str(),group.c_str());
+  COMMENT("create MultigoalPlannerSSM, name =%s, group = %s", name.c_str(),group.c_str());
   robot_model_=model;
   if (!robot_model_)
   {
@@ -85,6 +85,11 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
   urdf_model.initParam("robot_description");
 
 
+  if (!m_nh.getParam("norm2_weigth",nu_))
+  {
+    ROS_DEBUG("norm2_weigth is not set, default=1e-2");
+    nu_=1e-2;
+  }
   if (!m_nh.getParam("display_bubbles",display_flag))
   {
     ROS_DEBUG("display_flag is not set, default=false");
@@ -100,7 +105,8 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
   }
   if (use_avoidance_metrics_)
   {
-    avoidance_metrics_=std::make_shared<pathplan::AvoidanceMetrics>(m_nh);
+    ROS_INFO("using avoid metrics");
+    avoidance_metrics_=std::make_shared<pathplan::ProbabilistcAvoidanceTimeMetrics>(m_max_speed_,nu_,m_nh);
     metrics_=avoidance_metrics_;
   }
   else
@@ -126,12 +132,12 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
   std::string detector_topic;
   if (use_avoidance_goal_ || use_avoidance_metrics_)
   {
-    if (!m_nh.getParam("detector_topic",detector_topic))
+    if (!m_nh.getParam("occupancy_topic",detector_topic))
     {
-      ROS_DEBUG("detector_topic is not defined, using poses");
-      detector_topic="/poses";
+      ROS_DEBUG("occupancy_topic is not defined, using occupancy");
+      detector_topic="/occupancy";
     }
-    m_centroid_sub=m_nh.subscribe(detector_topic,2,&MultigoalPlanner::centroidCb,this);
+    m_occupancy_sub=m_nh.subscribe(detector_topic,2,&MultigoalPlannerSSM::occupancyCallback,this);
   }
 
   if (!m_nh.getParam("collision_distance",collision_distance_))
@@ -148,7 +154,7 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
 
 
 
-  COMMENT("created MultigoalPlanner");
+  COMMENT("created MultigoalPlannerSSM");
 
   double refining_time=0;
   if (!m_nh.getParam("max_refine_time",refining_time))
@@ -164,13 +170,13 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
 
 
 
-void MultigoalPlanner::clear()
+void MultigoalPlannerSSM::clear()
 {
 
 }
 
 
-bool MultigoalPlanner::solve ( planning_interface::MotionPlanDetailedResponse& res )
+bool MultigoalPlannerSSM::solve ( planning_interface::MotionPlanDetailedResponse& res )
 {
 
 
@@ -463,7 +469,7 @@ bool MultigoalPlanner::solve ( planning_interface::MotionPlanDetailedResponse& r
   return true;
 }
 
-bool MultigoalPlanner::solve ( planning_interface::MotionPlanResponse& res )
+bool MultigoalPlannerSSM::solve ( planning_interface::MotionPlanResponse& res )
 {
   ros::WallTime start_time = ros::WallTime::now();
   planning_interface::MotionPlanDetailedResponse detailed_res;
@@ -479,7 +485,7 @@ bool MultigoalPlanner::solve ( planning_interface::MotionPlanResponse& res )
   return success;
 }
 
-bool MultigoalPlanner::terminate()
+bool MultigoalPlannerSSM::terminate()
 {
   m_stop=true;
   ros::Time t0=ros::Time::now();
@@ -498,31 +504,69 @@ bool MultigoalPlanner::terminate()
   return false;
 }
 
-void MultigoalPlanner::centroidCb(const geometry_msgs::PoseArrayConstPtr& msg)
+// void MultigoalPlannerSSM::centroidCb(const geometry_msgs::PoseArrayConstPtr& msg)
+// {
+
+//   if (!use_avoidance_goal_ && !use_avoidance_metrics_)
+//     return;
+//   if (use_avoidance_goal_)
+//     m_avoidance_goal_cost_fcn->cleanPoints();
+//   if (use_avoidance_metrics_)
+//     avoidance_metrics_->cleanPoints();
+//   Eigen::Vector3d point;
+//   for (const geometry_msgs::Pose& p: msg->poses)
+//   {
+//     point(0)=p.position.x;
+//     point(1)=p.position.y;
+//     point(2)=p.position.z;
+//     if (use_avoidance_goal_)
+//       m_avoidance_goal_cost_fcn->addPoint(point);
+// //    ros::Duration(0.1).sleep();
+//     if (use_avoidance_metrics_)
+//       avoidance_metrics_->addPoint(point);
+//   }
+//   m_avoidance_goal_cost_fcn->publishPoints();
+// }
+
+void MultigoalPlannerSSM::occupancyCallback(const sensor_msgs::PointCloudConstPtr& msg)
 {
-
-  if (!use_avoidance_goal_ && !use_avoidance_metrics_)
-    return;
-  if (use_avoidance_goal_)
-    m_avoidance_goal_cost_fcn->cleanPoints();
-  if (use_avoidance_metrics_)
-    avoidance_metrics_->cleanPoints();
+  ROS_INFO("occupancy callback");
   Eigen::Vector3d point;
-  for (const geometry_msgs::Pose& p: msg->poses)
-  {
-    point(0)=p.position.x;
-    point(1)=p.position.y;
-    point(2)=p.position.z;
-    if (use_avoidance_goal_)
-      m_avoidance_goal_cost_fcn->addPoint(point);
-//    ros::Duration(0.1).sleep();
-    if (use_avoidance_metrics_)
-      avoidance_metrics_->addPoint(point);
-  }
-  if (use_avoidance_goal_)
-    m_avoidance_goal_cost_fcn->publishPoints();
-}
+  avoidance_metrics_->cleanPoints();
 
+  size_t npoints=msg->points.size();
+
+  int ichannel=-1;
+
+  if (msg->channels.size()==0)
+  {
+    ROS_ERROR("%s: there are no channels in the point cloud",name_.c_str());
+    return;
+  }
+  for (size_t ich=0;ich<msg->channels.size();ich++)
+  {
+    if (msg->channels.at(ich).name=="occupancy")
+    {
+      ichannel=ich;
+      break;
+    }
+  }
+  if (ichannel<0)
+  {
+    ROS_ERROR("%s: there are no channels in the point cloud named 'occupancy'",name_.c_str());
+    return;
+  }
+
+  ROS_INFO("add %zu points", npoints);
+  for (size_t idx=0;idx<npoints;idx++)
+  {
+    point(0)=msg->points.at(idx).x;
+    point(1)=msg->points.at(idx).y;
+    point(2)=msg->points.at(idx).z;
+    double occupancy=msg->channels.at(0).values.at(idx);
+    avoidance_metrics_->addPointOccupancy(point,occupancy);
+  }
+}
 
 }  // namespace dirrt_star
 }  // namespace pathplan

@@ -282,7 +282,11 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
     case GoalStatus::search:
       ROS_INFO("search");
 
-      if (extend_)
+      // if (extend_) 
+        // ROS_INFO("search - extend");
+      
+      // ROS_INFO_STREAM("new_start_node:"<<*new_start_node);
+      if (extend_) 
         add_to_start = start_tree_->extend(configuration, new_start_node);
       else
         add_to_start = start_tree_->connect(configuration, new_start_node);
@@ -290,6 +294,8 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
 
       if (add_to_start)
       {
+        // ROS_INFO_STREAM("search - add to start");
+        // ROS_INFO_STREAM("new_start_node:"<<*new_start_node);
         if (extend_)
           add_to_goal = goal_trees_.at(igoal)->extendToNode(new_start_node, new_goal_node);
         else
@@ -302,13 +308,20 @@ bool TimeMultigoalSolver::update(PathPtr& solution)
         else
           add_to_goal = goal_trees_.at(igoal)->connect(configuration, new_goal_node);
       }
+      // ROS_INFO_STREAM("new_start_node:"<<*new_start_node);
 
       if (add_to_start && add_to_goal && new_goal_node == new_start_node)
       {
+        ROS_INFO_STREAM("add start add goal new goal");
+        ROS_INFO_STREAM("new goal node:"<<*new_goal_node);
         goal_trees_.at(igoal)->keepOnlyThisBranch(goal_trees_.at(igoal)->getConnectionToNode(new_goal_node));
+        ROS_INFO_STREAM("new goal node:"<<new_goal_node);
         start_tree_->addBranch(goal_trees_.at(igoal)->getConnectionToNode(new_goal_node));
+        ROS_INFO_STREAM("new goal node:"<<new_goal_node);
 
         solutions_.at(igoal) = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_nodes_.at(igoal)), metrics_, checker_);
+
+        ROS_INFO_STREAM("new goal node:"<<new_goal_node);
         solutions_.at(igoal)->setTree(start_tree_);
 
         double cost_0=solutions_.at(igoal)->cost();
