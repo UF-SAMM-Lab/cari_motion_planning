@@ -52,7 +52,7 @@ public:
                       const Eigen::VectorXd& configuration2);
   
   virtual double cost(const NodePtr& parent,
-                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist);
+                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist, NodePtr &intermediate_node, bool use_iso15066_tmp=true);
 
   virtual double utopia(const NodePtr& node1,
                       const NodePtr& node2);

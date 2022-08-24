@@ -111,7 +111,6 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   urdf_model.initParam("robot_description");
 
   COMMENT("create metrics");
-  bool use_iso15066 = false;
 
   if (!m_nh.getParam("use_iso15066",use_iso15066))
   {
@@ -225,6 +224,9 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   COMMENT("settign metrics point cloud checker");
   metrics->setPointCloudChecker(point_cloud_checker);
 
+
+  m_solver_performance=m_nh.advertise<std_msgs::Float64MultiArray>("/solver_performance",1000);
+
 }
 
 void IRRTStarAvoid::setPlanningScene ( const planning_scene::PlanningSceneConstPtr& planning_scene )
@@ -273,6 +275,17 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   ros::WallTime start_time = ros::WallTime::now();
   ros::WallTime refine_time = ros::WallTime::now();
   m_is_running=true;
+    
+    std_msgs::Float64MultiArray performace_msg;
+  performace_msg.layout.dim.resize(4);
+  performace_msg.layout.dim.at(0).label="time";
+  performace_msg.layout.dim.at(0).size=1;
+  performace_msg.layout.dim.at(1).label="iteration";
+  performace_msg.layout.dim.at(1).size=1;
+  performace_msg.layout.dim.at(2).label="cost";
+  performace_msg.layout.dim.at(2).size=1;
+  performace_msg.layout.dim.at(3).label=m_nh.getNamespace();
+  performace_msg.layout.dim.at(3).size=0;
 
   if (!planning_scene_)
   {
@@ -451,6 +464,9 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   double cost_of_first_solution;
   while (((ros::WallTime::now()-start_time)<max_planning_time) || (iteration<max_iterations))
   {
+    performace_msg.data.push_back((ros::WallTime::now()-start_time).toSec());
+    performace_msg.data.push_back(iteration);
+    performace_msg.data.push_back(solver->getCost());
     // PATH_COMMENT_STREAM("iteration number:"<<iteration);
     iteration++;
     if (m_stop)
@@ -515,6 +531,8 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
   // ROS_INFO_STREAM(*solver);
 
+  m_solver_performance.publish(performace_msg);
+
   if (!found_a_solution)
   {
     ROS_ERROR("unable to find a valid path");
@@ -550,38 +568,73 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   COMMENT("Get waypoints");
   std::vector<Eigen::VectorXd> waypoints=solution->getWaypoints();// PUT WAY POINTS
   COMMENT("Get waypoint timing");
-  std::vector<double> waypoint_times=solution->getTiming();// PUT WAY POINTS
-  std::vector<double> tmp_waypoint_times = waypoint_times;
-  if (tmp_waypoint_times[0]>max_connection_cost) tmp_waypoint_times[0] = max_connection_cost;
-  for (int i=1;i<tmp_waypoint_times.size();i++) {
-    if ((waypoint_times[i]-waypoint_times[i-1])>max_connection_cost) {
-      tmp_waypoint_times[i] = tmp_waypoint_times[i-1]+max_connection_cost;
-      ROS_WARN("fixing waypoint timing");
-    }
-  }
-  waypoint_times = tmp_waypoint_times;
-
-  std::vector<Eigen::VectorXd> wp_sequence;
-  std::vector<Eigen::VectorXd> wp_vels;
-  std::vector<Eigen::VectorXd> wp_accs;
-  std::vector<double> wp_times;
-  time_parameterize(waypoints,waypoint_times,wp_sequence, wp_vels,wp_accs,wp_times);
+  std::vector<double> waypoint_times;
 
   robot_trajectory::RobotTrajectoryPtr trj(new robot_trajectory::RobotTrajectory(robot_model_,group_));
+  if (use_iso15066) {
 
-  COMMENT("processing %zu aypoints..", waypoints.size());
-  double prev_wpt_time = 0;
-  for (int i=0;i<wp_sequence.size();i++) {
-    Eigen::VectorXd waypoint = wp_sequence[i];
-    COMMENT("processing waypoint");
-    moveit::core::RobotState wp_state=start_state;
-    wp_state.setJointGroupPositions(group_,waypoint);
-    wp_state.setJointGroupVelocities(group_,wp_vels[i]);
-    wp_state.setJointGroupAccelerations(group_,wp_accs[i]);
-    wp_state.update();
-    trj->addSuffixWayPoint(wp_state,wp_times[i]-prev_wpt_time);
-    prev_wpt_time = wp_times[i];
+    trajectory_processing::IterativeParabolicTimeParameterization iptp;
+
+    // robot_trajectory::RobotTrajectoryPtr robo_traj(new robot_trajectory::RobotTrajectory(robot_model_,group_));
+    // robot_trajectory::RobotTrajectory robo_traj(robot_model_,group_);    
+    COMMENT("processing %zu aypoints..", waypoints.size());
+    double prev_wpt_time = 0;
+    for (int i=0;i<waypoints.size();i++) {
+      Eigen::VectorXd waypoint = waypoints[i];
+      COMMENT("processing waypoint");
+      moveit::core::RobotState wp_state=start_state;
+      wp_state.setJointGroupPositions(group_,waypoint);
+      // wp_state.setJointGroupVelocities(group_,wp_vels[i]);
+      // wp_state.setJointGroupAccelerations(group_,wp_accs[i]);
+      wp_state.update();
+      trj->addSuffixWayPoint(wp_state,0);
+    }
+    iptp.computeTimeStamps(*trj);
+    // double near_time=0.0;
+    // double cost=0.0;
+    // Eigen::VectorXd inv_max_speed_=max_velocity_.cwiseInverse();
+    // for (int i =1;i<waypoints.size();i++) {
+    //   // cost = metrics->cost(waypoints[i-1],waypoints[i],near_time);
+    //   waypoint_times.push_back(near_time);
+    //   ROS_INFO_STREAM(waypoints[i-1].transpose()<<" to "<< waypoints[i].transpose()<<" time:"<<near_time);
+    //   near_time += (inv_max_speed_.cwiseProduct(waypoints[i-1]-waypoints[i])).cwiseAbs().maxCoeff();
+    // }
+    // waypoint_times.push_back(near_time);
+    // ROS_INFO_STREAM(waypoints[waypoints.size()-2].transpose()<<" to "<< waypoints.back().transpose()<<" time:"<<near_time);
+  } else {
+    waypoint_times=solution->getTiming();// PUT WAY POINTS  
+    std::vector<double> tmp_waypoint_times = waypoint_times;
+    if (tmp_waypoint_times[0]>max_connection_cost) tmp_waypoint_times[0] = max_connection_cost;
+    for (int i=1;i<tmp_waypoint_times.size();i++) {
+      if ((waypoint_times[i]-waypoint_times[i-1])>max_connection_cost) {
+        tmp_waypoint_times[i] = tmp_waypoint_times[i-1]+max_connection_cost;
+        ROS_WARN("fixing waypoint timing");
+      }
+    }
+    waypoint_times = tmp_waypoint_times;
+
+    std::vector<Eigen::VectorXd> wp_sequence;
+    std::vector<Eigen::VectorXd> wp_vels;
+    std::vector<Eigen::VectorXd> wp_accs;
+    std::vector<double> wp_times;
+    time_parameterize(waypoints,waypoint_times,wp_sequence, wp_vels,wp_accs,wp_times);
+
+
+    COMMENT("processing %zu aypoints..", waypoints.size());
+    double prev_wpt_time = 0;
+    for (int i=0;i<wp_sequence.size();i++) {
+      Eigen::VectorXd waypoint = wp_sequence[i];
+      COMMENT("processing waypoint");
+      moveit::core::RobotState wp_state=start_state;
+      wp_state.setJointGroupPositions(group_,waypoint);
+      wp_state.setJointGroupVelocities(group_,wp_vels[i]);
+      wp_state.setJointGroupAccelerations(group_,wp_accs[i]);
+      wp_state.update();
+      trj->addSuffixWayPoint(wp_state,wp_times[i]-prev_wpt_time);
+      prev_wpt_time = wp_times[i];
+    }
   }
+
   ros::WallDuration wd = ros::WallTime::now() - start_time;
 
 

@@ -48,13 +48,20 @@ bool vectorEqual(Eigen::Vector3f vec1, Eigen::Vector3f vec2);
 class ParallelRobotPointClouds
 {
 private:
+  double start_time;
+  Eigen::VectorXd start_cfg;
+  Eigen::VectorXd inv_max_speed_;
+  int num_confs_per_thread;
   std::vector<bool> model_pts_already_checked;
+  std::vector<bool> cfg_is_avoid;
   ros::Publisher pub_pt;
   std::vector<Eigen::Vector3f> avoid_ints;
   std::vector<std::vector<Eigen::Vector3f>> th_avoid_ints;
+  std::vector<std::vector<bool>> th_avoid_status;
   std::mutex mtx;
   std::vector<Eigen::MatrixXf> link_raw_pts;
 protected:
+  double t_pad_=0;
   Eigen::VectorXd max_q_dot_;
   bool fcl_check;
   ros::NodeHandle nh;
@@ -94,7 +101,8 @@ protected:
                        const Eigen::VectorXd& configuration2);
   void sort_reduce_link_pts(std::vector<Eigen::Vector3f> &link_pts);
   void show_transformed_pts(Eigen::MatrixXf &transformed_pts);
-  void pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id);
+  bool pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id, double start_time, double end_time);
+  bool interval_intersection(float avd_int_1_start, float avd_int_1_end, float conn_int_start, float conn_int_end);
 
   collision_detection::CollisionRequest req_;
   collision_detection::CollisionResult res_;
@@ -125,7 +133,7 @@ public:
   virtual void checkPath(const Eigen::VectorXd& configuration1,
                                                const Eigen::VectorXd& configuration2, 
                                                std::vector<Eigen::Vector3f> &avoid_ints,
-                                               float &last_pass_time);
+                                               float &last_pass_time, Eigen::VectorXd &last_free_config_, double start_time_);
 
   // virtual bool checkConnFromConf(const ConnectionPtr& conn,
   //                                const Eigen::VectorXd& this_conf);

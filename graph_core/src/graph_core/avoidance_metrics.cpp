@@ -202,6 +202,7 @@ double AvoidanceMetrics::cost(const Eigen::VectorXd& configuration1,
     else if (dist<max_distance_)
       cost+=l*max_penalty_*(max_distance_-dist)*inv_delta_distance_;
   }
+  
   return cost;
 }
 

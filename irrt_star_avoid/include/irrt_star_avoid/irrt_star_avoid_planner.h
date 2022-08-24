@@ -30,6 +30,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <moveit/planning_interface/planning_interface.h>
 #include <moveit/robot_state/conversions.h>
 #include <moveit/planning_scene/planning_scene.h>
+#include <moveit/trajectory_processing/iterative_time_parameterization.h>
 #include <irrt_star_avoid/solvers/time_avoid_rrt_star.h>
 #include <graph_core/solvers/path_solver.h>
 #include <irrt_star_avoid/time_avoid_metrics.h>
@@ -128,6 +129,8 @@ protected:
   double speed_override = 1.0;
 
 private:
+  ros::Publisher m_solver_performance;
+  bool use_iso15066 = false;
   ros::Publisher vis_pub_;
   std::thread spinner_thread;
   void spinThread(void);

@@ -15,6 +15,8 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   // ROS_INFO_STREAM("press enter");
   // std::cin.ignore();
 
+  inv_max_speed_=max_q_dot_.cwiseInverse();
+
   if (threads_num<=0)
     throw std::invalid_argument("number of thread should be positive");
 
@@ -25,6 +27,7 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   threads.resize(threads_num_);
   queues_.resize(threads_num_);
   th_avoid_ints.resize(threads_num_);
+  th_avoid_status.resize(threads_num_);
   // min_dists.resize(threads_num_);
 
 
@@ -114,10 +117,21 @@ void ParallelRobotPointClouds::updatePlanningScene(const planning_scene::Plannin
   }
 }
 
-void ParallelRobotPointClouds::pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_idx) {
+
+bool ParallelRobotPointClouds::interval_intersection(float avd_int_1_start, float avd_int_1_end, float conn_int_start, float conn_int_end) {
+  if ((avd_int_1_start-t_pad_<conn_int_start) && (conn_int_start<avd_int_1_end+t_pad_)) return true;
+  if ((avd_int_1_start-t_pad_<conn_int_end) && (conn_int_end<avd_int_1_end+t_pad_)) return true;
+  if ((conn_int_start<avd_int_1_start+t_pad_) && (avd_int_1_end-t_pad_<conn_int_end)) return true;
+  return false;
+}
+
+bool ParallelRobotPointClouds::pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_idx, double start_time, double end_time) {
   //invert link transform
+
+  // ROS_INFO_STREAM("pt intersect");
   Eigen::MatrixXf transformed_pts = link_transform.inverse()*model_->avoid_cart_pts;
   bool is_collision = true;
+  bool is_avoid = false;
   assert(model_pts_already_checked.size()==transformed_pts.cols());
   // float pt_min_dist = std::numeric_limits<float>::infinity();
   for (int i = 0; i<transformed_pts.cols();i++) {
@@ -145,9 +159,16 @@ void ParallelRobotPointClouds::pt_intersection(Eigen::Isometry3f &link_transform
       model_pts_already_checked[i] = true;
       // mtx.lock();
       th_avoid_ints[thread_idx].insert(std::end(th_avoid_ints[thread_idx]),std::begin(model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_), std::end(model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_));
+      std::vector<Eigen::Vector3f> avoid_ints = model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_;
+      if (!is_avoid) {
+        for (int r=0;r<avoid_ints.size();r++) {
+          if (interval_intersection(avoid_ints[r][0],avoid_ints[r][1],start_time,end_time)) is_avoid=true;
+        }
+      }
       // mtx.unlock();
     }
   }
+  return is_avoid;
   // return pt_min_dist;
 }
 
@@ -226,11 +247,13 @@ void ParallelRobotPointClouds::checkAllQueues(std::vector<Eigen::Vector3f> &comb
   for (int idx=0;idx<threads_num_;idx++)
   {
     th_avoid_ints[idx].clear();
+    th_avoid_status[idx].clear();
     if (queues_.at(idx).size()>0) {
         threads.at(idx)=std::thread(&ParallelRobotPointClouds::collisionThread,this,idx);
-    } else {
-      break;
-    }
+    } 
+    // else {
+    //   break;
+    // }
   }
   //wait for threads to finish
   for (int idx=0;idx<threads_num_;idx++)
@@ -264,6 +287,9 @@ void ParallelRobotPointClouds::collisionThread(int thread_idx)
   for (const std::pair<int,std::vector<double>>& queue_element: queue)
   {
     const std::vector<double>& configuration = queue_element.second;
+    Eigen::VectorXd cfg_eig(configuration.size());
+    for (int i=0;i<configuration.size();i++) cfg_eig[i] = configuration[i];
+    double end_time = (inv_max_speed_.cwiseProduct(cfg_eig-start_cfg)).cwiseAbs().maxCoeff();
     if (stop_check_)
     {
       break;
@@ -280,12 +306,13 @@ void ParallelRobotPointClouds::collisionThread(int thread_idx)
     // std::cout<<"press enter\n";
     // std::cin.ignore();
     float min_dist = std::numeric_limits<float>::infinity();
+    bool is_avoid = false;
     for (int i=0;i<n_dof;i++) {
       Eigen::Isometry3f offset_transform;
       offset_transform.setIdentity();
       offset_transform.translate(link_bb_offsets[i]);
       link_transforms[i] = Eigen::Isometry3f(state->getGlobalLinkTransform(robot_links[i]).cast<float>()*offset_transform);
-      pt_intersection(link_transforms[i], i, thread_idx);
+      is_avoid = is_avoid || pt_intersection(link_transforms[i], i, thread_idx,start_time,start_time + end_time);
       // min_dist = std::min(min_dist,pt_intersection(link_transforms[i], i, thread_idx));
       // if (thread_idx==0) displayRobot(i,link_boxes[i],link_transforms[i].translation(),Eigen::Quaternionf(link_transforms[i].rotation()));
       // if (thread_idx==0) {
@@ -297,6 +324,7 @@ void ParallelRobotPointClouds::collisionThread(int thread_idx)
       //   std::cin.ignore();
       // }
     }
+    th_avoid_status[thread_idx].push_back(is_avoid);
     // min_dists[queue_element.first] = min_dist;
 
     // ROS_INFO_STREAM("push enter");
@@ -327,7 +355,7 @@ void ParallelRobotPointClouds::queueConnection(const Eigen::VectorXd& configurat
   int num_steps = ceil(distance/min_distance_);
   min_dists.resize(num_steps+1);
   tangential_vels.resize(num_steps+1);
-  int num_confs_per_thread = ceil(double(num_steps+1)/double(threads_num_));
+  num_confs_per_thread = ceil(double(num_steps+1)/double(threads_num_));
   Eigen::VectorXd conf(configuration1.size());
   int thread_iter_ = 0;
   int conf_iter_ = 0;
@@ -362,17 +390,38 @@ void ParallelRobotPointClouds::queueConnection(const Eigen::VectorXd& configurat
 void ParallelRobotPointClouds::checkPath(const Eigen::VectorXd& configuration1,
                                               const Eigen::VectorXd& configuration2, 
                                               std::vector<Eigen::Vector3f> &avoid_ints,
-                                              float &last_pass_time)
+                                              float &last_pass_time, Eigen::VectorXd &last_free_config_, double start_time_)
 {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
 
+  start_cfg = configuration1;
+  start_time = start_time_;
   resetQueue();
   // if (!check(configuration1))
   //   return false;
   // if (!check(configuration2))
   //   return false;
   queueConnection(configuration1,configuration2);
-  checkAllQueues(avoid_ints,last_pass_time);
+  checkAllQueues(avoid_ints,last_pass_time);  
+  std::vector<double> last_free_cfg;
+  bool dn = false;
+  for (int i=0;i<configuration1.size();i++) last_free_cfg.push_back(configuration1[i]);
+  // ROS_INFO_STREAM("here2");
+  for (int i=0;i<threads_num_;i++) {
+    // ROS_INFO_STREAM("q size:"<<queues_.size()<<","<<queues_.at(i).size()<<","<<th_avoid_status[i].size());
+    for (int j=0;j<th_avoid_status[i].size();j++) {
+      if (th_avoid_status[i][j]) {
+        dn = true;
+        ROS_INFO_STREAM("found an avoid");
+        break;
+      }
+      last_free_cfg = queues_.at(i).at(j).second;
+    }
+    if (dn) break;
+  }
+  last_free_config_.resize(last_free_cfg.size());
+  for (int i=0;i<last_free_cfg.size();i++) last_free_config_[i] = last_free_cfg[i];
+
   // float min_dist = checkAllQueues(avoid_ints,last_pass_time);
 
   // stop_check_=false;
@@ -503,8 +552,8 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
           if (step_num+i<model_->joint_seq.size()) {
             ssm_->setPointCloud(model_->joint_seq[step_num+i].second);
             scaling=ssm_->computeScaling(q,nominal_velocity);
-            if (scaling>0.1) { 
-              max_seg_time = (segment_time+double(i*0.1))/scaling;
+            if (scaling>0.0) { 
+              max_seg_time = segment_time/scaling;
               break;
             }
           }
