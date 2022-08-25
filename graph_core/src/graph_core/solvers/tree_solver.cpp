@@ -39,25 +39,27 @@ bool TreeSolver::config(const ros::NodeHandle& nh)
     ROS_WARN("%s/max_distance is not set. using 1.0",nh.getNamespace().c_str());
     max_distance_=1.0;
   }
-
+  ROS_WARN_STREAM("max_distance:"<<max_distance_);
   if (!nh.getParam("use_kdtree",use_kdtree_))
   {
     ROS_DEBUG("%s/use_kdtree is not set. set true",nh.getNamespace().c_str());
     use_kdtree_=true;
   }
+  ROS_WARN_STREAM("use_kdtree:"<<int(use_kdtree_));
 
   if (!nh.getParam("informed",informed_))
   {
     ROS_DEBUG("%s/informed is not set. using true (informed set enble)",nh.getNamespace().c_str());
     informed_=true;
   }
+  ROS_WARN_STREAM("informed_:"<<int(informed_));
 
   if (!nh.getParam("extend",extend_))
   {
     ROS_WARN("%s/extend is not set. using false (connect algorithm)",nh.getNamespace().c_str());
     extend_=false;
   }
-
+  ROS_WARN_STREAM("informed_:"<<int(extend_));
   if (!nh.getParam("warp",warp_))
   {
     ROS_DEBUG("%s/warp is not set. using false",nh.getNamespace().c_str());

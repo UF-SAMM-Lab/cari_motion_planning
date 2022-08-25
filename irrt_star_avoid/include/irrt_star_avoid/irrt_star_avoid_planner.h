@@ -132,8 +132,6 @@ private:
   ros::Publisher m_solver_performance;
   bool use_iso15066 = false;
   ros::Publisher vis_pub_;
-  std::thread spinner_thread;
-  void spinThread(void);
   float grid_spacing = 0.1;
   double max_accel_time;
 

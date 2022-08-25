@@ -78,6 +78,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     // double tf = 2*max_dt+dt3;
 
     double time_new = (inv_max_speed_.cwiseProduct(dist_new)).cwiseAbs().maxCoeff()+0*2*max_dt;
+    // PATH_COMMENT_STREAM("time_new:"<<time_new);
     // PATH_COMMENT_STREAM("time_new:"<<time_new<<","<<tf);
     double node_time_new = time_new;
     //get cost of parent
@@ -92,6 +93,8 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
       c_near = parent->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
     }
     near_time = c_near;
+    // PATH_COMMENT_STREAM("near time:"<<near_time);
+
     // get min cost to get to new node from near parent
     double c_new = c_near + time_new;
 
@@ -120,7 +123,6 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     }
     if (!conn_found) {
       pc_avoid_checker->checkPath(parent->getConfiguration(), new_node->getConfiguration(), avoid_ints, last_pass_time);
-
     }
     // PATH_COMMENT_STREAM("last pass time:"<<last_pass_time);
     if (c_new>last_pass_time){
@@ -129,9 +131,9 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     }
     min_human_dist = 1.0;
     if (use_iso15066_) {
-      // std::cout<<"c_new changed from "<<c_new<<" to ";
+      //This will probabily make the parent->min_time very large initially
       c_new = pc_avoid_checker->checkISO15066(parent->getConfiguration(),new_node->getConfiguration(),dist_new.norm(),c_near,c_new,ceil(dist_new.norm()/0.1),min_human_dist);
-      // std::cout<<c_new<<" with iso15066\n";
+      // std::cout<<parent->getConfiguration().transpose()<<"->"<<new_node->getConfiguration().transpose()<<":"<<c_new<<" with iso15066\n";
     }
     //if avoidance intervals, loop over avoidance intervals to determine soonest time of passage from parent to new node
     if (!avoid_ints.empty() && success){
@@ -170,7 +172,6 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
                     prev_slow_cost = slow_cost;
                   }
                   tmp_time += extra_time_to_avoid_slow_down;
-                  // std::cout<<" new iso time:"<<tmp_time<<std::endl;
                   if (tmp_time>tmp_c_new) {
                       tmp_c_new = tmp_time;
                       // near_time = avoid_ints[r][1]+t_pad_+extra_time_to_avoid_slow_down;
@@ -214,6 +215,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
         c_new = std::numeric_limits<double>::infinity();
     }
 
+    // PATH_COMMENT_STREAM("out near time:"<<near_time);
     //<to-do> must also return the near_time to assign to parent_time_occupancy
 
     return c_new;
@@ -238,7 +240,6 @@ double TimeAvoidMetrics::cost(const Eigen::VectorXd& parent,
     // double tf = 2*max_dt+dt3;
 
     double time_new = (inv_max_speed_.cwiseProduct(dist_new)).cwiseAbs().maxCoeff()+0*2*max_dt;
-    // PATH_COMMENT_STREAM("time_new:"<<time_new<<","<<tf);
     double node_time_new = time_new;
     //get cost of parent
     //requires extended node data

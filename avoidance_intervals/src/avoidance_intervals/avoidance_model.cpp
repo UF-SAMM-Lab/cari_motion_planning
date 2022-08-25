@@ -188,13 +188,11 @@ namespace avoidance_intervals{
 
     void model::clear_model_cloud(void) {
         std::lock_guard<std::mutex> lock(ext_mutex);
-        for (int i:model_pt_idx) {
-            model_points[i].avoidance_intervals_.clear();
-        }
-
+        model_points = std::vector<model_point>(num_bins.prod());
         model_pt_idx.clear();
         avoid_cart_pts.resize(3,0);
         joint_seq.clear();
+        ROS_WARN("model has been cleared");
     }
 
     void model::generate_model_cloud(void) {
@@ -678,6 +676,11 @@ namespace avoidance_intervals{
         joint_locations.push_back(w2);
         Eigen::Vector3f spine_mid = 0.5*(spine_top+pelvis_loc);
         joint_locations.push_back(spine_mid);
+        joint_locations.push_back(0.5*(spine_top+head));
+        joint_locations.push_back(0.5*(l_shoulder+e1));
+        joint_locations.push_back(0.5*(e1+w1));
+        joint_locations.push_back(0.5*(r_shoulder+e2));
+        joint_locations.push_back(0.5*(e2+w2));
 
         joint_seq[idx] = std::pair<float,std::vector<Eigen::Vector3f>>(pose_elements[0],joint_locations);
         quat_seq[idx] = std::pair<float,std::vector<Eigen::Quaternionf>>(pose_elements[0],quats);

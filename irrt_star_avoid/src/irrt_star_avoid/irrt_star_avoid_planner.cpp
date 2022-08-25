@@ -119,7 +119,7 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   }
 
   metrics=std::make_shared<pathplan::TimeAvoidMetrics>(max_velocity_,max_accels_,1e-2, t_pad_,use_iso15066);
-  base_metrics = std::static_pointer_cast<pathplan::Metrics>(metrics);
+  // base_metrics = std::static_pointer_cast<pathplan::Metrics>(metrics);
 
   // COMMENT("check planning scene");
   // if (!planning_scene_)
@@ -235,6 +235,7 @@ void IRRTStarAvoid::setPlanningScene ( const planning_scene::PlanningSceneConstP
   COMMENT("create checker");
   planning_scene::PlanningScenePtr ps=planning_scene::PlanningScene::clone(planning_scene);
   checker=std::make_shared<pathplan::MoveitCollisionChecker>(ps,group_,collision_distance);
+  point_cloud_checker->updatePlanningScene(ps);
 
 }
 
@@ -356,7 +357,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   COMMENT("creating a time informed sampler");
   pathplan::SamplerPtr sampler = std::make_shared<pathplan::TimeInformedSampler>(m_lb, m_ub, m_lb, m_ub,max_velocity_);
   COMMENT("creating a time avoid rrt solver");
-  std::shared_ptr<pathplan::TimeAvoidRRTStar> solver=std::make_shared<pathplan::TimeAvoidRRTStar>(metrics,checker,sampler);
+  pathplan::TimeAvoidRRTStarPtr solver= std::make_shared<pathplan::TimeAvoidRRTStar>(metrics,checker,sampler);
   COMMENT("done created a time avoid rrt solver");
   solver->use_time_cost_ = true;
   PATH_COMMENT_STREAM("metrics name "<< solver->getMetricsName());
@@ -370,6 +371,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   }
   solver->addStart(start_node);
   solver->setInvMaxTime(max_velocity_.cwiseInverse(),metrics->max_dt);
+  ROS_INFO_STREAM("nodes:"<<solver->getStartTree()->getNodes().size());
 
   // m_queue.callAvailable();
 
@@ -480,13 +482,17 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     // solver->update(solution); //samples for a new node and udpates the node-graph
     if (solver->update(solution))
     {
-      ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost()<<" improved");
       solver->setSolved(true);
       // improved = true;
-    } else {
+    } 
 
-      ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost()<<" not improved");
-    }
+        
+
+    ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost());
+    // else {
+
+    //   ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost()<<" not improved");
+    // }
     // PATH_COMMENT_STREAM("found a solution:"<<found_a_solution<<", solver solved:"<<solver->solved());
     if (!found_a_solution && solver->solved())
     {
@@ -645,7 +651,9 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   res.error_code_.val=moveit_msgs::MoveItErrorCodes::SUCCESS;
   m_is_running=false;
   COMMENT("ok");
-
+  solver.reset();
+  sampler.reset();
+  
   // m_file.close();
   return true;
 }
@@ -681,13 +689,6 @@ bool IRRTStarAvoid::terminate()
       ROS_ERROR("Unable to stop planner %s of group %s",name_.c_str(),group_.c_str());
       return false;
     }
-  }
-}
-
-void IRRTStarAvoid::spinThread(void) {
-  while (ros::ok()) {
-    m_queue.callAvailable(ros::WallDuration());
-    ros::Duration(0.1).sleep();
   }
 }
 
