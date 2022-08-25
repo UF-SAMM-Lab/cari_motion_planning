@@ -60,7 +60,7 @@ bool TimeAvoidMetrics::interval_intersection(float avd_int_1_start, float avd_in
 
 //JF - need node1 instead of config1
 double TimeAvoidMetrics::cost(const NodePtr& parent,
-                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist, NodePtr &intermediate_node, bool use_iso15066_tmp)
+                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist, NodePtr &intermediate_node, double &int_cost, bool use_iso15066_tmp)
 {
 
     // PATH_COMMENT_STREAM("time avoid metrics cost fn 1");
@@ -127,7 +127,10 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
       // ROS_INFO_STREAM("done check pc avoid");
       if (((parent->getConfiguration()-last_free_cfg).norm()>0.01) && ((new_node->getConfiguration()-last_free_cfg).norm()>0.01)) {
         intermediate_node = std::make_shared<pathplan::Node>(last_free_cfg);
-        ROS_INFO_STREAM("should add the int node:"<<intermediate_node);
+        int_cost = (inv_max_speed_.cwiseProduct(last_free_cfg-parent->getConfiguration())).cwiseAbs().maxCoeff();
+        node_time_new -= int_cost; 
+        int_cost += parent->min_time;
+        // ROS_INFO_STREAM("should add the int node:"<<intermediate_node);
       } 
     }
     // PATH_COMMENT_STREAM("last pass time:"<<last_pass_time);

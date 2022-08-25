@@ -159,12 +159,12 @@ bool ParallelRobotPointClouds::pt_intersection(Eigen::Isometry3f &link_transform
       model_pts_already_checked[i] = true;
       // mtx.lock();
       th_avoid_ints[thread_idx].insert(std::end(th_avoid_ints[thread_idx]),std::begin(model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_), std::end(model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_));
-      std::vector<Eigen::Vector3f> avoid_ints = model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_;
-      if (!is_avoid) {
-        for (int r=0;r<avoid_ints.size();r++) {
-          if (interval_intersection(avoid_ints[r][0],avoid_ints[r][1],start_time,end_time)) is_avoid=true;
-        }
-      }
+      // std::vector<Eigen::Vector3f> avoid_ints = model_->model_points[model_->model_pt_idx[i]].avoidance_intervals_;
+      // if (!is_avoid) {
+      //   for (int r=0;r<avoid_ints.size();r++) {
+      //     if (interval_intersection(avoid_ints[r][0],avoid_ints[r][1],start_time,end_time)) is_avoid=true;
+      //   }
+      // }
       // mtx.unlock();
     }
   }
@@ -403,24 +403,24 @@ void ParallelRobotPointClouds::checkPath(const Eigen::VectorXd& configuration1,
   //   return false;
   queueConnection(configuration1,configuration2);
   checkAllQueues(avoid_ints,last_pass_time);  
-  std::vector<double> last_free_cfg;
-  bool dn = false;
-  for (int i=0;i<configuration1.size();i++) last_free_cfg.push_back(configuration1[i]);
-  // ROS_INFO_STREAM("here2");
-  for (int i=0;i<threads_num_;i++) {
-    // ROS_INFO_STREAM("q size:"<<queues_.size()<<","<<queues_.at(i).size()<<","<<th_avoid_status[i].size());
-    for (int j=0;j<th_avoid_status[i].size();j++) {
-      if (th_avoid_status[i][j]) {
-        dn = true;
-        ROS_INFO_STREAM("found an avoid");
-        break;
-      }
-      last_free_cfg = queues_.at(i).at(j).second;
-    }
-    if (dn) break;
-  }
-  last_free_config_.resize(last_free_cfg.size());
-  for (int i=0;i<last_free_cfg.size();i++) last_free_config_[i] = last_free_cfg[i];
+  // std::vector<double> last_free_cfg;
+  // bool dn = false;
+  // for (int i=0;i<configuration1.size();i++) last_free_cfg.push_back(configuration1[i]);
+  // // ROS_INFO_STREAM("here2");
+  // for (int i=0;i<threads_num_;i++) {
+  //   // ROS_INFO_STREAM("q size:"<<queues_.size()<<","<<queues_.at(i).size()<<","<<th_avoid_status[i].size());
+  //   for (int j=0;j<th_avoid_status[i].size();j++) {
+  //     if (th_avoid_status[i][j]) {
+  //       dn = true;
+  //       // ROS_INFO_STREAM("found an avoid");
+  //       break;
+  //     }
+  //     last_free_cfg = queues_.at(i).at(j).second;
+  //   }
+  //   if (dn) break;
+  // }
+  // last_free_config_.resize(last_free_cfg.size());
+  // for (int i=0;i<last_free_cfg.size();i++) last_free_config_[i] = last_free_cfg[i];
 
   // float min_dist = checkAllQueues(avoid_ints,last_pass_time);
 
