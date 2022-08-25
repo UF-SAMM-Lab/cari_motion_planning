@@ -60,7 +60,7 @@ bool TimeAvoidMetrics::interval_intersection(float avd_int_1_start, float avd_in
 
 //JF - need node1 instead of config1
 double TimeAvoidMetrics::cost(const NodePtr& parent,
-                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist, NodePtr &intermediate_node, double &int_cost, bool use_iso15066_tmp)
+                              const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist)
 {
 
     // PATH_COMMENT_STREAM("time avoid metrics cost fn 1");
@@ -118,20 +118,9 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
         break;
       }
     }
-    Eigen::VectorXd last_free_cfg;
     if (!conn_found) {
-      // ROS_INFO_STREAM("check pc avoid");
-      pc_avoid_checker->checkPath(parent->getConfiguration(), new_node->getConfiguration(), avoid_ints, last_pass_time,last_free_cfg,near_time);
-      
-      // ROS_INFO_STREAM(parent->getConfiguration()<<":"<<last_free_cfg.transpose()<<":"<<new_node->getConfiguration());
-      // ROS_INFO_STREAM("done check pc avoid");
-      if (((parent->getConfiguration()-last_free_cfg).norm()>0.01) && ((new_node->getConfiguration()-last_free_cfg).norm()>0.01)) {
-        intermediate_node = std::make_shared<pathplan::Node>(last_free_cfg);
-        int_cost = (inv_max_speed_.cwiseProduct(last_free_cfg-parent->getConfiguration())).cwiseAbs().maxCoeff();
-        node_time_new -= int_cost; 
-        int_cost += parent->min_time;
-        // ROS_INFO_STREAM("should add the int node:"<<intermediate_node);
-      } 
+      pc_avoid_checker->checkPath(parent->getConfiguration(), new_node->getConfiguration(), avoid_ints, last_pass_time);
+
     }
     // PATH_COMMENT_STREAM("last pass time:"<<last_pass_time);
     if (c_new>last_pass_time){
@@ -139,7 +128,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
         // break;
     }
     min_human_dist = 1.0;
-    if (use_iso15066_ && use_iso15066_tmp) {
+    if (use_iso15066_) {
       // std::cout<<"c_new changed from "<<c_new<<" to ";
       c_new = pc_avoid_checker->checkISO15066(parent->getConfiguration(),new_node->getConfiguration(),dist_new.norm(),c_near,c_new,ceil(dist_new.norm()/0.1),min_human_dist);
       // std::cout<<c_new<<" with iso15066\n";
@@ -167,7 +156,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
                     tmp_c_new = tmp_time;
                     near_time = avoid_ints[r][1]+t_pad_;
                 }
-                if (use_iso15066_ && use_iso15066_tmp) { //in case a little more slow down prevents an iso15066 slow down
+                if (use_iso15066_) { //in case a little more slow down prevents an iso15066 slow down
                   extra_time_to_avoid_slow_down = std::numeric_limits<double>::infinity();
                   prev_slow_cost = std::numeric_limits<double>::infinity();
                   for (int i=0;i<5;i++) {
@@ -183,7 +172,6 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
                   tmp_time += extra_time_to_avoid_slow_down;
                   // std::cout<<" new iso time:"<<tmp_time<<std::endl;
                   if (tmp_time>tmp_c_new) {
-                      // near_time +=extra_time_to_avoid_slow_down;
                       tmp_c_new = tmp_time;
                       // near_time = avoid_ints[r][1]+t_pad_+extra_time_to_avoid_slow_down;
                   }
@@ -279,8 +267,7 @@ double TimeAvoidMetrics::cost(const Eigen::VectorXd& parent,
     // PATH_COMMENT_STREAM("last pass time:"<<new_node);
 
     //if connection already exists, then get avoid ints and last pass time from connection, else call pc avoid checker
-    Eigen::VectorXd int_node;
-    pc_avoid_checker->checkPath(parent, new_node, avoid_ints, last_pass_time,int_node,0.0);
+    pc_avoid_checker->checkPath(parent, new_node, avoid_ints, last_pass_time);
 
     // PATH_COMMENT_STREAM("last pass time:"<<last_pass_time);
     if (c_new>last_pass_time){

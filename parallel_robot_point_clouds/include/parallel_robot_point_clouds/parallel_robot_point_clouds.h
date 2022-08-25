@@ -101,8 +101,7 @@ protected:
                        const Eigen::VectorXd& configuration2);
   void sort_reduce_link_pts(std::vector<Eigen::Vector3f> &link_pts);
   void show_transformed_pts(Eigen::MatrixXf &transformed_pts);
-  bool pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id, double start_time, double end_time);
-  bool interval_intersection(float avd_int_1_start, float avd_int_1_end, float conn_int_start, float conn_int_end);
+  void pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_id);
 
   collision_detection::CollisionRequest req_;
   collision_detection::CollisionResult res_;
@@ -133,7 +132,7 @@ public:
   virtual void checkPath(const Eigen::VectorXd& configuration1,
                                                const Eigen::VectorXd& configuration2, 
                                                std::vector<Eigen::Vector3f> &avoid_ints,
-                                               float &last_pass_time, Eigen::VectorXd &last_free_config_, double start_time_);
+                                               float &last_pass_time);
 
   // virtual bool checkConnFromConf(const ConnectionPtr& conn,
   //                                const Eigen::VectorXd& this_conf);

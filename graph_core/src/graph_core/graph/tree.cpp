@@ -78,10 +78,9 @@ namespace pathplan
         {
           std::vector<Eigen::Vector3f> avoid_ints;
           float last_pass_time;
-          Eigen::VectorXd int_node;
           double min_time_to_node = nodes_->time_dist(n, configuration);
           Eigen::VectorXd parent_config = n->getConfiguration();
-          metrics_->pc_avoid_checker->checkPath(parent_config, configuration, avoid_ints, last_pass_time, int_node,0.0);
+          metrics_->pc_avoid_checker->checkPath(parent_config, configuration, avoid_ints, last_pass_time);
           bool connection_possible = min_time_to_node < last_pass_time;
           // ROS_INFO_STREAM("connection possible:"<<connection_possible<<", min time to node:"<<min_time_to_node<<", last pass time:"<<last_pass_time);
           if (connection_possible)
@@ -180,50 +179,24 @@ namespace pathplan
       std::vector<Eigen::Vector3f> avoid_ints;
       float min_human_dist;
       float last_pass_time;
-      NodePtr int_node;
-      double int_cost;
       // is it connecting to an a node with inf cost?
-      cost = metrics_->cost(closest_node, new_node, n_time, avoid_ints, last_pass_time, min_human_dist,int_node,int_cost);
-      // ROS_INFO_STREAM("adding the int node:"<<int_node);
+      cost = metrics_->cost(closest_node, new_node, n_time, avoid_ints, last_pass_time, min_human_dist);
       // PATH_COMMENT_STREAM("new node cost:"<<cost);
       if (cost == std::numeric_limits<double>::infinity())
         return false;
       // new_node->min_time = std::min(closest_node->min_time+cost,new_node->min_time);
-      if (int_node) {
-        // ROS_INFO_STREAM("adding the int node1");
-        addNode(int_node); // addNode(new_node,false);
-        // NodePtr trash_node;
-        // cost = metrics_->cost(closest_node, int_node, n_time, avoid_ints, last_pass_time, min_human_dist,trash_node);
-        conn = std::make_shared<Connection>(closest_node, int_node);
-        conn->setMinTime(inv_max_speed_, min_accel_time);
-        // conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);     
-        conn->setParentTime(closest_node->min_time);
-        conn->add();
-        conn->setCost(int_cost);
-        // ROS_INFO_STREAM(*int_node);
-        // cost = metrics_->cost(int_node, new_node, n_time, avoid_ints, last_pass_time, min_human_dist,trash_node);
-        conn = std::make_shared<Connection>(int_node, new_node);   
-        conn->setMinTime(inv_max_speed_, min_accel_time);
-        conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);     
-        conn->setParentTime(n_time);
-        conn->add();
-        conn->setCost(cost);
-        // ROS_INFO_STREAM("adding the new node1");
-        // ROS_INFO_STREAM(*new_node);
-      } else {
-        conn = std::make_shared<Connection>(closest_node, new_node);
-        conn->setMinTime(inv_max_speed_, min_accel_time);
-        conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
-        conn->setParentTime(n_time);
-        conn->add();
-        conn->setCost(cost);
-      }
+      conn = std::make_shared<Connection>(closest_node, new_node);
+      conn->setMinTime(inv_max_speed_, min_accel_time);
+      conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
       // PATH_COMMENT_STREAM("adding connection:"<<cost<<", "<<n_time<<","<<avoid_ints.size());
       // PATH_COMMENT_STREAM("adding connection:"<<cost<<", "<<n_time<<","<<avoid_ints.size());
       // for (int i=0;i<avoid_ints.size();i++) {
       //   std::cout<<avoid_ints[i].transpose()<<std::endl;
       // }
       // PATH_COMMENT_STREAM("end of ints");
+      conn->setParentTime(n_time);
+      conn->add();
+      conn->setCost(cost);
     }
     else
     {
@@ -236,8 +209,6 @@ namespace pathplan
 
     connection = conn;
     addNode(new_node);
-    // ROS_INFO_STREAM("new node after extendonly:");
-    // ROS_INFO_STREAM(*new_node);
     // ROS_INFO_STREAM("added node1:"<<new_node);
     // addNode(new_node,false);
 
@@ -316,37 +287,16 @@ namespace pathplan
     std::vector<Eigen::Vector3f> avoid_ints;
     float min_human_dist;
     float last_pass_time;
-    NodePtr int_node;
-    double int_cost;
-    ConnectionPtr conn;
     if (time_avoid_)
     {
-      cost = metrics_->cost(closest_node, new_node, n_time, avoid_ints, last_pass_time, min_human_dist,int_node,int_cost);
-      if (int_node) {
-        // ROS_INFO_STREAM("adding the int node2");
-        addNode(int_node); // addNode(new_node,false);
-        // NodePtr trash_node;
-        // cost = metrics_->cost(closest_node, int_node, n_time, avoid_ints, last_pass_time, min_human_dist,trash_node);
-        ConnectionPtr int_conn = std::make_shared<Connection>(closest_node, int_node);
-        int_conn->setParentTime(closest_node->min_time);
-        int_conn->setCost(int_cost);
-        // int_conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
-        int_conn->setMinTime(inv_max_speed_, min_accel_time);
-        int_conn->add();
-        // ROS_INFO_STREAM(*int_node);
-        // cost = metrics_->cost(int_node, new_node, n_time, avoid_ints, last_pass_time, min_human_dist,trash_node);
-        conn = std::make_shared<Connection>(int_node, new_node);
-        // ROS_INFO_STREAM(*new_node);
-      } else {
-        conn = std::make_shared<Connection>(closest_node, new_node);
-      }
+      cost = metrics_->cost(closest_node, new_node, n_time, avoid_ints, last_pass_time, min_human_dist);
     }
     else
     {
       cost = metrics_->cost(closest_node, new_node);
-      conn = std::make_shared<Connection>(closest_node, new_node);
     }
     // PATH_COMMENT_STREAM("parent->child extension cost:"<<cost);
+    ConnectionPtr conn = std::make_shared<Connection>(closest_node, new_node);
     // PATH_COMMENT_STREAM("adding connection2:"<<cost<<", "<<n_time<<","<<avoid_ints.size());
     // for (int i=0;i<avoid_ints.size();i++) {
     //   std::cout<<avoid_ints[i].transpose()<<std::endl;
@@ -356,8 +306,6 @@ namespace pathplan
       if (!new_node->parent_connections_.empty()) new_node->parent_connections_[0]->remove();
     }
     conn->add();
-    // ROS_INFO_STREAM("adding the new node2");
-    // ROS_INFO_STREAM(*new_node);
     if (time_avoid_)
       conn->setParentTime(n_time);
     // PATH_COMMENT_STREAM("setting cost for connection");
@@ -575,9 +523,6 @@ namespace pathplan
     bool improved = false;
 
     double cost_node_to_near;
-
-    // ROS_INFO_STREAM("node before rewire parent:");
-    // ROS_INFO_STREAM(*node);
     if (rewire_parent)
     {
       // ROS_INFO_STREAM("node parents:"<<node->getParents().size());
@@ -590,8 +535,6 @@ namespace pathplan
       {
         const NodePtr &n = p.second; // get near node from pair
         // std::cout<<"near node:"<<*n<<std::endl;
-
-        // ROS_INFO_STREAM("parent:"<<*n);
         if (n == goal_node_)
           continue;
         // check to prevent a node from becoming its own parent
@@ -620,11 +563,9 @@ namespace pathplan
         std::vector<Eigen::Vector3f> avoid_ints;
         float min_human_dist;
         float last_pass_time;
-        NodePtr int_node;
-        double int_cost;
         if (time_avoid_)
         {
-          cost_near_to_node = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist,int_node,int_cost);
+          cost_near_to_node = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist);
         }
         else
         {
@@ -653,31 +594,7 @@ namespace pathplan
           node->parent_connections_.at(0)->remove();
         // ROS_INFO_STREAM("Bnew cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_node);
         // make a new connect from better parent to node
-        ConnectionPtr conn;
-        if (time_avoid_) {
-          if (int_node) {
-            // ROS_INFO_STREAM("adding the int node3");
-            addNode(int_node); // addNode(new_node,false);
-            // NodePtr trash_node;
-            // cost_near_to_node = metrics_->cost(n, int_node, n_time, avoid_ints, last_pass_time, min_human_dist,trash_node);
-            ConnectionPtr int_conn = std::make_shared<Connection>(n, int_node);
-            int_conn->setParentTime(n->min_time);
-            int_conn->setCost(int_cost);
-            // int_conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
-            int_conn->setMinTime(inv_max_speed_, min_accel_time);
-            int_conn->add();
-            // ROS_INFO_STREAM(*int_node);
-            // cost_near_to_node = metrics_->cost(int_node, node, n_time, avoid_ints, last_pass_time, min_human_dist,trash_node);
-            conn = std::make_shared<Connection>(int_node, node);
-            // ROS_INFO_STREAM("node after int node parant:");
-            // ROS_INFO_STREAM(*node);
-          } else {
-            conn = std::make_shared<Connection>(n, node);
-          }
-        } else {
-          conn = std::make_shared<Connection>(n, node);
-        }
-        
+        ConnectionPtr conn = std::make_shared<Connection>(n, node);
         // edge cost is l2 distance or time to reach new node
         if (time_avoid_)
         {
@@ -698,7 +615,7 @@ namespace pathplan
           else
           {
             // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
-            if (!node->parent_connections_.empty())  node->parent_connections_.at(0)->removeCache();
+            node->parent_connections_.at(0)->removeCache();
           }
         }
         // std::cout<<"cost to node:"<<cost_to_node<<", new cost:"<<cost_to_near + cost_near_to_node<<std::endl;
@@ -754,7 +671,6 @@ namespace pathplan
         const NodePtr &n = p.second;
         if (n == node)
           continue;
-        // ROS_INFO_STREAM("child:"<<*n);
         // if (n == goal_node_)
           // ROS_INFO_STREAM("the goal is a near node");
         // if (n != root_)
@@ -791,31 +707,13 @@ namespace pathplan
         float min_human_dist;
         std::vector<Eigen::Vector3f> avoid_ints;
         float last_pass_time;
-        NodePtr int_node;
-        double int_cost;
         if (!time_avoid_)
         {
           cost_node_to_near = metrics_->cost(node->getConfiguration(), n->getConfiguration());
         }
         else
         { // JF - else get time to reach node n via node
-          cost_node_to_near = metrics_->cost(node, n, node_time, avoid_ints, last_pass_time, min_human_dist,int_node,int_cost);
-          if (int_node) {
-            // ROS_INFO_STREAM("adding the int node4");
-            addNode(int_node); // addNode(new_node,false);
-            // NodePtr trash_node;
-            // cost_node_to_near = metrics_->cost(node, int_node, node_time, avoid_ints, last_pass_time, min_human_dist,trash_node);
-            ConnectionPtr int_conn = std::make_shared<Connection>(node, int_node);
-            int_conn->setParentTime(node->min_time);
-            int_conn->setCost(int_cost);
-            // int_conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
-            int_conn->setMinTime(inv_max_speed_, min_accel_time);
-            int_conn->add();
-            // ROS_INFO_STREAM(*int_node);
-            // ROS_INFO_STREAM("n:");
-            // ROS_INFO_STREAM(*n);
-            // cost_node_to_near = metrics_->cost(int_node, n, node_time, avoid_ints, last_pass_time, min_human_dist,trash_node);
-          }
+          cost_node_to_near = metrics_->cost(node, n, node_time, avoid_ints, last_pass_time, min_human_dist);
         }
         // if the cost to reach n via node is not less than cost to reach n via n.parent, then skip
         //  if ((cost_to_node + cost_node_to_near) >= cost_to_near)
@@ -840,9 +738,6 @@ namespace pathplan
 
         // ROS_INFO_STREAM("node parents rewire child:"<<node->parent_connections_.size());
         // node is a better parent for n and path is collision free, remove old n.parent
-
-        // ROS_INFO_STREAM("n before 5:");
-        // ROS_INFO_STREAM(*n);
         if (!n->parent_connections_.empty())
         {
           // when removing a parent, note that the parent node could potentially be a parent of this node again
@@ -860,26 +755,15 @@ namespace pathplan
         }
         // std::cout<<"Test\n";
         // make new connection between node and n
-        ConnectionPtr conn;
+        ConnectionPtr conn = std::make_shared<Connection>(node, n);
         if (time_avoid_)
         {
-          if (int_node) {
-            // ROS_INFO_STREAM("adding the int node5");
-            conn = std::make_shared<Connection>(int_node, n);
-          } else {
-            conn = std::make_shared<Connection>(node, n);
-          }
-
           conn->setParentTime(node_time);
           conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
           conn->setMinTime(inv_max_speed_, min_accel_time);
-        } else {
-          conn = std::make_shared<Connection>(node, n);
         }
         conn->add();
         conn->setCost(cost_node_to_near);
-        // ROS_INFO_STREAM("n after 5:");
-        // ROS_INFO_STREAM(*n);
         // if (n == goal_node_)
         //   ROS_INFO_STREAM("goal node improvement");
 
@@ -890,7 +774,7 @@ namespace pathplan
 
         if (time_avoid_)
         {
-          // ROS_INFO_STREAM("here3");
+          // ROS_INFO_STREAM("here");
           rewireNearToTheirChildren(n, 0);
           // ROS_INFO_STREAM("here1");
           rewireNearToBetterParents(n);
@@ -901,8 +785,6 @@ namespace pathplan
         {
           improved = true;
         }
-        // ROS_INFO_STREAM("n after 5.1:");
-        // ROS_INFO_STREAM(*n);
         // should i call rewire_only on all child nodes of node n?
 
         // PATH_COMMENT_STREAM("rewired connection:"<<cost_node_to_near<<", "<<node_time<<","<<avoid_ints.size());
@@ -931,9 +813,7 @@ namespace pathplan
       double node_time = 0;
       float last_pass_time;
       float min_human_dist;
-      NodePtr int_node;
-      double int_cost;
-      double cost_n_to_child = metrics_->cost(n, n_child, node_time, avoid_ints, last_pass_time, min_human_dist, int_node, int_cost);
+      double cost_n_to_child = metrics_->cost(n, n_child, node_time, avoid_ints, last_pass_time, min_human_dist);
       if (cost_n_to_child >= cost_to_child)
         continue;
       // if (!checker_->checkPath(n_p->getConfiguration(), n->getConfiguration())) continue;
@@ -941,21 +821,6 @@ namespace pathplan
       if (!n_child->parent_connections_.empty())
       {
         n_child->parent_connections_.at(0)->removeCache();
-      }
-      if (int_node) {
-        // ROS_INFO_STREAM("adding the int node:child");
-        // conn->removeCache();
-        conn = std::make_shared<Connection>(n, int_node);
-        // cost_n_to_child = metrics_->cost(n, int_node, node_time, avoid_ints, last_pass_time, min_human_dist, int_node);
-        conn->setParentTime(n->min_time);
-        // conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
-        conn->setMinTime(inv_max_speed_, min_accel_time);
-        conn->add();
-        // ROS_INFO_STREAM(*int_node);
-        conn->setCost(int_cost);
-        conn = std::make_shared<Connection>(int_node, n_child);
-        // ROS_INFO_STREAM(*n_child);
-        // cost_n_to_child = metrics_->cost(int_node, n_child, node_time, avoid_ints, last_pass_time, min_human_dist, int_node);
       }
       // ConnectionPtr conn = std::make_shared<Connection>(n, n_child);
       conn->setParentTime(node_time);
@@ -998,9 +863,7 @@ namespace pathplan
       double node_time = 0;
       float last_pass_time;
       float min_human_dist;
-      NodePtr int_node;
-      double int_cost;
-      double cost_parent_to_n = metrics_->cost(n_parent, n, node_time, avoid_ints, last_pass_time, min_human_dist,int_node,int_cost);
+      double cost_parent_to_n = metrics_->cost(n_parent, n, node_time, avoid_ints, last_pass_time, min_human_dist);
       if (cost_parent_to_n >= cost_to_n)
         continue;
       // if (!checker_->checkPath(n_p->getConfiguration(), n->getConfiguration())) continue;
@@ -1009,26 +872,11 @@ namespace pathplan
       {
         n->parent_connections_.at(0)->removeCache();
       }
-      if (int_node) {
-        // ROS_INFO_STREAM("adding the int node:parent");
-        conn = std::make_shared<Connection>(n_parent, int_node);
-        // NodePtr trash_node;
-        // cost_parent_to_n = metrics_->cost(n_parent, int_node, node_time, avoid_ints, last_pass_time, min_human_dist, trash_node);
-        conn->setParentTime(n_parent->min_time);
-        // conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
-        conn->setMinTime(inv_max_speed_, min_accel_time);
-        conn->add();
-        // ROS_INFO_STREAM(*int_node);
-        conn->setCost(int_cost);
-        conn = std::make_shared<Connection>(int_node, n);
-        // cost_parent_to_n = metrics_->cost(int_node, n, node_time, avoid_ints, last_pass_time, min_human_dist, trash_node);
-      }
       // ConnectionPtr conn = std::make_shared<Connection>(n, n_child);
       conn->setParentTime(node_time);
       conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
       conn->setMinTime(inv_max_speed_, min_accel_time);
       conn->add();
-      // ROS_INFO_STREAM(*n);
       conn->setCost(cost_parent_to_n);
       // std::cout<<"rewire near to parents, parent has:"<<conn->getParent()->parent_connections_.size()<<" parents\n";
     }
@@ -1472,8 +1320,6 @@ namespace pathplan
       // ROS_INFO_STREAM("fail:"<<*new_node);
       return false;
     }
-    // ROS_INFO_STREAM("after extend:");
-    // ROS_INFO_STREAM(*new_node);
     // ROS_INFO_STREAM("success:"<<new_node);
     // PATH_COMMENT_STREAM("rewire only");
     return rewireOnly(new_node, r_rewire);

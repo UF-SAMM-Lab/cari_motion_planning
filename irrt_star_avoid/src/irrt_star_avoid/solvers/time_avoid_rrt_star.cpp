@@ -67,9 +67,7 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
   std::vector<Eigen::Vector3f> avoid_ints;
   float last_pass_time;
   float min_human_dist;
-  NodePtr int_node;
-  double int_cost;
-  double cost_start_to_goal = metrics_->cost(start_tree_->getNodes()[0], goal_node_, node_time,avoid_ints,last_pass_time,min_human_dist,int_node, int_cost);
+  double cost_start_to_goal = metrics_->cost(start_tree_->getNodes()[0], goal_node_, node_time,avoid_ints,last_pass_time,min_human_dist);
   ROS_INFO_STREAM("here");
   if (checker_->checkPath(start_tree_->getNodes()[0]->getConfiguration(), goal_node_->getConfiguration()) && (cost_start_to_goal<std::numeric_limits<double>::infinity()))
   {
