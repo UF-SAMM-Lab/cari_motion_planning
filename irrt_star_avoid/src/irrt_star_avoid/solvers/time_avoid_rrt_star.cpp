@@ -67,7 +67,6 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
   std::vector<Eigen::Vector3f> avoid_ints;
   float last_pass_time;
   float min_human_dist;
-  ROS_INFO_STREAM("here");
   double cost_start_to_goal = metrics_->cost(start_tree_->getNodes()[0], goal_node_, node_time,avoid_ints,last_pass_time,min_human_dist);
   ROS_INFO_STREAM("here");
   if (checker_->checkPath(start_tree_->getNodes()[0]->getConfiguration(), goal_node_->getConfiguration()) && (cost_start_to_goal<std::numeric_limits<double>::infinity()))
@@ -131,7 +130,6 @@ bool TimeAvoidRRTStar::config(const ros::NodeHandle& nh)
     ROS_DEBUG("%s/rewire_radius is not set. using 2.0*max_distance",nh.getNamespace().c_str());
     r_rewire_=2.0*max_distance_;
   }
-  ROS_WARN_STREAM("rewire_radius:"<<r_rewire_);
   return true;
 }
 //samples config space, then updates solution
@@ -168,7 +166,7 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
     old_path_cost = std::numeric_limits<double>::max();
   }
 
-  // PATH_COMMENT_STREAM("old path cost:"<<old_path_cost);
+  // PATH_COMMENT_STREAM("old path cost:");
 
   // PATH_COMMENT_STREAM("number of nodes in tree0: "<<start_tree_->getNumberOfNodes());
   bool improved = start_tree_->rewire(configuration, r_rewire_);
@@ -197,7 +195,6 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
 //I assume this if the function for rewiring old news to the new parent
 bool TimeAvoidRRTStar::update(const NodePtr& n, PathPtr& solution)
 {
-  ROS_ERROR_STREAM("update node");
   if (!init_)
     // ROS_INFO("exit update, init");
     return false;

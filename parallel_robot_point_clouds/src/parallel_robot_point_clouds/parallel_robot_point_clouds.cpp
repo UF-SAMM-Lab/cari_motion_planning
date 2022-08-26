@@ -112,8 +112,6 @@ void ParallelRobotPointClouds::updatePlanningScene(const planning_scene::Plannin
     planning_scenes_.push_back(planning_scene::PlanningScene::clone(planning_scene));
     queues_.at(idx) = std::vector<std::pair<int,std::vector<double>>>();
   }
-  ssm_.reset();
-  ssm_=std::make_shared<ssm15066::DeterministicSSM>(chain_,nh);
 }
 
 void ParallelRobotPointClouds::pt_intersection(Eigen::Isometry3f &link_transform, int link_id, int thread_idx) {
@@ -230,10 +228,9 @@ void ParallelRobotPointClouds::checkAllQueues(std::vector<Eigen::Vector3f> &comb
     th_avoid_ints[idx].clear();
     if (queues_.at(idx).size()>0) {
         threads.at(idx)=std::thread(&ParallelRobotPointClouds::collisionThread,this,idx);
-    } 
-    // else {
-    //   break;
-    // }
+    } else {
+      break;
+    }
   }
   //wait for threads to finish
   for (int idx=0;idx<threads_num_;idx++)
@@ -481,17 +478,17 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
     // std::cout<<int(model_->joint_seq.size());
     if (model_->joint_seq.empty()) return t2;
     double model_t_step = model_->joint_seq[1].first - model_->joint_seq[0].first;
+    // ROS_INFO_STREAM("joint seq:"<<model_->joint_seq.size()<<","<<model_t_step);
     Eigen::VectorXd nominal_velocity= (configuration2 - configuration1)/nominal_time;
     double cost=0;
     double inv_nsteps = 1.0 / nsteps;
     double segment_time = nominal_time / nsteps;
     for (unsigned int istep = 0; istep < nsteps+1; istep++)
     { 
-      int step_num = int((t1+double(istep)*0.1)/model_t_step);
+      int step_num = int((t1+(double)istep*segment_time)/model_t_step);
       if (step_num<model_->joint_seq.size()) {
         ssm_->setPointCloud(model_->joint_seq[step_num].second);
       } else {
-        // ssm_->setPointCloud(model_->joint_seq.back().second);
         ssm_->setPointCloud(Eigen::Matrix3Xd());
       }
       Eigen::VectorXd q = configuration1 + (configuration2 - configuration1) * inv_nsteps * (double)istep;
@@ -502,17 +499,15 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
 
       // std::cout<<q.transpose()<<", scale:"<<scaling<<", "<<model_t_step<<std::endl;
       double max_seg_time = segment_time/(scaling+1e-6);
-      if (scaling<0.01) {
-        for (int i=1;i<20;i++) {
-          if (step_num+i*0.2*20<model_->joint_seq.size()) {
-            ssm_->setPointCloud(model_->joint_seq[step_num+i*0.2*20].second);
+      if (scaling<0.1) {
+        for (int i=1;i<100;i+=4) {
+          if (step_num+i<model_->joint_seq.size()) {
+            ssm_->setPointCloud(model_->joint_seq[step_num+i].second);
             scaling=ssm_->computeScaling(q,nominal_velocity);
-            if (scaling>0.01) { 
-              max_seg_time = (segment_time+double(i))/scaling;
+            if (scaling>0.1) { 
+              max_seg_time = (segment_time+double(i)*0.1)/scaling;
               break;
             }
-          } else {
-            break;
           }
         }
       }

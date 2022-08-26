@@ -188,11 +188,11 @@ namespace avoidance_intervals{
 
     void model::clear_model_cloud(void) {
         std::lock_guard<std::mutex> lock(ext_mutex);
-        model_points = std::vector<model_point>(num_bins.prod());
+        model_points.clear();
+        model_points.resize(num_bins.prod());
         model_pt_idx.clear();
         avoid_cart_pts.resize(3,0);
-        joint_seq.clear();
-        ROS_WARN("model has been cleared");
+        // joint_seq = std::vector<std::pair<float,Eigen::MatrixXd>>();
     }
 
     void model::generate_model_cloud(void) {
@@ -301,10 +301,10 @@ namespace avoidance_intervals{
             int h = (int)msg->layout.dim[0].size;
             int w = (int)msg->layout.dim[1].size;
             //cast the msg data to a vector of floats
-            std::lock_guard<std::mutex> lock(msg_mtx);
+            // std::lock_guard<std::mutex> lock(msg_mtx);
             msg_data = msg->data;
             avoid_pts_msg.resize(w);
-            int num_threads_=30;
+            int num_threads_=10;
             int pts_per_thread = ceil((float)w/(float)num_threads_);
             std::cout<<"pts per thread:"<<pts_per_thread<<std::endl;
             std::vector<std::thread> threads;
@@ -328,6 +328,7 @@ namespace avoidance_intervals{
             // }
         }
         generate_model_cloud(avoid_pts_msg);
+        ROS_INFO_STREAM(msg->data.size());
         ROS_INFO_STREAM("updated the human model........................................"<<avoid_pts_msg.size());
     }
 
@@ -461,7 +462,7 @@ namespace avoidance_intervals{
     }
 
     void model::subscribe_sequence(const avoidance_intervals::joint_seq::ConstPtr& msg) {
-        std::cout<<"receiving the sequence\n";
+        std::cout<<"receiving the sequence of length:"<<msg->sequence.size()<<"\n";
         joint_seq.clear();
         for (int i=0;i< msg->sequence.size();i++) {
             Eigen::MatrixXd joint_pos(3,msg->sequence[i].joint_pos.data.size());
@@ -678,9 +679,9 @@ namespace avoidance_intervals{
         joint_locations.push_back(spine_mid);
         joint_locations.push_back(0.5*(spine_top+head));
         joint_locations.push_back(0.5*(l_shoulder+e1));
-        joint_locations.push_back(0.5*(e1+w1));
+        joint_locations.push_back(0.5*(w1+e1));
         joint_locations.push_back(0.5*(r_shoulder+e2));
-        joint_locations.push_back(0.5*(e2+w2));
+        joint_locations.push_back(0.5*(w2+e2));
 
         joint_seq[idx] = std::pair<float,std::vector<Eigen::Vector3f>>(pose_elements[0],joint_locations);
         quat_seq[idx] = std::pair<float,std::vector<Eigen::Quaternionf>>(pose_elements[0],quats);
@@ -829,6 +830,7 @@ namespace avoidance_intervals{
             }
         }
         pts_pub_.publish(pts_msg);
+        if (!pts.empty()) publish_sequence(0.0);
         // ROS_INFO_STREAM("published pts on "<<pts_pub_.getTopic());
     }
 
@@ -1159,7 +1161,7 @@ namespace avoidance_intervals{
         avoidance_intervals::joint_seq joint_sequence_msg;
         avoidance_intervals::joint_seq_elem joint_seq_elem_msg;
         int start_i = std::min(int(floor(start_time/t_step_)),int(joint_seq.size())-1);
-        std::cout<<"publishing the sequence of length:"<<int(joint_seq.size())-start_i<<" starting from step "<<start_i<<std::endl;
+        ROS_INFO_STREAM("publishing the sequence of length:"<<int(joint_seq.size())-start_i<<" starting from step "<<start_i);
         for (int i=start_i;i<joint_seq.size();i++) {
             joint_seq_elem_msg.time.data = joint_seq[i].first;
             joint_seq_elem_msg.joint_pos.data.clear();
