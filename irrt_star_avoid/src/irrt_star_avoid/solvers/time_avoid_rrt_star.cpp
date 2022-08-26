@@ -176,6 +176,17 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
     // PATH_COMMENT_STREAM("improved"<<goal_node_->parent_connections_.size()<<", "<<start_tree_->costToNode(goal_node_)<<", "<<old_path_cost);
     //this is a problem
     // PATH_COMMENT_STREAM("solution_improved");
+    // std::vector<ConnectionPtr> goal_connections = start_tree_->getConnectionToNode(goal_node_);
+    // for (int i=0;i<goal_connections.size();i++) {
+    //   double n_time = 0;
+    //   std::vector<Eigen::Vector3f> avoid_ints;
+    //   float min_human_dist;
+    //   float last_pass_time;
+    //   double cost = metrics_->cost(goal_connections[i]->getParent(),goal_connections[i]->getChild(), n_time, avoid_ints, last_pass_time, min_human_dist);
+    //   ROS_INFO_STREAM("node:"<<goal_connections[i]->getChild()->getConfiguration().transpose()<<", cost:"<<cost<<", p min t:"<<goal_connections[i]->getParent()->min_time<<", n_time:"<<n_time<<","<<min_human_dist<<","<<last_pass_time);
+    //   goal_connections[i]->setParentTime(n_time);
+    //   goal_connections[i]->setCost(cost);
+    // }
     if (start_tree_->costToNode(goal_node_)  >= (old_path_cost - 1e-8))
       return false;
     // PATH_COMMENT_STREAM(start_tree_->costToNode(goal_node_));

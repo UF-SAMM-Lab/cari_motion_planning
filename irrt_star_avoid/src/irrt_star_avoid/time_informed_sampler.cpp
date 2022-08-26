@@ -35,15 +35,15 @@ namespace pathplan
 Eigen::VectorXd TimeInformedSampler::sample()
 {
   // ROS_INFO("sampling");
-  if (inf_cost_)
-  {
+  // if (inf_cost_)
+  // {
     Eigen::VectorXd rand_samp = 0.5*Eigen::MatrixXd::Random(ndof_, 1)+0.5*Eigen::MatrixXd::Ones(ndof_, 1);
     Eigen::VectorXd sample = l_box_+rand_samp.cwiseProduct(q_range_);
     // PATH_COMMENT_STREAM("sample:\n"<<sample);
     return sample;
-  }
-  else
-  {
+  // }
+  // else
+  // {
     Eigen::VectorXd ball(ndof_);
     for (int iter = 0; iter < 100; iter++)
     {
@@ -62,13 +62,34 @@ Eigen::VectorXd TimeInformedSampler::sample()
         }
       }
       if (in_of_bounds)
+
         return q;
     }
     ROS_DEBUG_THROTTLE(0.1, "unable to find a feasible point in the hyperrectangle");
-    Eigen::VectorXd sample = l_box_ + Eigen::MatrixXd::Random(ndof_, 1).cwiseProduct(q_range_);
+    sample = l_box_ + Eigen::MatrixXd::Random(ndof_, 1).cwiseProduct(q_range_);
     // PATH_COMMENT_STREAM("sample:\n"<<sample);
+    // visualization_msgs::Marker marker;
+    // marker.type = visualization_msgs::Marker::SPHERE_LIST;
+    // marker.header.frame_id="world";
+    // marker.header.stamp=ros::Time::now();
+    // marker.action = visualization_msgs::Marker::ADD;
+    // marker.id= static_id;
+
+    // marker.scale.x = 0.03;
+    // marker.scale.y = 0.03;
+    // marker.scale.z = 0.03;
+
+    // marker.color.r = 0;
+    // marker.color.g = 1;
+    // marker.color.b = 0;
+    // marker.color.a = 1.0;
+    // geometry_msgs::Pose pose;
+    // state_->setJointGroupPositions("edo",n->getConfiguration());
+    // tf::poseEigenToMsg(state_->getGlobalLinkTransform("edo_link_ee_tip"),pose);
+    // marker.points.push_back(pose.position);
+    // sample_pub.publish(marker);
     return sample;
-  }
+  // }
 }
 
 bool TimeInformedSampler::inBounds(const Eigen::VectorXd& q)

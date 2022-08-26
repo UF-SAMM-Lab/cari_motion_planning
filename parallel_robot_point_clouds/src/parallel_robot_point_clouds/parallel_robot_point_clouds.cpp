@@ -477,7 +477,7 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
     min_human_dist = 1.0;
     // std::cout<<int(model_->joint_seq.size());
     if (model_->joint_seq.empty()) return t2;
-    double model_t_step = model_->joint_seq[1].first - model_->joint_seq[0].first;
+    double model_t_step = 0.1;
     // ROS_INFO_STREAM("joint seq:"<<model_->joint_seq.size()<<","<<model_t_step);
     Eigen::VectorXd nominal_velocity= (configuration2 - configuration1)/nominal_time;
     double cost=0;
@@ -489,7 +489,8 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
       if (step_num<model_->joint_seq.size()) {
         ssm_->setPointCloud(model_->joint_seq[step_num].second);
       } else {
-        ssm_->setPointCloud(Eigen::Matrix3Xd());
+        // ssm_->setPointCloud(Eigen::Matrix3Xd());
+        ssm_->setPointCloud(model_->joint_seq.back().second);
       }
       Eigen::VectorXd q = configuration1 + (configuration2 - configuration1) * inv_nsteps * (double)istep;
 
@@ -500,19 +501,24 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
       // std::cout<<q.transpose()<<", scale:"<<scaling<<", "<<model_t_step<<std::endl;
       double max_seg_time = segment_time/(scaling+1e-6);
       if (scaling<0.1) {
-        for (int i=1;i<100;i+=4) {
+        for (int i=1;i<30;i++) {
           if (step_num+i<model_->joint_seq.size()) {
             ssm_->setPointCloud(model_->joint_seq[step_num+i].second);
             scaling=ssm_->computeScaling(q,nominal_velocity);
             if (scaling>0.1) { 
               max_seg_time = (segment_time+double(i)*0.1)/scaling;
+              min_human_dist = (float)scaling;
               break;
             }
+          } else {
+            max_seg_time = segment_time;
+            break;
           }
         }
       }
       cost+=max_seg_time; //avoid division by zero
     }
+    // ROS_INFO_STREAM("ssm cost:"<<cost);
     // std::cout<<std::endl;
 
     return cost+(double)t1;

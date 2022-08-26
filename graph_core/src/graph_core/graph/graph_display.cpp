@@ -419,21 +419,28 @@ int Display::displayTree(const TreePtr &tree,
 {
   visualization_msgs::Marker marker;
   marker.ns = ns;
-  marker.type = visualization_msgs::Marker::LINE_LIST;
+  marker.type = visualization_msgs::Marker::SPHERE_LIST;
   marker.header.frame_id="world";
   marker.header.stamp=ros::Time::now();
   marker.action = visualization_msgs::Marker::ADD;
   marker.id= static_id;
 
-  marker.scale.x = tree_marker_scale_.at(0);
-  marker.scale.y = tree_marker_scale_.at(1);
-  marker.scale.z = tree_marker_scale_.at(2);
+  marker.scale.x = 0.01;
+  marker.scale.y = 0.01;
+  marker.scale.z = 0.01;
 
   marker.color.r = marker_color.at(0);
   marker.color.g = marker_color.at(1);
   marker.color.b = marker_color.at(2);
   marker.color.a = marker_color.at(3);
-  displayTreeNode(tree->getRoot(),tree,marker.points,false);
+  // displayTreeNode(tree->getRoot(),tree,marker.points,false);
+  for (NodePtr n: tree->getNodes()) {
+      geometry_msgs::Pose pose;
+      state_->setJointGroupPositions(group_name_,n->getConfiguration());
+      // if (!n->parent_connections_.empty()) ROS_INFO_STREAM(n->getConfiguration().transpose()<<":"<<n->parent_connections_[0]->getCost());
+      tf::poseEigenToMsg(state_->getGlobalLinkTransform(last_link_),pose);
+      marker.points.push_back(pose.position);
+  }
 
   marker_pub_.publish(marker);
   ros::Duration(DISPLAY_TIME).sleep();

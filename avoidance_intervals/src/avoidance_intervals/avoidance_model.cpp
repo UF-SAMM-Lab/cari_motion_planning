@@ -465,7 +465,7 @@ namespace avoidance_intervals{
         std::cout<<"receiving the sequence of length:"<<msg->sequence.size()<<"\n";
         joint_seq.clear();
         for (int i=0;i< msg->sequence.size();i++) {
-            Eigen::MatrixXd joint_pos(3,msg->sequence[i].joint_pos.data.size());
+            Eigen::MatrixXd joint_pos(3,int(msg->sequence[i].joint_pos.data.size()/3));
             int c = 0;
             for (int j=0;j<msg->sequence[i].joint_pos.data.size();j++) {
                 joint_pos.col(c)[j%3] = msg->sequence[i].joint_pos.data[j];

@@ -78,8 +78,8 @@ public:
     lower_bound_(lower_bound),
     upper_bound_(upper_bound),
     cost_(cost),
-    max_vel_(max_q_vel)
-    //gen_{rd_()}//gen_(time(0))
+    max_vel_(max_q_vel),
+    gen_{rd_()}//gen_(time(0))
   {
 
     std::cout<<"test3\n";
@@ -121,6 +121,7 @@ public:
     std::cout<<" upper bounds" << u_box_<<std::endl;
   }
 
+  ros::Publisher sample_pub;
   virtual Eigen::VectorXd sample();
   void setCost(const double& cost);
 
