@@ -481,8 +481,6 @@ namespace pathplan
   // 2) for existing nodes, look for better parent nodes within a radius
   bool Tree::rewireOnly(NodePtr &node, double r_rewire, const int &what_rewire)
   {
-
-    // ROS_INFO_STREAM("enter rewire");
     // std::vector<NodePtr> all_nodes = getNodes();
     // std::cout<<"all nodes:\n";
     // for (int i=0;i<all_nodes.size();i++) {
@@ -519,7 +517,6 @@ namespace pathplan
       rewire_parent = false; // start node has no parents
     // get nodes in neighborhood of node based on cost fn, either time based or l2 distance
     std::multimap<double, NodePtr> near_nodes = near(node, r_rewire);
-    // ROS_INFO_STREAM("near_nodes:"<<near_nodes.size());
     // JF - I assume that for new nodes, cost to node is inf
     //  ROS_INFO_STREAM("node cost"<<*node);
     double cost_to_node = costToNode(node);
@@ -617,11 +614,8 @@ namespace pathplan
           }
           else
           {
-            if (node->parent_connections_.size()>1){
-              node->parent_connections_.at(0)->removeCache();
-            } else {
-              ROS_ERROR_STREAM("a node with only 1 parents!"<<*node);
-            }
+            // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
+            if (node->parent_connections_.size()>1) node->parent_connections_.at(0)->removeCache();
           }
         }
         // std::cout<<"cost to node:"<<cost_to_node<<", new cost:"<<cost_to_near + cost_near_to_node<<std::endl;
@@ -801,7 +795,7 @@ namespace pathplan
       }
     }
     // std::cout<<"rewire child hass:"<<node->parent_connections_.size()<<" parents\n";
-    // ROS_INFO_STREAM("done rewire");
+
     return improved;
   }
 
@@ -1402,7 +1396,6 @@ namespace pathplan
     }
     else
     {
-      if (node->parent_connections_.empty()) return std::numeric_limits<double>::infinity();
       if (node != root_)
         cost = node->parent_connections_.at(0)->getCost();
     }
