@@ -1396,8 +1396,11 @@ namespace pathplan
     }
     else
     {
-      if (node != root_)
-        cost = node->parent_connections_.at(0)->getCost();
+      if (node->parent_connections_.empty()) {
+        cost = std::numeric_limits<double>::infinity();
+      } else if (node != root_) {
+          cost = node->parent_connections_.at(0)->getCost();
+      }
     }
     return cost;
   }
