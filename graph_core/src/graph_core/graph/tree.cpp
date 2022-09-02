@@ -808,6 +808,9 @@ namespace pathplan
     for (ConnectionPtr conn : n->child_connections_)
     {
       NodePtr n_child = conn->getChild();
+      if (n==n_child) {
+        continue;
+      }
       double cost_to_child = costToNode(n_child);
       std::vector<Eigen::Vector3f> avoid_ints;
       double node_time = 0;

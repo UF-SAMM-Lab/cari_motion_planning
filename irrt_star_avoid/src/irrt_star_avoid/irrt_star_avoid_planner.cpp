@@ -190,6 +190,12 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
     max_connection_cost=60.0;
   }
 
+  if (!m_nh.getParam("use_iptp",use_iptp))
+  {
+    ROS_DEBUG("use_iptp is not set, default=false");
+    use_iptp=false;
+  }
+
   m_ud = std::uniform_real_distribution<double>(0, 1);
     
   COMMENT("init avoidance model");
@@ -571,7 +577,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   std::vector<double> waypoint_times;
 
   robot_trajectory::RobotTrajectoryPtr trj(new robot_trajectory::RobotTrajectory(robot_model_,group_));
-  if (use_iso15066) {
+  if (use_iptp) {
 
     trajectory_processing::IterativeParabolicTimeParameterization iptp;
 
@@ -602,6 +608,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     // waypoint_times.push_back(near_time);
     // ROS_INFO_STREAM(waypoints[waypoints.size()-2].transpose()<<" to "<< waypoints.back().transpose()<<" time:"<<near_time);
   } else {
+    ROS_INFO_STREAM("using slow time parameterization");
     waypoint_times=solution->getTiming();// PUT WAY POINTS  
     std::vector<double> tmp_waypoint_times = waypoint_times;
     if (tmp_waypoint_times[0]>max_connection_cost) tmp_waypoint_times[0] = max_connection_cost;
