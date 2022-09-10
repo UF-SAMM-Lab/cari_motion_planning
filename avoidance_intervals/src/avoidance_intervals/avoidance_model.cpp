@@ -625,6 +625,7 @@ namespace avoidance_intervals{
         }
         pts_pub_ = nh_.advertise<std_msgs::Float32MultiArray>( human_model_topic, 0, true);
         seq_pub = nh_.advertise<avoidance_intervals::joint_seq>( human_seq_topic, 0, true);
+        pub_data = nh_.advertise<std_msgs::Float32MultiArray>( "/human_sequence", 0, true);
     }
 
     void skeleton::forward_kinematics(std::vector<float> pose_elements,std::vector<double> t_steps, int idx) {
@@ -1150,6 +1151,20 @@ namespace avoidance_intervals{
             // pub.publish(marker);
             // ROS_INFO_STREAM("published markers");
             // std::cin.ignore();
+            std_msgs::Float32MultiArray data_msg;
+            std::string substr;
+            int stride=0;
+            for (std::string ln:all_lines) {
+                std::stringstream ss(ln); 
+                while (std::getline(ss,substr,',')) {
+                    data_msg.data.push_back(std::stof(substr.c_str()));
+                }   
+                if (stride==0) stride = data_msg.data.size();
+            }
+            data_msg.layout.dim.resize(2);
+            data_msg.layout.dim[0].size = stride;
+            data_msg.layout.dim[1].size = int(data_msg.data.size()/stride);
+            pub_data.publish(data_msg);
 
             ready = true;
             return avoid_pts;

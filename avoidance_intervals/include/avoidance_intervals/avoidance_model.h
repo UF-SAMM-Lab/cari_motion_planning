@@ -145,5 +145,6 @@ namespace avoidance_intervals{
             ros::Publisher pts_pub_;
             ros::Publisher seq_pub;
             ros::Publisher vis_pub_;
+            ros::Publisher pub_data;
     };
 }
