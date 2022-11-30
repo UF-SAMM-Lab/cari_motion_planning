@@ -96,6 +96,7 @@ protected:
   bool display_flag_=false;
   bool display_tree_=false;
   double display_tree_period_=1.0;
+  bool check_start_state_=true;
 
   pathplan::MetricsPtr metrics_;
   pathplan::AvoidanceMetricsPtr avoidance_metrics_;

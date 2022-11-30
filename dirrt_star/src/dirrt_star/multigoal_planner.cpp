@@ -105,6 +105,12 @@ MultigoalPlanner::MultigoalPlanner ( const std::string& name,
     }
   }
 
+  if (!m_nh.getParam("check_start_state",check_start_state_))
+  {
+    ROS_DEBUG("check_start_state is not set, default=true");
+  }
+
+
 
   COMMENT("create metrics");
 
@@ -246,10 +252,53 @@ bool MultigoalPlanner::solve ( planning_interface::MotionPlanDetailedResponse& r
 
   if (!start_state.satisfiesBounds())
   {
-    ROS_FATAL("Start point is  Out of bound");
-    res.error_code_.val=moveit_msgs::MoveItErrorCodes::START_STATE_IN_COLLISION;
-    m_is_running=false;
-    return false;
+    Eigen::VectorXd start_conf;
+    start_state.copyJointGroupPositions(group_,start_conf);
+
+    const moveit::core::JointModelGroup* jmg = start_state.getJointModelGroup(group_);
+    std::vector<const moveit::core::JointModel*> joint_models= jmg->getJointModels();
+    for (const moveit::core::JointModel*& jm: joint_models)
+    {
+      ROS_INFO("check joint %s",jm->getName().c_str());
+      ROS_INFO("jvel = %f", *start_state.getJointVelocities(jm->getName())) ;
+      ROS_INFO("jacc = %f", *start_state.getJointAccelerations(jm->getName())) ;
+
+      if (!start_state.satisfiesPositionBounds(jm))
+      {
+        ROS_ERROR("joint %s is out of bound",jm->getName().c_str());
+        std::vector<moveit::core::VariableBounds> bound=jm->getVariableBounds();
+        for (const moveit::core::VariableBounds& b: bound)
+        {
+          ROS_ERROR("joint %s has bound 0 = %f, %f",jm->getName().c_str(),b.min_position_,b.max_position_);
+        }
+      }
+
+
+      if (!start_state.satisfiesVelocityBounds(jm))
+      {
+        ROS_ERROR("joint %s is out of bound",jm->getName().c_str());
+        std::vector<moveit::core::VariableBounds> bound=jm->getVariableBounds();
+        for (const moveit::core::VariableBounds& b: bound)
+        {
+          ROS_ERROR("joint %s has bound 1 = %f, %f",jm->getName().c_str(),b.min_velocity_,b.max_velocity_);
+        }
+      }
+
+    }
+
+
+    ROS_WARN_STREAM("start state: " << start_conf.transpose());
+    if (check_start_state_)
+    {
+      ROS_FATAL("Start point is  Out of bound");
+      res.error_code_.val=moveit_msgs::MoveItErrorCodes::START_STATE_IN_COLLISION;
+      m_is_running=false;
+      return false;
+    }
+    else
+    {
+      ROS_WARN("Start point is  Out of bound");
+    }
   }
   Eigen::VectorXd start_conf;
   start_state.copyJointGroupPositions(group_,start_conf);
@@ -275,9 +324,13 @@ bool MultigoalPlanner::solve ( planning_interface::MotionPlanDetailedResponse& r
     {
       ROS_FATAL("you shouldn't be here!");
     }
-    res.error_code_.val=moveit_msgs::MoveItErrorCodes::START_STATE_IN_COLLISION;
-    m_is_running=false;
-    return false;
+
+    if (check_start_state_)
+    {
+      res.error_code_.val=moveit_msgs::MoveItErrorCodes::START_STATE_IN_COLLISION;
+      m_is_running=false;
+      return false;
+    }
   }
 
 
