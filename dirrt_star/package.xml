@@ -10,6 +10,7 @@
   <author email="manuel.beschi@stiima.cnr.it">Manuel Beschi</author>
 
   <buildtool_depend>catkin</buildtool_depend>
+  <build_depend>rosparam_utilites</build_depend>
   <build_depend>graph_core</build_depend>
   <build_depend>moveit_core</build_depend>
   <build_depend>moveit_ros_planning</build_depend>
