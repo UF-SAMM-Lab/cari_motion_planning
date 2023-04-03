@@ -40,6 +40,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <rosdyn_core/primitives.h>
 #include <velocity_scaling_iso15066/ssm15066.h>
 #include <cmath>
+#include <iostream>
+#include <fstream>
+#include <string>
 
 namespace pathplan
 {
@@ -60,6 +63,8 @@ private:
   std::vector<std::vector<bool>> th_avoid_status;
   std::mutex mtx;
   std::vector<Eigen::MatrixXf> link_raw_pts;
+  std::ofstream avoid_ints_file;
+  std::vector<std::vector<std::string>> avoid_ints_output_thread;
 protected:
   double t_pad_=0;
   Eigen::VectorXd max_q_dot_;

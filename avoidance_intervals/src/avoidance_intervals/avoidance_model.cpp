@@ -358,22 +358,22 @@ namespace avoidance_intervals{
         marker.color.g = 0.0;
         marker.color.b = 1.0;
         geometry_msgs::Point p;
-        p.x = 0;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 2;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 1;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 0;
-        p.z = 0.2;
-        marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 2;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 1;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0.2;
+        // marker.points.push_back(p);
 
         for(model_point mp:model_points) {
             for (Eigen::Vector3f a:mp.avoidance_intervals_){
@@ -420,22 +420,22 @@ namespace avoidance_intervals{
         marker.color.g = 0.0;
         marker.color.b = 1.0;
         geometry_msgs::Point p;
-        p.x = 0;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 2;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 1;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 0;
-        p.z = 0.2;
-        marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 2;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 1;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0.2;
+        // marker.points.push_back(p);
 
         for(int i:model_pt_idx) {
             p.x = model_points[i].position[0];
@@ -625,6 +625,7 @@ namespace avoidance_intervals{
         }
         pts_pub_ = nh_.advertise<std_msgs::Float32MultiArray>( human_model_topic, 0, true);
         seq_pub = nh_.advertise<avoidance_intervals::joint_seq>( human_seq_topic, 0, true);
+        pub_data = nh_.advertise<std_msgs::Float32MultiArray>("/human_sequence", 0, true);
     }
 
     void skeleton::forward_kinematics(std::vector<float> pose_elements,std::vector<double> t_steps, int idx) {
@@ -857,22 +858,22 @@ namespace avoidance_intervals{
         marker.color.g = 0.0;
         marker.color.b = 1.0;
         geometry_msgs::Point p;
-        p.x = 0;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 1;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 1;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 0;
-        p.z = 1;
-        marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 1;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 1;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 1;
+        // marker.points.push_back(p);
         for (Eigen::Vector4f pt:pts) {
             if (pt[3]==t*t_step) {
                 p.x = pt[0];
@@ -907,22 +908,22 @@ namespace avoidance_intervals{
         marker.color.g = 0.0;
         marker.color.b = 1.0;
         geometry_msgs::Point p;
-        p.x = 0;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 1;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 1;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 0;
-        p.z = 1;
-        marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 1;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 1;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 1;
+        // marker.points.push_back(p);
         for (Eigen::Vector4f pt:pts) {
             p.x = pt[0];
             p.y = pt[1];
@@ -956,22 +957,22 @@ namespace avoidance_intervals{
         marker.color.b = 1.0;
         marker.points.clear();
         geometry_msgs::Point p;
-        p.x = 0;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 1;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 1;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 0;
-        p.z = 1;
-        marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 1;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 1;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 1;
+        // marker.points.push_back(p);
         for (Eigen::VectorXf pt:pts) {
             p.x = pt[0];
             p.y = pt[1];
@@ -1004,22 +1005,22 @@ namespace avoidance_intervals{
         marker.color.g = 0.0;
         marker.color.b = 1.0;
         geometry_msgs::Point p;
-        p.x = 0;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 1;
-        p.y = 0;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 1;
-        p.z = 0;
-        marker.points.push_back(p);
-        p.x = 0;
-        p.y = 0;
-        p.z = 1;
-        marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 1;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 1;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 1;
+        // marker.points.push_back(p);
         for (Eigen::MatrixXf pt_mat:pts) {
             for (int i = 0;i<pt_mat.cols();i++) {
                 Eigen::Vector3f pt = pt_mat.col(i);
@@ -1151,6 +1152,42 @@ namespace avoidance_intervals{
             // ROS_INFO_STREAM("published markers");
             // std::cin.ignore();
 
+            std_msgs::Float32MultiArray data_msg;
+            double stride;
+            std::vector<float> pose_elements;
+            for (int i= 0;i<all_lines.size();i++) {
+                std::stringstream ss(all_lines[i]);
+                std::string substr;
+                while (std::getline(ss,substr,',')) {
+                    pose_elements.push_back(std::stof(substr.c_str()));
+                }  
+                data_msg.data.push_back(pose_elements[0]);
+            
+                Eigen::Vector3f pelvis_loc = {pose_elements[1],pose_elements[2],pose_elements[3]};
+                pelvis_loc = transform_to_world*pelvis_loc;
+
+                for (int j = 0;j<3;j++) data_msg.data.push_back(pelvis_loc[j]);
+
+                std::vector<Eigen::Quaternionf> quats;
+                Eigen::Quaternionf q;
+
+                Eigen::Quaternionf quat_to_world(transform_to_world.rotation());
+                for (int j=0;j<7;j++){
+                    q = quat_to_world*Eigen::Quaternionf(pose_elements[j*4+4],pose_elements[j*4+5],pose_elements[j*4+6],pose_elements[j*4+7]);
+                    data_msg.data.push_back(q.w());
+                    data_msg.data.push_back(q.x());
+                    data_msg.data.push_back(q.y());
+                    data_msg.data.push_back(q.z());
+                    quats.push_back(q);
+                    // ROS_INFO_STREAM("quat "<<q.w()<<" "<<q.vec().transpose());
+                }
+                if (i==0) stride = data_msg.data.size();
+            }
+            data_msg.layout.dim.resize(2);
+            data_msg.layout.dim[0].size = stride;
+            data_msg.layout.dim[1].size = int(data_msg.data.size()/stride);
+            pub_data.publish(data_msg);
+            ROS_INFO_STREAM("published human sequence");
             ready = true;
             return avoid_pts;
         }

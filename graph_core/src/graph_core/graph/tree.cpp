@@ -517,6 +517,10 @@ namespace pathplan
       rewire_parent = false; // start node has no parents
     // get nodes in neighborhood of node based on cost fn, either time based or l2 distance
     std::multimap<double, NodePtr> near_nodes = near(node, r_rewire);
+    // int num_nodes = nodes_->size();
+    // // ROS_INFO_STREAM("num nodes:"<<num_nodes);
+    // std::multimap<double, NodePtr> near_nodes = near(node, r_rewire/sqrt(num_nodes));
+    
     // JF - I assume that for new nodes, cost to node is inf
     //  ROS_INFO_STREAM("node cost"<<*node);
     double cost_to_node = costToNode(node);

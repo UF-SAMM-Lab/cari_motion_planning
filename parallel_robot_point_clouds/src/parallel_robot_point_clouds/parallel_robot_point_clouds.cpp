@@ -24,6 +24,7 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
 
   threads.resize(threads_num_);
   queues_.resize(threads_num_);
+  avoid_ints_output_thread.resize(threads_num_);
   th_avoid_ints.resize(threads_num_);
   // min_dists.resize(threads_num_);
 
@@ -102,7 +103,7 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   grav << 0, 0, -9.806;
   chain_ = rosdyn::createChain(robo_model, base_frame_, tool_frame, grav);
   ssm_=std::make_shared<ssm15066::DeterministicSSM>(chain_,nh);
-
+  avoid_ints_file.open("avoid_ints.csv");
 }
 
 void ParallelRobotPointClouds::updatePlanningScene(const planning_scene::PlanningScenePtr &planning_scene) {
@@ -225,6 +226,7 @@ void ParallelRobotPointClouds::checkAllQueues(std::vector<Eigen::Vector3f> &comb
   // threads.resize(threads_num_);
   for (int idx=0;idx<threads_num_;idx++)
   {
+    avoid_ints_output_thread[idx].clear();
     th_avoid_ints[idx].clear();
     if (queues_.at(idx).size()>0) {
         threads.at(idx)=std::thread(&ParallelRobotPointClouds::collisionThread,this,idx);
@@ -238,6 +240,9 @@ void ParallelRobotPointClouds::checkAllQueues(std::vector<Eigen::Vector3f> &comb
     if (threads.at(idx).joinable())
       threads.at(idx).join();
     avoid_ints.insert(std::end(avoid_ints), std::begin(th_avoid_ints[idx]),std::end(th_avoid_ints[idx]));
+    for (int i=0;i<avoid_ints_output_thread[idx].size();i++) {
+      avoid_ints_file<<avoid_ints_output_thread[idx][i];
+    }
   }
 
   model_->ext_mutex.unlock();
@@ -280,6 +285,7 @@ void ParallelRobotPointClouds::collisionThread(int thread_idx)
     // std::cout<<"press enter\n";
     // std::cin.ignore();
     float min_dist = std::numeric_limits<float>::infinity();
+    int th_ints_start_size = th_avoid_ints[thread_idx].size();
     for (int i=0;i<n_dof;i++) {
       Eigen::Isometry3f offset_transform;
       offset_transform.setIdentity();
@@ -296,6 +302,18 @@ void ParallelRobotPointClouds::collisionThread(int thread_idx)
       //   std::cout<<"press enter\n";
       //   std::cin.ignore();
       // }
+    }
+
+    std::stringstream cfg_string;
+    for (int i=0;i<n_dof;i++) cfg_string << configuration[i] << ",";
+    if (th_avoid_ints[thread_idx].size()>th_ints_start_size) {
+      for (int i=th_ints_start_size+1;i<th_avoid_ints[thread_idx].size();i++) {
+        std::stringstream out_string;
+        out_string<<cfg_string.str();
+        for (int j=0;j<3;j++) out_string << th_avoid_ints[thread_idx][i][j]<<",";
+        out_string<<std::endl;
+        avoid_ints_output_thread[thread_idx].push_back(out_string.str());
+      }
     }
     // min_dists[queue_element.first] = min_dist;
 
@@ -317,6 +335,7 @@ ParallelRobotPointClouds::~ParallelRobotPointClouds()
       threads.at(idx).join();
   }
   ROS_DEBUG("collision threads closed");
+  avoid_ints_file.close();
 }
 
 void ParallelRobotPointClouds::queueConnection(const Eigen::VectorXd& configuration1,
@@ -365,6 +384,7 @@ void ParallelRobotPointClouds::checkPath(const Eigen::VectorXd& configuration1,
                                               float &last_pass_time)
 {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+  // JF- this would be the place for the neural network
 
   resetQueue();
   // if (!check(configuration1))
@@ -374,14 +394,13 @@ void ParallelRobotPointClouds::checkPath(const Eigen::VectorXd& configuration1,
   queueConnection(configuration1,configuration2);
   checkAllQueues(avoid_ints,last_pass_time);
   // float min_dist = checkAllQueues(avoid_ints,last_pass_time);
-
   // stop_check_=false;
   // GenerateAllConfigPts();
   // quequeCollisionPtThread(avoid_ints,last_pass_time);
   std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
 
   std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  // ROS_INFO_STREAM("It took me " << time_span.count() << " seconds.");
+  // ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds.");
   // PATH_COMMENT_STREAM("continue?");
   // std::cin.ignore();
   // return min_dist;
