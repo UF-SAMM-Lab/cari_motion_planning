@@ -65,6 +65,7 @@ namespace avoidance_intervals{
     class model {
         public:
         std::vector<std::pair<float,Eigen::MatrixXd>> joint_seq;
+        std::vector<std::pair<float,std::vector<float>>> quat_seq;
         Eigen::MatrixXd ranges;
         Eigen::VectorXf range_down;
         Eigen::VectorXf range_up;

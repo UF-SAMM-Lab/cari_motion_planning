@@ -472,6 +472,7 @@ namespace avoidance_intervals{
                 if ((j>0)&&(j%3==0)) c++;
             }
             joint_seq.push_back(std::pair<float,Eigen::MatrixXd>(msg->sequence[i].time.data,joint_pos));
+            quat_seq.push_back(std::pair<float,std::vector<float>>(msg->sequence[i].time.data,msg->sequence[i].quats.data));
         }
     }
 
@@ -625,11 +626,7 @@ namespace avoidance_intervals{
         }
         pts_pub_ = nh_.advertise<std_msgs::Float32MultiArray>( human_model_topic, 0, true);
         seq_pub = nh_.advertise<avoidance_intervals::joint_seq>( human_seq_topic, 0, true);
-<<<<<<< HEAD
         pub_data = nh_.advertise<std_msgs::Float32MultiArray>("/human_sequence", 0, true);
-=======
-        pub_data = nh_.advertise<std_msgs::Float32MultiArray>( "/human_sequence", 0, true);
->>>>>>> edb7965db48894aa146d9ae6449206a303942b85
     }
 
     void skeleton::forward_kinematics(std::vector<float> pose_elements,std::vector<double> t_steps, int idx) {
@@ -1155,20 +1152,20 @@ namespace avoidance_intervals{
             // pub.publish(marker);
             // ROS_INFO_STREAM("published markers");
             // std::cin.ignore();
-            std_msgs::Float32MultiArray data_msg;
-            std::string substr;
-            int stride=0;
-            for (std::string ln:all_lines) {
-                std::stringstream ss(ln); 
-                while (std::getline(ss,substr,',')) {
-                    data_msg.data.push_back(std::stof(substr.c_str()));
-                }   
-                if (stride==0) stride = data_msg.data.size();
-            }
-            data_msg.layout.dim.resize(2);
-            data_msg.layout.dim[0].size = stride;
-            data_msg.layout.dim[1].size = int(data_msg.data.size()/stride);
-            pub_data.publish(data_msg);
+            // std_msgs::Float32MultiArray data_msg;
+            // std::string substr;
+            // int stride=0;
+            // for (std::string ln:all_lines) {
+            //     std::stringstream ss(ln); 
+            //     while (std::getline(ss,substr,',')) {
+            //         data_msg.data.push_back(std::stof(substr.c_str()));
+            //     }   
+            //     if (stride==0) stride = data_msg.data.size();
+            // }
+            // data_msg.layout.dim.resize(2);
+            // data_msg.layout.dim[0].size = stride;
+            // data_msg.layout.dim[1].size = int(data_msg.data.size()/stride);
+            // pub_data.publish(data_msg);
 
             std_msgs::Float32MultiArray data_msg;
             double stride;
@@ -1224,6 +1221,14 @@ namespace avoidance_intervals{
                 for (int k=0;k<3;k++) {
                     joint_seq_elem_msg.joint_pos.data.push_back(joint_seq[i].second[j][k]);
                 }
+            }
+            joint_seq_elem_msg.quats.data.clear();
+            for (int k=0;k<3;k++) joint_seq_elem_msg.quats.data.push_back(joint_seq[i].second[0][k]);
+            for (int j=0;j<quat_seq[i].second.size();j++) {
+                joint_seq_elem_msg.quats.data.push_back(quat_seq[i].second[j].w());
+                joint_seq_elem_msg.quats.data.push_back(quat_seq[i].second[j].x());
+                joint_seq_elem_msg.quats.data.push_back(quat_seq[i].second[j].y());
+                joint_seq_elem_msg.quats.data.push_back(quat_seq[i].second[j].z());
             }
             joint_sequence_msg.sequence.push_back(joint_seq_elem_msg);
         }

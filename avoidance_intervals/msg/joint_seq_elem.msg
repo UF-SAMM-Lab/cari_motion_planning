@@ -1,2 +1,3 @@
 std_msgs/Float32 time
 std_msgs/Float32MultiArray joint_pos
+std_msgs/Float32MultiArray quats
