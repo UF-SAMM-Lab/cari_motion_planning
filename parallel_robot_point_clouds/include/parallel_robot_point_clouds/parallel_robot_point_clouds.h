@@ -68,6 +68,7 @@ private:
   std::vector<Eigen::MatrixXf> link_raw_pts;
   std::ofstream avoid_ints_file;
   std::vector<std::vector<std::string>> avoid_ints_output_thread;
+  void checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations, int i, int num_cfg_per_this_batch, int num_cfg_per_batch);
 protected:
   double t_pad_=0;
   Eigen::VectorXd max_q_dot_;
