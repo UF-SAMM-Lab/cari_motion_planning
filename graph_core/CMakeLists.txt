@@ -22,11 +22,13 @@ find_package(catkin REQUIRED COMPONENTS
   parallel_robot_point_clouds
   )
 
+find_package(Torch REQUIRED)
+
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES graph_core
   CATKIN_DEPENDS actionlib moveit_core moveit_ros_planning moveit_ros_planning_interface roscpp rosdyn_core human_probablistic_occupancy moveit_visual_tools rviz_visual_tools eigen_conversions geometry_msgs velocity_scaling_iso15066 avoidance_intervals parallel_robot_point_clouds
-  DEPENDS
+  DEPENDS Torch
   )
 include_directories(
   include
@@ -81,6 +83,7 @@ add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EX
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  ${TORCH_LIBRARIES}
 )
 
 add_executable(goal_selection_test_node tests/goal_selection_test_node.cpp)

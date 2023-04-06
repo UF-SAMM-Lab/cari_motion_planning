@@ -67,6 +67,9 @@ namespace pathplan
       double best_distance = std::numeric_limits<double>::infinity();
       NodePtr best;
       std::vector<NodePtr> all_nodes = getNodes();
+      //JF-rewrite to check all n->all_nodes connections in one call to pc_avoid_checker->checkMultiplePaths()
+      //return Eigen::VectorXd last_pass_time for all connections
+      //can get dist with matrix algebra for all connections
       for (const NodePtr &n : all_nodes)
       {
         if (n == goal_node_)
@@ -90,6 +93,8 @@ namespace pathplan
           }
         }
       }
+
+      //look up where min_time_to_node < last_pass_time and get id of min dist from remaining list
       return best;
     }
   }
@@ -535,6 +540,25 @@ namespace pathplan
       // std::cout<<"node:"<<*node<<std::endl;
       // std::cout<<"nearest node:"<<*nearest_node<<std::endl;
       // loop over all nearest nodes
+      
+      // JF - determine all avoidance intervals between nodes before loop
+      if (time_avoid_) {
+        ROS_INFO_STREAM("sending data to the network");
+        std::vector<std::tuple<NodePtr,NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
+        connection_datas.reserve(near_nodes.size());
+        for (const std::pair<double, NodePtr> &p : near_nodes) {
+          const NodePtr &n = p.second;
+          if (n == goal_node_)
+            continue;
+          // check to prevent a node from becoming its own parent
+          if (n == nearest_node)
+            continue;
+          if (n == node)
+            continue;
+          connection_datas.emplace_back(n,node,0,std::vector<Eigen::Vector3f>(),0,0,0);
+        }
+        metrics_->cost(connection_datas);
+      }
       for (const std::pair<double, NodePtr> &p : near_nodes)
       {
         const NodePtr &n = p.second; // get near node from pair

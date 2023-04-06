@@ -58,6 +58,11 @@ double Metrics::cost(const NodePtr& parent,
   return cost(parent,new_node);
 }
 
+void Metrics::cost(std::vector<std::tuple<NodePtr,NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> node_datas)
+{
+
+}
+
 double Metrics::utopia(const NodePtr& node1,
                      const NodePtr& node2)
 {
