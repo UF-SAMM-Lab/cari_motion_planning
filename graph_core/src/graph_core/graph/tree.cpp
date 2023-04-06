@@ -543,7 +543,7 @@ namespace pathplan
       
       // JF - determine all avoidance intervals between nodes before loop
       if (time_avoid_) {
-        ROS_INFO_STREAM("sending data to the network");
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         std::vector<std::tuple<NodePtr,NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
         connection_datas.reserve(near_nodes.size());
         for (const std::pair<double, NodePtr> &p : near_nodes) {
@@ -558,6 +558,10 @@ namespace pathplan
           connection_datas.emplace_back(n,node,0,std::vector<Eigen::Vector3f>(),0,0,0);
         }
         metrics_->cost(connection_datas);
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<connection_datas.size()<<" configs");
+
       }
       for (const std::pair<double, NodePtr> &p : near_nodes)
       {
