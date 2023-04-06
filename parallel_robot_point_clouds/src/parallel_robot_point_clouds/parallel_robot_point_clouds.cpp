@@ -641,7 +641,7 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
     // ROS_INFO_STREAM("batch:"<<i);
     int num_cfg_per_this_batch = std::min(num_cfg_per_batch,int(configurations.size())-i*num_cfg_per_batch);
     // ROS_INFO_STREAM("num_cfg_per_this_batch:"<<num_cfg_per_this_batch);
-    auto intevals = checkBatch(configurations,i,num_cfg_per_this_batch,num_cfg_per_batch);
+    auto intervals = checkBatch(configurations,i,num_cfg_per_this_batch,num_cfg_per_batch);
     // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
     // intervals = intervals.flatten().to(at::kCPU);
     // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
