@@ -104,6 +104,9 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   chain_ = rosdyn::createChain(robo_model, base_frame_, tool_frame, grav);
   ssm_=std::make_shared<ssm15066::DeterministicSSM>(chain_,nh);
   avoid_ints_file.open("avoid_ints.csv");
+
+  avoid_net = torch::jit::load("/home/jared.flowers@ad.ufl.edu/projects/planning_ws/src/motion/human_aware_motion_planners/parallel_robot_point_clouds/src/parallel_robot_point_clouds/robot_connection_intervals.pt");
+  avoid_net.to(at::kCUDA);
 }
 
 void ParallelRobotPointClouds::updatePlanningScene(const planning_scene::PlanningScenePtr &planning_scene) {
@@ -240,9 +243,9 @@ void ParallelRobotPointClouds::checkAllQueues(std::vector<Eigen::Vector3f> &comb
     if (threads.at(idx).joinable())
       threads.at(idx).join();
     avoid_ints.insert(std::end(avoid_ints), std::begin(th_avoid_ints[idx]),std::end(th_avoid_ints[idx]));
-    for (int i=0;i<avoid_ints_output_thread[idx].size();i++) {
-      avoid_ints_file<<avoid_ints_output_thread[idx][i];
-    }
+    // for (int i=0;i<avoid_ints_output_thread[idx].size();i++) {
+    //   avoid_ints_file<<avoid_ints_output_thread[idx][i];
+    // }
   }
 
   model_->ext_mutex.unlock();
@@ -304,17 +307,17 @@ void ParallelRobotPointClouds::collisionThread(int thread_idx)
       // }
     }
 
-    std::stringstream cfg_string;
-    for (int i=0;i<n_dof;i++) cfg_string << configuration[i] << ",";
-    if (th_avoid_ints[thread_idx].size()>th_ints_start_size) {
-      for (int i=th_ints_start_size+1;i<th_avoid_ints[thread_idx].size();i++) {
-        std::stringstream out_string;
-        out_string<<cfg_string.str();
-        for (int j=0;j<3;j++) out_string << th_avoid_ints[thread_idx][i][j]<<",";
-        out_string<<std::endl;
-        avoid_ints_output_thread[thread_idx].push_back(out_string.str());
-      }
-    }
+    // std::stringstream cfg_string;
+    // for (int i=0;i<n_dof;i++) cfg_string << configuration[i] << ",";
+    // if (th_avoid_ints[thread_idx].size()>th_ints_start_size) {
+    //   for (int i=th_ints_start_size+1;i<th_avoid_ints[thread_idx].size();i++) {
+    //     std::stringstream out_string;
+    //     out_string<<cfg_string.str();
+    //     for (int j=0;j<3;j++) out_string << th_avoid_ints[thread_idx][i][j]<<",";
+    //     out_string<<std::endl;
+    //     avoid_ints_output_thread[thread_idx].push_back(out_string.str());
+    //   }
+    // }
     // min_dists[queue_element.first] = min_dist;
 
     // ROS_INFO_STREAM("push enter");
@@ -393,6 +396,18 @@ void ParallelRobotPointClouds::checkPath(const Eigen::VectorXd& configuration1,
   //   return false;
   queueConnection(configuration1,configuration2);
   checkAllQueues(avoid_ints,last_pass_time);
+
+  std::stringstream cfg_string;
+  for (int i=0;i<n_dof;i++) cfg_string << configuration1[i] << ",";
+  for (int i=0;i<n_dof;i++) cfg_string << configuration2[i] << ",";
+  for (int i=0;i<avoid_ints.size();i++) {
+    avoid_ints_file<<cfg_string.str();
+    for (int j=0;j<3;j++) avoid_ints_file << avoid_ints[i][j]<<",";
+    avoid_ints_file<<std::endl;
+
+  }
+
+
   // float min_dist = checkAllQueues(avoid_ints,last_pass_time);
   // stop_check_=false;
   // GenerateAllConfigPts();
@@ -581,6 +596,76 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
     // } else {
     //   speed_scale = 1.0;
     // }
+}
+void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations)
+{
+  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+  // JF- this would be the place for the neural network
+  int num_cfg_per_batch = std::round(10000/model_->quat_seq.size());
+  int num_batches = std::ceil(configurations.size()/num_cfg_per_batch);
+  for (int i=0;i<num_batches;i++) {
+    int num_cfg_per_this_batch = std::min(num_cfg_per_batch,int(configurations.size())-i*num_cfg_per_batch);
+    torch::Tensor input_tensor = torch::zeros({1,num_cfg_per_this_batch*int(model_->quat_seq.size()),1,43});
+    auto input_tensor_a = input_tensor.accessor<float,4>();
+    std::vector<double> occupancy_times;
+    for (int j=0;j<num_cfg_per_this_batch;j++) {
+      for (int l=0;l<int(model_->quat_seq.size());l++) {
+        for (int k=0;k<std::get<0>(configurations[i*num_cfg_per_batch+j]).size();k++) input_tensor_a[0][i*num_cfg_per_batch+j*model_->quat_seq.size()+l][0][k] = std::get<0>(configurations[i*num_cfg_per_batch+j])[k];
+        for (int k=0;k<std::get<1>(configurations[i*num_cfg_per_batch+j]).size();k++) input_tensor_a[0][i*num_cfg_per_batch+j*model_->quat_seq.size()+l][0][k+std::get<0>(configurations[i*num_cfg_per_batch+j]).size()] = std::get<1>(configurations[i*num_cfg_per_batch+j])[k];
+        for (int k=0;k<31;k++) input_tensor_a[0][i*num_cfg_per_batch+j*model_->quat_seq.size()+l][0][k+2*std::get<1>(configurations[i*num_cfg_per_batch+j]).size()] = model_->quat_seq[l].second[k];
+        occupancy_times.push_back(model_->quat_seq[l].first);
+      }
+    }
+    input_tensor = input_tensor.to(torch::kCUDA);
+    std::vector<torch::jit::IValue> inputs;
+    inputs.push_back(input_tensor);
+    torch::Tensor intervals = avoid_net.forward(inputs).toTensor().flatten().to(torch::kCPU);
+    auto intervals_a = intervals.accessor<float,1>();
+    for (int j=0;j<num_cfg_per_this_batch;j++) {
+      bool in_occupancy = false;
+      std::vector<Eigen::Vector3f> intervals_vec;
+      Eigen::Vector3f interval;
+      interval.setZero();
+      for (int l=0;l<model_->quat_seq.size();l++) {
+        if ((intervals_a[j*model_->quat_seq.size()+l]>0.5) && (!in_occupancy)) {
+          in_occupancy = true;
+          interval[0] = occupancy_times[j*model_->quat_seq.size()+l];
+        }
+        if ((intervals_a[j*model_->quat_seq.size()+l]<=0.5) && (in_occupancy)) {
+          in_occupancy = false;
+          interval[1] = occupancy_times[j*model_->quat_seq.size()+l];
+          intervals_vec.push_back(interval);
+        }
+      }
+      std::get<2>(configurations[i*num_cfg_per_batch+j])=intervals_vec;
+      if (in_occupancy) {
+          std::get<3>(configurations[i*num_cfg_per_batch+j]) = interval[0];
+      }
+    }
+  }
+
+  // std::stringstream cfg_string;
+  // for (int i=0;i<n_dof;i++) cfg_string << configuration1[i] << ",";
+  // for (int i=0;i<n_dof;i++) cfg_string << configuration2[i] << ",";
+  // for (int i=0;i<avoid_ints.size();i++) {
+  //   avoid_ints_file<<cfg_string.str();
+  //   for (int j=0;j<3;j++) avoid_ints_file << avoid_ints[i][j]<<",";
+  //   avoid_ints_file<<std::endl;
+
+  // }
+
+
+  // float min_dist = checkAllQueues(avoid_ints,last_pass_time);
+  // stop_check_=false;
+  // GenerateAllConfigPts();
+  // quequeCollisionPtThread(avoid_ints,last_pass_time);
+  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+
+  std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<configurations.size()<<" configs");
+  // PATH_COMMENT_STREAM("continue?");
+  // std::cin.ignore();
+  // return min_dist;
 }
 
 }

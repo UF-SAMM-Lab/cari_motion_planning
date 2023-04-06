@@ -43,6 +43,9 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <iostream>
 #include <fstream>
 #include <string>
+#include <torch/torch.h>
+#include <torch/script.h>
+
 
 namespace pathplan
 {
@@ -116,6 +119,7 @@ protected:
   const moveit::core::JointModelGroup* joint_model_group;
   ssm15066::DeterministicSSMPtr ssm_;
   rosdyn::ChainPtr chain_;
+  torch::jit::script::Module avoid_net;
 
 public:
   avoidance_intervals::modelPtr model_;
@@ -138,6 +142,9 @@ public:
                                                const Eigen::VectorXd& configuration2, 
                                                std::vector<Eigen::Vector3f> &avoid_ints,
                                                float &last_pass_time);
+  
+  void checkMutliplePaths(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations);
+
 
   // virtual bool checkConnFromConf(const ConnectionPtr& conn,
   //                                const Eigen::VectorXd& this_conf);
@@ -166,4 +173,5 @@ public:
 
 };
 typedef std::shared_ptr<ParallelRobotPointClouds> ParallelRobotPointCloudsPtr;
+
 }  // namaspace pathplan

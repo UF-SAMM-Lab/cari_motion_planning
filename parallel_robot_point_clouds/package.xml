@@ -4,9 +4,9 @@
   <version>0.0.0</version>
   <description>The parallel_robot_point_clouds package</description>
 
-  <maintainer email="manuel.beschi@stiima.cnr.it">Manuel Beschi</maintainer>
+  <maintainer email="jared.flowers@ufl.edu">Jared Flowers</maintainer>
   <license>BSD</license>
-  <author email="manuel.beschi@stiima.cnr.it">Manuel Beschi</author>
+  <author email="jared.flowers@ufl.edu">Jared Flowers</author>
 
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>moveit_core</build_depend>
@@ -14,15 +14,18 @@
   <build_depend>roscpp</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>avoidance_intervals</build_depend>
+  <build_depend>Torch</build_depend>
   <build_export_depend>moveit_core</build_export_depend>
   <build_export_depend>moveit_ros_planning</build_export_depend>
   <build_export_depend>roscpp</build_export_depend>
   <build_export_depend>geometry_msgs</build_export_depend>
   <build_export_depend>avoidance_intervals</build_export_depend>
+  <build_export_depend>Torch</build_export_depend>
   <exec_depend>moveit_core</exec_depend>
   <exec_depend>moveit_ros_planning</exec_depend>
   <exec_depend>roscpp</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>avoidance_intervals</exec_depend>
+  <exec_depend>Torch</exec_depend>
   <depend>velocity_scaling_iso15066</depend>
 </package>
