@@ -113,7 +113,7 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   } else {
     torch_device = at::kCPU; 
   }
-  avoid_net.to(at::kCUDA);
+  avoid_net.to(torch_device);
   torch::NoGradGuard no_grad; // ensures that autograd is off
   avoid_net.eval(); // turn off dropout and other training-time layers/functions
 }
@@ -627,7 +627,7 @@ at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::Ve
   // ROS_INFO("l2");
   // ROS_INFO("l3");
   // intervals.reset();
-  return std::move(avoid_net.forward({input_tensor.to(at::kCUDA,/*non_blocking=*/false)}).toTensor().to(at::kCPU,/*non_blocking=*/false).flatten());
+  return std::move(avoid_net.forward({input_tensor.to(torch_device,/*non_blocking=*/false)}).toTensor().to(at::kCPU,/*non_blocking=*/false).flatten());
 }
 
 void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations)
@@ -636,9 +636,10 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
   // ROS_INFO_STREAM("num configs:"<<configurations.size());
   // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   // JF- this would be the place for the neural network
-  int num_cfg_per_batch = std::round(10000/model_->quat_seq.size());
+  int max_cfg_per_batch = std::round(10000/model_->quat_seq.size());
   // ROS_INFO_STREAM("num_cfg_per_batch:"<<num_cfg_per_batch);
-  int num_batches = std::ceil((double)configurations.size()/(double)num_cfg_per_batch);
+  int num_batches = std::ceil((double)configurations.size()/(double)max_cfg_per_batch);
+  int num_cfg_per_batch = std::ceil((double)configurations.size()/(double)num_batches);
   // ROS_INFO_STREAM("num_batches:"<<num_batches);
   std::vector<torch::jit::IValue> inputs;
   inputs.resize(1);
