@@ -609,6 +609,7 @@ double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configurat
 
 at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations,int i,int num_cfg_per_this_batch,int num_cfg_per_batch)
 {
+  c10::InferenceMode guard;
   at::Tensor input_tensor = torch::zeros({1,num_cfg_per_this_batch*int(model_->quat_seq.size()),1,43});
   // ROS_INFO_STREAM("input tensor size:"<<input_tensor.sizes()[0]<<","<<input_tensor.sizes()[1]<<","<<input_tensor.sizes()[2]<<","<<input_tensor.sizes()[3]);
   auto input_tensor_a = input_tensor.accessor<float,4>();
@@ -632,7 +633,6 @@ at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::Ve
 
 void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations)
 {
-  c10::InferenceMode guard;
   // ROS_INFO_STREAM("num configs:"<<configurations.size());
   // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   // JF- this would be the place for the neural network
