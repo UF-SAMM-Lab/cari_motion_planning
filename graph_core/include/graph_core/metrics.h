@@ -54,7 +54,7 @@ public:
   virtual double cost(const NodePtr& parent,
                               const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist);
 
-  virtual void cost(std::vector<std::tuple<NodePtr,NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> node_datas);
+  virtual void cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas);
 
   virtual double utopia(const NodePtr& node1,
                       const NodePtr& node2);

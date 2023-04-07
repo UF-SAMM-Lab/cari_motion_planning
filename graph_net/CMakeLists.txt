@@ -6,6 +6,7 @@ find_package(catkin REQUIRED COMPONENTS
   graph_core
   roscpp
 )
+find_package(Torch REQUIRED)
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES graph_net
@@ -15,6 +16,7 @@ catkin_package(
 include_directories(
 # include
   ${catkin_INCLUDE_DIRS}
+  torch
 )
 # add_library(${PROJECT_NAME}
 #   src/${PROJECT_NAME}/graph_net.cpp
@@ -25,4 +27,5 @@ add_executable(        test_net tests/test_net.cpp)
 add_dependencies(      test_net ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 target_link_libraries( test_net
   ${catkin_LIBRARIES}
+  torch
 )

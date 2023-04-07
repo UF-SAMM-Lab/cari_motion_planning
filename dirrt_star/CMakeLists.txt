@@ -13,6 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
   velocity_scaling_iso15066
 )
 
+find_package(Torch REQUIRED)
+
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES dirrt_star
@@ -37,6 +39,7 @@ add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EX
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  torch
 )
 
 #############

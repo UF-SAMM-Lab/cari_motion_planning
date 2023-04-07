@@ -45,6 +45,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <torch/torch.h>
 #include <torch/script.h>
+#include <c10/cuda/CUDACachingAllocator.h>
 
 
 namespace pathplan
@@ -69,7 +70,7 @@ private:
   std::ofstream avoid_ints_file;
   std::vector<std::vector<std::string>> avoid_ints_output_thread;
   at::DeviceType torch_device;
-  void checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations, int i, int num_cfg_per_this_batch, int num_cfg_per_batch);
+  at::Tensor checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations, int i, int num_cfg_per_this_batch, int num_cfg_per_batch);
 protected:
   double t_pad_=0;
   Eigen::VectorXd max_q_dot_;
@@ -169,9 +170,11 @@ public:
   void displayRobot(int i,Eigen::Vector3f sides,Eigen::Vector3f pos, Eigen::Quaternionf quat);
   void displayCollisionPoint(float radius,Eigen::Vector3f pos);
   void clearRobot(void);
-  double checkISO15066(const Eigen::VectorXd& configuration1,
-                                              const Eigen::VectorXd& configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) ;
+  double checkISO15066(Eigen::VectorXd configuration1,
+                                              Eigen::VectorXd configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) ;
   void updatePlanningScene(const planning_scene::PlanningScenePtr &planning_scene);
+  int getMaxCfgPerBatch(void);
+  void checkBatchPaths(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations);
 
 };
 typedef std::shared_ptr<ParallelRobotPointClouds> ParallelRobotPointCloudsPtr;

@@ -104,8 +104,9 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   chain_ = rosdyn::createChain(robo_model, base_frame_, tool_frame, grav);
   ssm_=std::make_shared<ssm15066::DeterministicSSM>(chain_,nh);
   // avoid_ints_file.open("avoid_ints.csv");
+  // torch::jit::setGraphExecutorOptimize(false);
   c10::InferenceMode guard;
-  avoid_net = torch::jit::load("/home/jared.flowers@ad.ufl.edu/projects/planning_ws/src/motion/human_aware_motion_planners/parallel_robot_point_clouds/src/parallel_robot_point_clouds/robot_connection_intervals.pt");
+  avoid_net = torch::jit::load("/home/jared.flowers@ad.ufl.edu/projects/planning_ws/src/motion/human_aware_motion_planners/parallel_robot_point_clouds/src/parallel_robot_point_clouds/traced_stap_model.pt");
   bool cuda_avail = torch::cuda::is_available();
   ROS_INFO_STREAM("cuda status:"<<cuda_avail);
   if (cuda_avail) {
@@ -514,14 +515,19 @@ void ParallelRobotPointClouds::displayCollisionPoint(float radius,Eigen::Vector3
   pub_pt.publish( marker );
 }
 
-double ParallelRobotPointClouds::checkISO15066(const Eigen::VectorXd& configuration1,
-                                              const Eigen::VectorXd& configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) {
-    float nominal_time = t2-t1;
+double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
+                                              Eigen::VectorXd configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) {
+    double nominal_time = t2-t1;
     min_human_dist = 1.0;
     // std::cout<<int(model_->joint_seq.size());
     if (model_->joint_seq.empty()) return t2;
     double model_t_step = 0.1;
     // ROS_INFO_STREAM("joint seq:"<<model_->joint_seq.size()<<","<<model_t_step);
+    if (configuration2.size()!=configuration1.size()) {
+      std::cout<<"cfg\n";
+      std::cout<<configuration1.transpose()<<std::endl;
+      std::cout<<configuration2.transpose()<<std::endl;
+    }
     Eigen::VectorXd nominal_velocity= (configuration2 - configuration1)/nominal_time;
     double cost=0;
     double inv_nsteps = 1.0 / nsteps;
@@ -620,15 +626,11 @@ at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::Ve
       for (int k=0;k<31;k++) input_tensor_a[0][i*num_cfg_per_batch+j*model_->quat_seq.size()+l][0][k+2*std::get<1>(configurations[i*num_cfg_per_batch+j]).size()] = model_->quat_seq[l].second[k];
     }
   }
-  ROS_INFO("l1");
-  // input_tensor = input_tensor.to(at::kCUDA);
-  // inputs.clear();
-  // inputs[0] = input_tensor.to(at::kCUDA);
-  // torch::jit::IValue inputs();
-  // ROS_INFO("l2");
-  // ROS_INFO("l3");
-  // intervals.reset();
   return std::move(avoid_net.forward({input_tensor.to(torch_device,/*non_blocking=*/false)}).toTensor().to(at::kCPU,/*non_blocking=*/false).flatten());
+}
+
+int ParallelRobotPointClouds::getMaxCfgPerBatch(void){
+  return std::round(10000/model_->quat_seq.size());
 }
 
 void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations)
@@ -636,18 +638,20 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
   // ROS_INFO_STREAM("num configs:"<<configurations.size());
   // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   // JF- this would be the place for the neural network
-  int max_cfg_per_batch = std::round(10000/model_->quat_seq.size());
-  // ROS_INFO_STREAM("num_cfg_per_batch:"<<num_cfg_per_batch);
-  int num_batches = std::ceil((double)configurations.size()/(double)max_cfg_per_batch);
-  int num_cfg_per_batch = std::ceil((double)configurations.size()/(double)num_batches);
+  int num_cfg = configurations.size();
+  int max_cfg_per_batch = std::round(500000/model_->quat_seq.size());
+  // ROS_INFO_STREAM("max_cfg_per_batch:"<<max_cfg_per_batch);
+  int num_batches = std::ceil((double)num_cfg/(double)max_cfg_per_batch);
+  int num_cfg_per_batch = std::ceil((double)num_cfg/(double)num_batches);
   // ROS_INFO_STREAM("num_batches:"<<num_batches);
+  // ROS_INFO_STREAM("num_cfg_per_batch:"<<num_cfg_per_batch);
   std::vector<torch::jit::IValue> inputs;
   inputs.resize(1);
   for (int i=0;i<num_batches;i++) {
     // ROS_INFO_STREAM("batch:"<<i);
-    int num_cfg_per_this_batch = std::min(num_cfg_per_batch,int(configurations.size())-i*num_cfg_per_batch);
+    int num_cfg_per_this_batch = std::min(num_cfg_per_batch,num_cfg-i*num_cfg_per_batch);
     // ROS_INFO_STREAM("num_cfg_per_this_batch:"<<num_cfg_per_this_batch);
-    auto intervals = checkBatch(configurations,i,num_cfg_per_this_batch,num_cfg_per_batch);
+    at::Tensor intervals = checkBatch(configurations,i,num_cfg_per_this_batch,num_cfg_per_batch);
     // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
     // intervals = intervals.flatten().to(at::kCPU);
     // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
@@ -658,6 +662,7 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
       Eigen::Vector3f interval;
       interval.setZero();
       for (int l=0;l<model_->quat_seq.size();l++) {
+        // std::cout<<(intervals_a[j*model_->quat_seq.size()+l]>0.5)<<",";
         if ((intervals_a[j*model_->quat_seq.size()+l]>0.5) && (!in_occupancy)) {
           in_occupancy = true;
           interval[0] = model_->quat_seq[l].first;
@@ -665,38 +670,64 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
         if ((intervals_a[j*model_->quat_seq.size()+l]<=0.5) && (in_occupancy)) {
           in_occupancy = false;
           interval[1] = model_->quat_seq[l].first;
-          intervals_vec.push_back(interval);
+          std::get<2>(configurations[i*num_cfg_per_batch+j]).push_back(interval);
         }
       }
-      std::get<2>(configurations[i*num_cfg_per_batch+j])=intervals_vec;
+      // std::cout<<std::endl;
+      // std::cout<<std::get<2>(configurations[i*num_cfg_per_batch+j]).size()<<std::endl;
       if (in_occupancy) {
           std::get<3>(configurations[i*num_cfg_per_batch+j]) = interval[0];
+      } else {
+        std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
       }
+    }
+    c10::cuda::CUDACachingAllocator::emptyCache();
+  }
+  // ROS_INFO_STREAM("check intervals, returnign");
+
+}
+
+void ParallelRobotPointClouds::checkBatchPaths(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations)
+{ 
+  int num_cfg_per_this_batch = configurations.size();
+  c10::InferenceMode guard;
+  at::Tensor input_tensor = torch::zeros({1,num_cfg_per_this_batch*int(model_->quat_seq.size()),1,43});
+  // ROS_INFO_STREAM("input tensor size:"<<input_tensor.sizes()[0]<<","<<input_tensor.sizes()[1]<<","<<input_tensor.sizes()[2]<<","<<input_tensor.sizes()[3]);
+  auto input_tensor_a = input_tensor.accessor<float,4>();
+  for (int j=0;j<num_cfg_per_this_batch;j++) {
+    for (int l=0;l<int(model_->quat_seq.size());l++) {
+      for (int k=0;k<std::get<0>(configurations[j]).size();k++) input_tensor_a[0][j*model_->quat_seq.size()+l][0][k] = std::get<0>(configurations[j])[k];
+      for (int k=0;k<std::get<1>(configurations[j]).size();k++) input_tensor_a[0][j*model_->quat_seq.size()+l][0][k+std::get<0>(configurations[j]).size()] = std::get<1>(configurations[j])[k];
+      for (int k=0;k<31;k++) input_tensor_a[0][j*model_->quat_seq.size()+l][0][k+2*std::get<1>(configurations[j]).size()] = model_->quat_seq[l].second[k];
+    }
+  }
+  at::Tensor intervals = avoid_net.forward({input_tensor.to(torch_device,/*non_blocking=*/false)}).toTensor().to(at::kCPU,/*non_blocking=*/false).flatten();
+    // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
+    // intervals = intervals.flatten().to(at::kCPU);
+    // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
+  auto intervals_a = intervals.accessor<float,1>();
+  for (int j=0;j<num_cfg_per_this_batch;j++) {
+    bool in_occupancy = false;
+    std::vector<Eigen::Vector3f> intervals_vec;
+    Eigen::Vector3f interval;
+    interval.setZero();
+    for (int l=0;l<model_->quat_seq.size();l++) {
+      if ((intervals_a[j*model_->quat_seq.size()+l]>0.5) && (!in_occupancy)) {
+        in_occupancy = true;
+        interval[0] = model_->quat_seq[l].first;
+      }
+      if ((intervals_a[j*model_->quat_seq.size()+l]<=0.5) && (in_occupancy)) {
+        in_occupancy = false;
+        interval[1] = model_->quat_seq[l].first;
+        intervals_vec.push_back(interval);
+      }
+    }
+    std::get<2>(configurations[j])=intervals_vec;
+    if (in_occupancy) {
+        std::get<3>(configurations[j]) = interval[0];
     }
   }
 
-  // std::stringstream cfg_string;
-  // for (int i=0;i<n_dof;i++) cfg_string << configuration1[i] << ",";
-  // for (int i=0;i<n_dof;i++) cfg_string << configuration2[i] << ",";
-  // for (int i=0;i<avoid_ints.size();i++) {
-  //   avoid_ints_file<<cfg_string.str();
-  //   for (int j=0;j<3;j++) avoid_ints_file << avoid_ints[i][j]<<",";
-  //   avoid_ints_file<<std::endl;
-
-  // }
-
-
-  // float min_dist = checkAllQueues(avoid_ints,last_pass_time);
-  // stop_check_=false;
-  // GenerateAllConfigPts();
-  // quequeCollisionPtThread(avoid_ints,last_pass_time);
-  // std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-
-  // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  // ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<configurations.size()<<" configs");
-  // PATH_COMMENT_STREAM("continue?");
-  // std::cin.ignore();
-  // return min_dist;
 }
 
 }

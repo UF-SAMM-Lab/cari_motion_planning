@@ -542,9 +542,9 @@ namespace pathplan
       // loop over all nearest nodes
       
       // JF - determine all avoidance intervals between nodes before loop
-      if (time_avoid_) {
+      if (time_avoid_ && true) {
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-        std::vector<std::tuple<NodePtr,NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
+        std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
         connection_datas.reserve(near_nodes.size());
         for (const std::pair<double, NodePtr> &p : near_nodes) {
           const NodePtr &n = p.second;
@@ -554,91 +554,63 @@ namespace pathplan
           if (n == nearest_node)
             continue;
           if (n == node)
+            continue;          
+          if (!checker_->checkPath(n->getConfiguration(), node->getConfiguration()))
             continue;
+
           connection_datas.emplace_back(n,node,0,std::vector<Eigen::Vector3f>(),0,0,0);
         }
         metrics_->cost(connection_datas);
-        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-        ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<connection_datas.size()<<" configs");
+        // std::cout<<"connections checked:"<<connection_datas.size()<<std::endl;
 
-      }
-      for (const std::pair<double, NodePtr> &p : near_nodes)
-      {
-        const NodePtr &n = p.second; // get near node from pair
-        // std::cout<<"near node:"<<*n<<std::endl;
-        if (n == goal_node_)
-          continue;
-        // check to prevent a node from becoming its own parent
-        if (n == nearest_node)
-          continue;
-        if (n == node)
-          continue;
-        // std::cout<<"near node:"<<*n<<std::endl;
-        // if (n == goal_node_) {
-        //   PATH_COMMENT_STREAM("goal node rewire "<<goal_node_->getConfiguration());
-        // }
-        // PATH_COMMENT_STREAM("test.........................");
-        // cost of near node
-        // ROS_INFO_STREAM("rewire"<<*node);
-        // ROS_INFO_STREAM("to"<<*n);
-        double cost_to_near = costToNode(n);
-        // ROS_INFO_STREAM("rewire"<<goal_node_<<" 2.1"<<*goal_node_);
-        // ROS_INFO_STREAM("num nodes:"<<getNodes().size());
-        // if near node is not better than nearest node, skip
-        // ROS_INFO_STREAM("cost_to_node:" << cost_to_node<< ", cost_to_near:" << cost_to_near);
-        if (cost_to_near >= cost_to_node)
-          continue;
-        // JF-for time-avoidance, cost function should return total time to reach node from start
-        double n_time = 0;
-        double cost_near_to_node;
-        std::vector<Eigen::Vector3f> avoid_ints;
-        float min_human_dist;
-        float last_pass_time;
-        if (time_avoid_)
+        for (int c=0;c<connection_datas.size();c++)
         {
-          cost_near_to_node = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist);
-        }
-        else
-        {
-          cost_near_to_node = metrics_->cost(n, node);
-        }
-        // //JF - don't want to add costs for time-avoidance
-        // if (cummulative_cost_) {
-        // } else {
-        //   if (cost_near_to_node >= cost_to_node)
-        //     continue;
-        // }
+          std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double> conn_data = connection_datas[c];
+          const NodePtr &n = std::get<0>(conn_data); // get near node from pair
+          // if (n == goal_node_)
+          //   continue;
+          // // check to prevent a node from becoming its own parent
+          // if (n == nearest_node)
+          //   continue;
+          // if (n == node)
+          //   continue;
+          // cost of near node
+          double cost_to_near = costToNode(n);
+          // std::cout<<"c:"<<c<<", cost to near:"<<cost_to_near<<", cost to node:"<<cost_to_node<<",conn cost:"<<std::get<6>(conn_data)<<std::endl;
+          // if near node is not better than nearest node, skip
+          if (cost_to_near >= cost_to_node)
+            continue;
+          // JF-for time-avoidance, cost function should return total time to reach node from start
+          // double n_time = 0;
+          double cost_near_to_node = std::get<6>(conn_data);
+          // //JF - don't want to add costs for time-avoidance
 
-        // ROS_INFO_STREAM("Anew cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_node<<","<<cost_near_to_node);
-        if ((!time_avoid_) && (((cost_near_to_node + cost_to_near) >= cost_to_node)))
-          continue;
-        // check for collisions between robot and real-time obstacles at configs along path from parent to node
-        // JF - need to ensure the predicted obstacles are not part of this planning scene
-        //  if ((n!=goal_node_)||(nodes_->l2_dist(n,goal_node_->getConfiguration())>2)) {
-        // ROS_INFO_STREAM("Cnew cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_node);
-        if (!checker_->checkPath(n->getConfiguration(), node->getConfiguration()))
-          continue;
-        // }
-        // a better parent has been found and doesn't cause collision
-        // remove old parent
-        if (!time_avoid_)
-          node->parent_connections_.at(0)->remove();
-        // ROS_INFO_STREAM("Bnew cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_node);
-        // make a new connect from better parent to node
-        ConnectionPtr conn = std::make_shared<Connection>(n, node);
-        // edge cost is l2 distance or time to reach new node
-        if (time_avoid_)
-        {
-          conn->setParentTime(n_time);
-          conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
+          // // check for collisions between robot and real-time obstacles at configs along path from parent to node
+          // // JF - need to ensure the predicted obstacles are not part of this planning scene
+          // if (!checker_->checkPath(n->getConfiguration(), node->getConfiguration()))
+          //   continue;
+
+          // make a new connect from better parent to node
+          ConnectionPtr conn = std::make_shared<Connection>(n, node);
+          // edge cost is l2 distance or time to reach new node
+          conn->setParentTime(std::get<2>(conn_data));
+          conn->setAvoidIntervals(std::get<3>(conn_data), std::get<4>(conn_data), std::get<5>(conn_data));
           conn->setMinTime(inv_max_speed_, min_accel_time);
-        }
-        conn->add();
-        conn->setCost(cost_near_to_node);
-        // if (((cost_to_near + cost_near_to_node) >= cost_to_node)) {
-        if (time_avoid_)
-        {
+          // double n_time;
+          // std::vector<Eigen::Vector3f> avoid_ints;
+          // float last_pass_time;
+          // float min_human_dist;
+          // double test_cost = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist);
+          // std::cout<<"truth:";
+          // for (int a=0;a<avoid_ints.size();a++) std::cout<<avoid_ints[a].transpose()<<";";
+          // std::cout<<std::endl;
+          // std::vector<Eigen::Vector3f> est_avoid_ints = std::get<3>(conn_data);
+          // std::cout<<"estimate:";
+          // for (int a=0;a<est_avoid_ints.size();a++) std::cout<<est_avoid_ints[a].transpose()<<";";
+          // std::cout<<std::endl;
+          // std::cin.ignore();
+          conn->add();
+          conn->setCost(cost_near_to_node);
           if (((cost_near_to_node) >= cost_to_node))
           {
             conn->removeCache();
@@ -649,42 +621,150 @@ namespace pathplan
             // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
             if (node->parent_connections_.size()>1) node->parent_connections_.at(0)->removeCache();
           }
-        }
-        // std::cout<<"cost to node:"<<cost_to_node<<", new cost:"<<cost_to_near + cost_near_to_node<<std::endl;
-        // std::cout<<"from node:"<<*n<<std::endl;
-        // std::cout<<*node<<std::endl;
-        // not better
-        // {
-        //   conn->remove();
-        //   continue;
-        // } else {
+          
 
-        // }
-        // PATH_COMMENT_STREAM("adding connection3:"<<cost_near_to_node<<", "<<n_time<<","<<avoid_ints.size());
-        // for (int i=0;i<avoid_ints.size();i++) {
-        //   std::cout<<avoid_ints[i].transpose()<<std::endl;
-        // }
-        // PATH_COMMENT_STREAM("end of ints");
+          // JF - if node cost is l2 distance between parent and node, then sum cost to parent with parent->node cost
 
-        // PATH_COMMENT_STREAM("adding connection2:"<<cost_near_to_node<<", "<<n_time<<","<<avoid_ints.size());
-
-        // nearest_node = n; PER ME NON CI VA
-        // JF - if node cost is l2 distance between parent and node, then sum cost to parent with parent->node cost
-        //  if (cummulative_cost_) {
-        //  cost_to_node = cost_to_near + cost_near_to_node;
-        if (time_avoid_)
-        {
           cost_to_node = cost_near_to_node;
+          
+          improved = true;
         }
-        else
+
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<connection_datas.size()<<" configs");
+
+      } else {
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+        for (const std::pair<double, NodePtr> &p : near_nodes)
         {
-          cost_to_node = cost_near_to_node + cost_to_near;
+          const NodePtr &n = p.second; // get near node from pair
+          // std::cout<<"near node:"<<*n<<std::endl;
+          if (n == goal_node_)
+            continue;
+          // check to prevent a node from becoming its own parent
+          if (n == nearest_node)
+            continue;
+          if (n == node)
+            continue;
+          // std::cout<<"near node:"<<*n<<std::endl;
+          // if (n == goal_node_) {
+          //   PATH_COMMENT_STREAM("goal node rewire "<<goal_node_->getConfiguration());
+          // }
+          // PATH_COMMENT_STREAM("test.........................");
+          // cost of near node
+          // ROS_INFO_STREAM("rewire"<<*node);
+          // ROS_INFO_STREAM("to"<<*n);
+          double cost_to_near = costToNode(n);
+          // ROS_INFO_STREAM("rewire"<<goal_node_<<" 2.1"<<*goal_node_);
+          // ROS_INFO_STREAM("num nodes:"<<getNodes().size());
+          // if near node is not better than nearest node, skip
+          // ROS_INFO_STREAM("cost_to_node:" << cost_to_node<< ", cost_to_near:" << cost_to_near);
+          if (cost_to_near >= cost_to_node)
+            continue;
+          // JF-for time-avoidance, cost function should return total time to reach node from start
+          double n_time = 0;
+          double cost_near_to_node;
+          std::vector<Eigen::Vector3f> avoid_ints;
+          float min_human_dist;
+          float last_pass_time;
+          if (time_avoid_)
+          {
+            cost_near_to_node = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist);
+          }
+          else
+          {
+            cost_near_to_node = metrics_->cost(n, node);
+          }
+          // //JF - don't want to add costs for time-avoidance
+          // if (cummulative_cost_) {
+          // } else {
+          //   if (cost_near_to_node >= cost_to_node)
+          //     continue;
+          // }
+
+          // ROS_INFO_STREAM("Anew cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_node<<","<<cost_near_to_node);
+          if ((!time_avoid_) && (((cost_near_to_node + cost_to_near) >= cost_to_node)))
+            continue;
+          // check for collisions between robot and real-time obstacles at configs along path from parent to node
+          // JF - need to ensure the predicted obstacles are not part of this planning scene
+          //  if ((n!=goal_node_)||(nodes_->l2_dist(n,goal_node_->getConfiguration())>2)) {
+          // ROS_INFO_STREAM("Cnew cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_node);
+          if (!checker_->checkPath(n->getConfiguration(), node->getConfiguration()))
+            continue;
+          // }
+          // a better parent has been found and doesn't cause collision
+          // remove old parent
+          if (!time_avoid_)
+            node->parent_connections_.at(0)->remove();
+          // ROS_INFO_STREAM("Bnew cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_node);
+          // make a new connect from better parent to node
+          ConnectionPtr conn = std::make_shared<Connection>(n, node);
+          // edge cost is l2 distance or time to reach new node
+          if (time_avoid_)
+          {
+            conn->setParentTime(n_time);
+            conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
+            conn->setMinTime(inv_max_speed_, min_accel_time);
+          }
+          conn->add();
+          conn->setCost(cost_near_to_node);
+          // if (((cost_to_near + cost_near_to_node) >= cost_to_node)) {
+          if (time_avoid_)
+          {
+            if (((cost_near_to_node) >= cost_to_node))
+            {
+              conn->removeCache();
+              continue;
+            }
+            else
+            {
+              // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
+              if (node->parent_connections_.size()>1) node->parent_connections_.at(0)->removeCache();
+            }
+          }
+          // std::cout<<"cost to node:"<<cost_to_node<<", new cost:"<<cost_to_near + cost_near_to_node<<std::endl;
+          // std::cout<<"from node:"<<*n<<std::endl;
+          // std::cout<<*node<<std::endl;
+          // not better
+          // {
+          //   conn->remove();
+          //   continue;
+          // } else {
+
+          // }
+          // PATH_COMMENT_STREAM("adding connection3:"<<cost_near_to_node<<", "<<n_time<<","<<avoid_ints.size());
+          // for (int i=0;i<avoid_ints.size();i++) {
+          //   std::cout<<avoid_ints[i].transpose()<<std::endl;
+          // }
+          // PATH_COMMENT_STREAM("end of ints");
+
+          // PATH_COMMENT_STREAM("adding connection2:"<<cost_near_to_node<<", "<<n_time<<","<<avoid_ints.size());
+
+          // nearest_node = n; PER ME NON CI VA
+          // JF - if node cost is l2 distance between parent and node, then sum cost to parent with parent->node cost
+          //  if (cummulative_cost_) {
+          //  cost_to_node = cost_to_near + cost_near_to_node;
+          if (time_avoid_)
+          {
+            cost_to_node = cost_near_to_node;
+          }
+          else
+          {
+            cost_to_node = cost_near_to_node + cost_to_near;
+          }
+          // node->min_time = cost_to_node;
+          // } else { //JF - else node cost is total time to reach node
+          //   cost_to_node = cost_near_to_node;
+          // }
+          improved = true;
         }
-        // node->min_time = cost_to_node;
-        // } else { //JF - else node cost is total time to reach node
-        //   cost_to_node = cost_near_to_node;
-        // }
-        improved = true;
+
+
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<near_nodes.size()<<" configs");
       }
     }
     // std::cout<<"rewire parent hass:"<<node->parent_connections_.size()<<" parents\n";
@@ -696,6 +776,8 @@ namespace pathplan
 
     if (rewire_children)
     {
+      std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
       // ROS_INFO_STREAM("goal:" << goal_node_->getConfiguration().transpose());
       // ROS_INFO("try to find a better child between %zu nodes", near_nodes.size());
       for (const std::pair<double, NodePtr> &p : near_nodes)
@@ -825,6 +907,10 @@ namespace pathplan
         // }
         // PATH_COMMENT_STREAM("end of ints");
       }
+
+      std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+      std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+      ROS_INFO_STREAM("children " << time_span.count() << " seconds for "<<near_nodes.size());
     }
     // std::cout<<"rewire child hass:"<<node->parent_connections_.size()<<" parents\n";
 
