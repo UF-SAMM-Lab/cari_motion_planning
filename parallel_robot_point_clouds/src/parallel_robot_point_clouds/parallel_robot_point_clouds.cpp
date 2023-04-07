@@ -622,7 +622,7 @@ at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::Ve
   // ROS_INFO("l2");
   // ROS_INFO("l3");
   // intervals.reset();
-  return std::move(avoid_net.forward({input_tensor.to(at::kCUDA)}).toTensor().cpu().flatten());
+  return std::move(avoid_net.forward({input_tensor.to(at::kCUDA,/*non_blocking=*/false)}).toTensor().to(at::kCPU,/*non_blocking=*/false).flatten());
 }
 
 void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations)
