@@ -108,6 +108,11 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   avoid_net = torch::jit::load("/home/jared.flowers@ad.ufl.edu/projects/planning_ws/src/motion/human_aware_motion_planners/parallel_robot_point_clouds/src/parallel_robot_point_clouds/robot_connection_intervals.pt");
   bool cuda_avail = torch::cuda::is_available();
   ROS_INFO_STREAM("cuda status:"<<cuda_avail);
+  if (cuda_avail) {
+    torch_device = at::kCUDA;  
+  } else {
+    torch_device = at::kCPU; 
+  }
   avoid_net.to(at::kCUDA);
   torch::NoGradGuard no_grad; // ensures that autograd is off
   avoid_net.eval(); // turn off dropout and other training-time layers/functions
