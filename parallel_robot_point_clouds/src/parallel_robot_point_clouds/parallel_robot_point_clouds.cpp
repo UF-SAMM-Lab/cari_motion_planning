@@ -106,7 +106,8 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   // avoid_ints_file.open("avoid_ints.csv");
   // torch::jit::setGraphExecutorOptimize(false);
   c10::InferenceMode guard;
-  avoid_net = torch::jit::load("/home/jared.flowers@ad.ufl.edu/projects/planning_ws/src/motion/human_aware_motion_planners/parallel_robot_point_clouds/src/parallel_robot_point_clouds/traced_stap_model.pt");
+  std::string file_name = ros::package::getPath("parallel_robot_point_clouds")+"/src/parallel_robot_point_clouds/traced_stap_model.pt";
+  avoid_net = torch::jit::load(file_name);
   bool cuda_avail = torch::cuda::is_available();
   ROS_INFO_STREAM("cuda status:"<<cuda_avail);
   if (cuda_avail) {
@@ -681,7 +682,10 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
         std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
       }
     }
+
+    #ifdef CUDA_AVAILABLE
     c10::cuda::CUDACachingAllocator::emptyCache();
+    #endif
   }
   // ROS_INFO_STREAM("check intervals, returnign");
 

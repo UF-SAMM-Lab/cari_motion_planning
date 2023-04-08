@@ -45,7 +45,12 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <torch/torch.h>
 #include <torch/script.h>
+#ifdef CUDA_AVAILABLE
+#warning "CUDA AVAILABLE"
 #include <c10/cuda/CUDACachingAllocator.h>
+#else
+#warning "CUDA AVAILABLE"
+#endif
 
 
 namespace pathplan

@@ -18,6 +18,8 @@ find_package(catkin REQUIRED COMPONENTS
 find_package(Torch REQUIRED)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 set(CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wextra")
+# add_definitions( -DCUDA_AVAILABLE=$ENV{CUDA_AVAILABLE} )
+message(WARNING "$ENV{CUDA_AVAILABLE}")
 
 catkin_package(
   INCLUDE_DIRS include
@@ -41,6 +43,10 @@ target_link_libraries(${PROJECT_NAME}
   torch
 )
 set_property(TARGET ${PROJECT_NAME} PROPERTY CXX_STANDARD 14)
+
+if($ENV{CUDA_AVAILABLE})
+target_compile_definitions(${PROJECT_NAME} PUBLIC "CUDA_AVAILABLE")
+endif()
 
 install(TARGETS ${PROJECT_NAME}
   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
