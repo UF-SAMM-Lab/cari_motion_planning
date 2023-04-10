@@ -79,13 +79,15 @@ public:
   Eigen::VectorXd inv_max_speed_;
   double min_accel_time=0.0;
   bool time_avoid_ = false;
+  bool use_net=false;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Tree(const NodePtr& root,
        const double& max_distance,
        const CollisionCheckerPtr& checker,
        const MetricsPtr& metrics,
        const bool& use_kdtree=true,
-        const bool &use_time_cost=false);
+        const bool &use_time_cost=false,
+        const bool &use_net=false);
 
   const NodePtr& getRoot()
   {

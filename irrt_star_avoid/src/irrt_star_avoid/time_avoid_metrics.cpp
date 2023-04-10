@@ -347,38 +347,9 @@ double TimeAvoidMetrics::utopia(const Eigen::VectorXd &configuration1, const Eig
   return (inv_max_speed_.cwiseProduct(configuration1 - configuration2)).cwiseAbs().maxCoeff()+nu_*(configuration2-configuration1).norm();
 }
 
-//JF - need node1 instead of config1
-void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas)
-{
-  if (node_datas.size()==0) return;
+void TimeAvoidMetrics::cost_thread(Eigen::MatrixXd& dist_new, Eigen::VectorXd& time_new, std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations, std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, int start_i, int end_i) {
 
-  std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>> configurations;
-  configurations.reserve(node_datas.size());
-  Eigen::MatrixXd parents(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
-  Eigen::MatrixXd children(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
-
-  for (int i=0;i<node_datas.size();i++) {
-    std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float> config;
-    std::get<0>(config) = std::get<0>(node_datas[i])->getConfiguration();
-    parents.row(i) = std::get<0>(node_datas[i])->getConfiguration();
-    std::get<1>(config) = std::get<1>(node_datas[i])->getConfiguration();
-    children.row(i) = std::get<1>(node_datas[i])->getConfiguration();
-    // std::cout<<i<<", "<<std::get<0>(node_datas[i])->getConfiguration().transpose()<<", "<<std::get<1>(node_datas[i])->getConfiguration().transpose()<<std::endl;
-    configurations.push_back(config);
-  }
-
-  pc_avoid_checker->checkMutliplePaths(configurations);
-  Eigen::MatrixXd dist_new = parents-children;
-  Eigen::MatrixXd tmp_mat = dist_new.array().abs().rowwise()*inv_max_speed_.transpose().array();
-  Eigen::VectorXd time_new = tmp_mat.rowwise().maxCoeff();
-  for (int i=0;i<node_datas.size();i++) {
-    // std::cout<<i<<", "<<std::get<0>(node_datas[i])->getConfiguration().transpose()<<", "<<std::get<1>(node_datas[i])->getConfiguration().transpose()<<std::endl;
-      //determine min time to complete straight line path from parent to config
-    // const Eigen::VectorXd parent_cfg = std::get<0>(node_datas[i])->getConfiguration();
-    // const Eigen::VectorXd child_cfg = std::get<1>(node_datas[i])->getConfiguration();
-    // Eigen::VectorXd dist_new = parent_cfg-child_cfg;
-
-    // double time_new = (inv_max_speed_.cwiseProduct(dist_new)).maxCoeff()+0*2*max_dt;
+  for (int i=start_i;i<end_i;i++) {
     double node_time_new = time_new[i];
     //get cost of parent
     //requires extended node data
@@ -402,7 +373,7 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     }
     std::get<5>(node_datas[i]) = 1.0;
     if (use_iso15066_) {
-      std::get<6>(node_datas[i]) = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),c_near,std::get<6>(node_datas[i]),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+      std::get<6>(node_datas[i]) = pc_avoid_checker->checkISO15066(std::get<0>(configurations[i]),std::get<1>(configurations[i]),dist_new.row(i).norm(),c_near,std::get<6>(node_datas[i]),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
     }
     //if avoidance intervals, loop over avoidance intervals to determine soonest time of passage from parent to new node
     if (!std::get<3>(node_datas[i]).empty() && success){
@@ -426,8 +397,8 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
                 if (use_iso15066_) { //in case a little more slow down prevents an iso15066 slow down
                   extra_time_to_avoid_slow_down = std::numeric_limits<double>::infinity();
                   prev_slow_cost = std::numeric_limits<double>::infinity();
-                  for (int i=0;i<5;i++) {
-                    double slow_cost = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time+double(i),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+                  for (int ii=0;ii<5;ii++) {
+                    double slow_cost = pc_avoid_checker->checkISO15066(std::get<0>(configurations[i]),std::get<1>(configurations[i]),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time+double(ii),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
                     extra_time_to_avoid_slow_down = std::min(slow_cost-tmp_time,extra_time_to_avoid_slow_down);
                     
                     prev_slow_cost = slow_cost;
@@ -455,8 +426,139 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     if (!success) {
         std::get<6>(node_datas[i]) = std::numeric_limits<double>::infinity();
     }
-    // std::cout<<"conn time end:"<<std::get<6>(node_datas[i])<<std::endl;
   }
+}
+
+//JF - need node1 instead of config1
+void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas)
+{
+  if (node_datas.size()==0) return;
+
+  std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>> configurations;
+  configurations.reserve(node_datas.size());
+  Eigen::MatrixXd parents(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
+  Eigen::MatrixXd children(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
+
+  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+  for (int i=0;i<node_datas.size();i++) {
+    std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float> config;
+    std::get<0>(config) = std::get<0>(node_datas[i])->getConfiguration();
+    parents.row(i) = std::get<0>(node_datas[i])->getConfiguration();
+    std::get<1>(config) = std::get<1>(node_datas[i])->getConfiguration();
+    children.row(i) = std::get<1>(node_datas[i])->getConfiguration();
+    // std::cout<<i<<", "<<std::get<0>(node_datas[i])->getConfiguration().transpose()<<", "<<std::get<1>(node_datas[i])->getConfiguration().transpose()<<std::endl;
+    configurations.push_back(config);
+  }
+
+  pc_avoid_checker->checkMutliplePaths(configurations);
+
+  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+  std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  ROS_INFO_STREAM("getting intervals took " << time_span.count() << " seconds for "<<node_datas.size()<<" configs");
+  
+  Eigen::MatrixXd dist_new = parents-children;
+  Eigen::MatrixXd tmp_mat = dist_new.array().abs().rowwise()*inv_max_speed_.transpose().array();
+  Eigen::VectorXd time_new = tmp_mat.rowwise().maxCoeff();
+  int num_elements_per_thread = std::ceil(node_datas.size()/2);
+  std::vector<std::thread> threads;
+  threads.resize(2);
+  for (int i=0;i<2;i++) {
+    if (i>node_datas.size()-1) break;
+    int start_i = i*num_elements_per_thread;
+    int end_i = std::min((i+1)*num_elements_per_thread,(int)node_datas.size());
+    threads.at(i) = std::thread(&TimeAvoidMetrics::cost_thread,this,std::ref(dist_new),std::ref(time_new),std::ref(configurations),std::ref(node_datas),start_i,end_i);
+  }
+  for (int i=0;i<2;i++) {
+    if (threads.at(i).joinable()){
+      threads.at(i).join();
+    }
+  }
+  // for (int i=0;i<node_datas.size();i++) {
+  //   // std::cout<<i<<", "<<std::get<0>(node_datas[i])->getConfiguration().transpose()<<", "<<std::get<1>(node_datas[i])->getConfiguration().transpose()<<std::endl;
+  //     //determine min time to complete straight line path from parent to config
+  //   // const Eigen::VectorXd parent_cfg = std::get<0>(node_datas[i])->getConfiguration();
+  //   // const Eigen::VectorXd child_cfg = std::get<1>(node_datas[i])->getConfiguration();
+  //   // Eigen::VectorXd dist_new = parent_cfg-child_cfg;
+
+  //   // double time_new = (inv_max_speed_.cwiseProduct(dist_new)).maxCoeff()+0*2*max_dt;
+  //   double node_time_new = time_new[i];
+  //   //get cost of parent
+  //   //requires extended node data
+  //   double c_near = 0.0;
+  //   if (!std::get<0>(node_datas[i])->parent_connections_.empty()) {
+  //     c_near = std::get<0>(node_datas[i])->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
+  //   }
+  //   std::get<2>(node_datas[i]) = c_near;    
+  //   // get min cost to get to new node from near parent
+  //   std::get<6>(node_datas[i]) = c_near + node_time_new;
+  //   // std::cout<<"conn time:"<<std::get<6>(node_datas[i])<<std::endl;
+  //   bool success = true; //bool to set false if path can not be found
+  //   std::get<4>(node_datas[i]) = std::get<3>(configurations[i]);
+  //   std::get<3>(node_datas[i]) = std::get<2>(configurations[i]);
+  //   // std::cout<<"intervals:";
+  //   // for (int a=0;a<std::get<3>(node_datas[i]).size();a++) std::cout<<std::get<3>(node_datas[i])[a].transpose()<<";";
+  //   // std::cout<<std::endl;
+  //   if (std::get<6>(node_datas[i])>std::get<4>(node_datas[i])){
+  //       success = false;
+  //       // break;
+  //   }
+  //   std::get<5>(node_datas[i]) = 1.0;
+  //   if (use_iso15066_) {
+  //     std::get<6>(node_datas[i]) = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),c_near,std::get<6>(node_datas[i]),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+  //   }
+  //   //if avoidance intervals, loop over avoidance intervals to determine soonest time of passage from parent to new node
+  //   if (!std::get<3>(node_datas[i]).empty() && success){
+  //       bool found_avoid = false;
+  //       double tmp_time = 0.0;
+  //       double tmp_c_new = std::get<6>(node_datas[i]);
+  //       double extra_time_to_avoid_slow_down;
+  //       double prev_slow_cost;
+  //       for (int r=0;r<std::get<3>(node_datas[i]).size();r++) {
+  //           //if time to reach new node is within an avoidance interval +/- padding then set time to reach new node to the end of the avoidance interval
+  //           //repeat check with the time to reach the parent node when parent time is increased
+  //           //ensuring the entire path from parent to new node is not in an avoidance interval
+  //           //need to check if connection intveral is within connection interval
+  //           //if any part of the avoidance interval overlaps the connection interval (near_time to tmp_c_new)
+  //           if (interval_intersection(std::get<3>(node_datas[i])[r][0],std::get<3>(node_datas[i])[r][1],std::get<2>(node_datas[i]),tmp_c_new)) {
+  //               tmp_time = std::get<3>(node_datas[i])[r][1]+node_time_new + t_pad_;
+  //               if (tmp_time>tmp_c_new) {
+  //                   tmp_c_new = tmp_time;
+  //                   std::get<2>(node_datas[i]) = std::get<3>(node_datas[i])[r][1]+t_pad_;
+  //               }
+  //               if (use_iso15066_) { //in case a little more slow down prevents an iso15066 slow down
+  //                 extra_time_to_avoid_slow_down = std::numeric_limits<double>::infinity();
+  //                 prev_slow_cost = std::numeric_limits<double>::infinity();
+  //                 for (int i=0;i<5;i++) {
+  //                   double slow_cost = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time+double(i),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+  //                   extra_time_to_avoid_slow_down = std::min(slow_cost-tmp_time,extra_time_to_avoid_slow_down);
+                    
+  //                   prev_slow_cost = slow_cost;
+  //                 }
+  //                 tmp_time += extra_time_to_avoid_slow_down;
+  //                 if (tmp_time>tmp_c_new) {
+  //                     tmp_c_new = tmp_time;
+  //                 }
+  //               }
+  //               found_avoid = true;
+  //           } else if (found_avoid) {
+  //               std::get<6>(node_datas[i]) = tmp_c_new;
+  //               found_avoid = false;
+  //               break;
+  //           }
+  //       }
+  //       if (found_avoid) {
+  //           std::get<6>(node_datas[i]) = tmp_c_new;
+  //       } 
+        
+  //       std::get<6>(node_datas[i]) = std::max(std::get<6>(node_datas[i]),tmp_c_new);
+  //     }
+
+  //   //return inf cost if not success
+  //   if (!success) {
+  //       std::get<6>(node_datas[i]) = std::numeric_limits<double>::infinity();
+  //   }
+  //   // std::cout<<"conn time end:"<<std::get<6>(node_datas[i])<<std::endl;
+  // }
 
   // return;
 

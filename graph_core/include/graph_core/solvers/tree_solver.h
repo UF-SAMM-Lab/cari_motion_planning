@@ -86,6 +86,7 @@ protected:
 
 public:
   bool use_time_cost_=false;
+  bool use_net = false;
   TreeSolver(const MetricsPtr& metrics,
              const CollisionCheckerPtr& checker,
              const SamplerPtr& sampler):

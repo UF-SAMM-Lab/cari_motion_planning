@@ -128,6 +128,7 @@ protected:
   ssm15066::DeterministicSSMPtr ssm_;
   rosdyn::ChainPtr chain_;
   torch::jit::script::Module avoid_net;
+  bool record_intervals=false;
 
 public:
   avoidance_intervals::modelPtr model_;
@@ -138,7 +139,8 @@ public:
                                   const Eigen::VectorXd& max_vels,
                                  const int& threads_num=4,
                                  const double& min_distance = 0.01,
-                                 const double& grid_spacing = 0.05);
+                                 const double& grid_spacing = 0.05,
+                                 const bool& record_intervals = false);
 
   ~ParallelRobotPointClouds();
 

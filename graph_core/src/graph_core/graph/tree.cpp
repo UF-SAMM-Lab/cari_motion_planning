@@ -35,12 +35,14 @@ namespace pathplan
              const CollisionCheckerPtr &checker,
              const MetricsPtr &metrics,
              const bool &use_kdtree,
-             const bool &use_time_cost) : root_(root),
+             const bool &use_time_cost,
+             const bool &use_net) : root_(root),
                                           use_kdtree_(use_kdtree),
                                           max_distance_(max_distance),
                                           checker_(checker),
                                           metrics_(metrics),
-                                          time_avoid_(use_time_cost)
+                                          time_avoid_(use_time_cost),
+                                          use_net(use_net)
   {
     if (use_kdtree)
     {
@@ -542,7 +544,7 @@ namespace pathplan
       // loop over all nearest nodes
       
       // JF - determine all avoidance intervals between nodes before loop
-      if (time_avoid_ && true) {
+      if (time_avoid_ && use_net) {
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
         connection_datas.reserve(near_nodes.size());
@@ -596,18 +598,20 @@ namespace pathplan
           conn->setParentTime(std::get<2>(conn_data));
           conn->setAvoidIntervals(std::get<3>(conn_data), std::get<4>(conn_data), std::get<5>(conn_data));
           conn->setMinTime(inv_max_speed_, min_accel_time);
-          // double n_time;
-          // std::vector<Eigen::Vector3f> avoid_ints;
-          // float last_pass_time;
-          // float min_human_dist;
-          // double test_cost = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist);
-          // std::cout<<"truth:";
-          // for (int a=0;a<avoid_ints.size();a++) std::cout<<avoid_ints[a].transpose()<<";";
-          // std::cout<<std::endl;
-          // std::vector<Eigen::Vector3f> est_avoid_ints = std::get<3>(conn_data);
-          // std::cout<<"estimate:";
-          // for (int a=0;a<est_avoid_ints.size();a++) std::cout<<est_avoid_ints[a].transpose()<<";";
-          // std::cout<<std::endl;
+          if (false) {
+            double n_time;
+            std::vector<Eigen::Vector3f> avoid_ints;
+            float last_pass_time;
+            float min_human_dist;
+            double test_cost = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist);
+            std::cout<<"truth:";
+            for (int a=0;a<avoid_ints.size();a++) std::cout<<avoid_ints[a].transpose()<<";";
+            std::cout<<std::endl;
+            std::vector<Eigen::Vector3f> est_avoid_ints = std::get<3>(conn_data);
+            std::cout<<"estimate:";
+            for (int a=0;a<est_avoid_ints.size();a++) std::cout<<est_avoid_ints[a].transpose()<<";";
+            std::cout<<std::endl;
+          }
           // std::cin.ignore();
           conn->add();
           conn->setCost(cost_near_to_node);
@@ -632,7 +636,7 @@ namespace pathplan
 
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-        ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<connection_datas.size()<<" configs");
+        ROS_INFO_STREAM("STAP net Avoidance intervals " << time_span.count() << " seconds for "<<connection_datas.size()<<" configs");
 
       } else {
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();

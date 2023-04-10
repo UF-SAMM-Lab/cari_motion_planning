@@ -35,6 +35,8 @@ bool TimeAvoidRRTStar::addStartTree(const TreePtr &start_tree, const double &max
   assert(start_tree);
   start_tree_ = start_tree;
   start_tree->time_avoid_ = true;
+  start_tree->use_net = use_net;
+  ROS_INFO_STREAM("tree using STAP net:"<<use_net);
   return setProblem(max_time);
 }
 

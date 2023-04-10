@@ -42,6 +42,7 @@ protected:
   //virtual bool setProblem(const double &max_time = std::numeric_limits<double>::infinity()); //max_time not used
 
 public:
+  // bool use_net = false;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   TimeAvoidRRTStar(const MetricsPtr& metrics,
           const CollisionCheckerPtr& checker,

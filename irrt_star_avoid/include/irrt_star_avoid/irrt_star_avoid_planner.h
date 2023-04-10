@@ -137,6 +137,7 @@ private:
   float grid_spacing = 0.1;
   double max_accel_time;
   bool use_iptp=false;
+  bool use_net = false;
 
 };
 

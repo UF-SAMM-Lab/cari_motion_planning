@@ -225,13 +225,17 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
 
 
   COMMENT("init parallel avoid point checker");
-  point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(m_nh, robot_model_,group_,avoid_model_,max_velocity_,collision_thread_,collision_distance,grid_spacing);
-
+  bool record_intervals = false;
+  if (!m_nh.getParam("record_intervals",record_intervals)) ROS_INFO_STREAM("record_intervals did not exist");
+  point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(m_nh, robot_model_,group_,avoid_model_,max_velocity_,collision_thread_,collision_distance,grid_spacing,record_intervals);
   COMMENT("settign metrics point cloud checker");
   metrics->setPointCloudChecker(point_cloud_checker);
 
 
   m_solver_performance=m_nh.advertise<std_msgs::Float64MultiArray>("/solver_performance",1000);
+
+  m_nh.getParam("use_STAP_net",use_net);
+  ROS_INFO_STREAM("solver using STAP net:"<<use_net);
 
 }
 
@@ -367,6 +371,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   std::shared_ptr<pathplan::TimeAvoidRRTStar> solver=std::make_shared<pathplan::TimeAvoidRRTStar>(metrics,checker,sampler);
   COMMENT("done created a time avoid rrt solver");
   solver->use_time_cost_ = true;
+  solver->use_net = use_net;
   PATH_COMMENT_STREAM("metrics name "<< solver->getMetricsName());
   // std::cin.ignore();
   if (!solver->config(m_nh))
