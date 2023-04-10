@@ -90,7 +90,7 @@ protected:
   ros::NodeHandle m_nh;
   // ros::AsyncSpinner spinner;
   ros::CallbackQueue m_queue;
-
+  const moveit::core::JointModelGroup* jmg;
   std::shared_ptr<pathplan::Display> display;
 
   ros::WallDuration m_max_planning_time;
@@ -138,6 +138,7 @@ private:
   double max_accel_time;
   bool use_iptp=false;
   bool use_net = false;
+  std::vector<Eigen::VectorXd> pre_samples;
 
 };
 

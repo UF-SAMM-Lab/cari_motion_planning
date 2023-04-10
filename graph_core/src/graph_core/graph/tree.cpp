@@ -598,7 +598,7 @@ namespace pathplan
           conn->setParentTime(std::get<2>(conn_data));
           conn->setAvoidIntervals(std::get<3>(conn_data), std::get<4>(conn_data), std::get<5>(conn_data));
           conn->setMinTime(inv_max_speed_, min_accel_time);
-          if (false) {
+          if (1) {
             double n_time;
             std::vector<Eigen::Vector3f> avoid_ints;
             float last_pass_time;

@@ -67,7 +67,8 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
 
   COMMENT("get joint model group");
 
-  const moveit::core::JointModelGroup* jmg=robot_model_->getJointModelGroup(group);
+  jmg=robot_model_->getJointModelGroup(group);
+
   if (jmg==NULL)
     ROS_ERROR("unable to find JointModelGroup for group %s",group.c_str());
 
@@ -466,6 +467,50 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   // ===============================
   // BEGINNING OF THE IMPORTANT PART
   // ===============================
+  
+  //JF - randomly sample some points along the humans sequence
+  if (metrics->pc_avoid_checker->model_->new_joint_seq) {
+    pre_samples.clear();
+    metrics->pc_avoid_checker->model_->new_joint_seq = false;
+  }
+  if (pre_samples.empty()) {
+    pre_samples.reserve(50);
+    Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(100).array()*0.5+0.5)).round().cast<int>();
+    Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(100).array()*0.5+0.5)).round().cast<int>();
+    moveit::core::RobotState kinematic_state(robot_model_);
+    Eigen::Vector3d z;
+    z<<0,0,1;
+    Eigen::VectorXd joint_values;
+    for (int i=0;i<rand_t_indices.size();i++) {
+      Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(rand_t_indices[i]).second.col(rand_j_indices[i]).cast<double>();
+      Eigen::Vector3d v1=pt;
+      v1[3] = 0;
+      Eigen::Quaterniond tmp_quat = Eigen::Quaterniond().setFromTwoVectors(z,v1);
+      geometry_msgs::Pose tmp_pose;
+      tmp_pose.orientation.w = tmp_quat.w();
+      tmp_pose.orientation.x = tmp_quat.x();
+      tmp_pose.orientation.y = tmp_quat.y();
+      tmp_pose.orientation.z = tmp_quat.z();
+      tmp_pose.position.x = pt[0];
+      tmp_pose.position.y = pt[1];
+      tmp_pose.position.z = pt[2];
+      if(kinematic_state.setFromIK(jmg, tmp_pose,0.1)) {
+        kinematic_state.copyJointGroupPositions(jmg, joint_values);
+        pre_samples.push_back(joint_values);
+      }
+      tmp_pose.orientation.w = 0;
+      tmp_pose.orientation.x = 1;
+      tmp_pose.orientation.y = 0;
+      tmp_pose.orientation.z = 0;
+      if(kinematic_state.setFromIK(jmg, tmp_pose,0.1)) {
+        kinematic_state.copyJointGroupPositions(jmg, joint_values);
+        pre_samples.push_back(joint_values);
+      }
+      if (pre_samples.size()>49) break;
+
+    }
+  }
+  ROS_INFO_STREAM("presamples:"<<pre_samples.size());
 
   // searching initial solutions
   pathplan::PathPtr solution = solver->getSolution() ;

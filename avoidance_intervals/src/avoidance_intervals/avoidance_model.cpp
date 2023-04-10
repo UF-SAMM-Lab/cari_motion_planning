@@ -474,6 +474,7 @@ namespace avoidance_intervals{
             joint_seq.push_back(std::pair<float,Eigen::MatrixXd>(msg->sequence[i].time.data,joint_pos));
             quat_seq.push_back(std::pair<float,std::vector<float>>(msg->sequence[i].time.data,msg->sequence[i].quats.data));
         }
+        new_joint_seq = true;
     }
 
     void merge_intervals(std::vector<Eigen::Vector3f> intervals, std::vector<Eigen::Vector3f> &combined_intervals, float &last_pass_time ) {
