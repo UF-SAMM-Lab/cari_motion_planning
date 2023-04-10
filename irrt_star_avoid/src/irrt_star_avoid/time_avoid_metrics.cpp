@@ -390,24 +390,27 @@ void TimeAvoidMetrics::cost_thread(Eigen::MatrixXd& dist_new, Eigen::VectorXd& t
             //if any part of the avoidance interval overlaps the connection interval (near_time to tmp_c_new)
             if (interval_intersection(std::get<3>(node_datas[i])[r][0],std::get<3>(node_datas[i])[r][1],std::get<2>(node_datas[i]),tmp_c_new)) {
                 tmp_time = std::get<3>(node_datas[i])[r][1]+node_time_new + t_pad_;
+                tmp_time = pc_avoid_checker->checkISO15066(std::get<0>(configurations[i]),std::get<1>(configurations[i]),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time,ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+
                 if (tmp_time>tmp_c_new) {
                     tmp_c_new = tmp_time;
                     std::get<2>(node_datas[i]) = std::get<3>(node_datas[i])[r][1]+t_pad_;
                 }
-                if (use_iso15066_) { //in case a little more slow down prevents an iso15066 slow down
-                  extra_time_to_avoid_slow_down = std::numeric_limits<double>::infinity();
-                  prev_slow_cost = std::numeric_limits<double>::infinity();
-                  for (int ii=0;ii<5;ii++) {
-                    double slow_cost = pc_avoid_checker->checkISO15066(std::get<0>(configurations[i]),std::get<1>(configurations[i]),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time+double(ii),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
-                    extra_time_to_avoid_slow_down = std::min(slow_cost-tmp_time,extra_time_to_avoid_slow_down);
+
+                // if (use_iso15066_) { //in case a little more slow down prevents an iso15066 slow down
+                //   extra_time_to_avoid_slow_down = std::numeric_limits<double>::infinity();
+                //   prev_slow_cost = std::numeric_limits<double>::infinity();
+                //   for (int ii=0;ii<5;ii++) {
+                //     double slow_cost = pc_avoid_checker->checkISO15066(std::get<0>(configurations[i]),std::get<1>(configurations[i]),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time+double(ii),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+                //     extra_time_to_avoid_slow_down = std::min(slow_cost-tmp_time,extra_time_to_avoid_slow_down);
                     
-                    prev_slow_cost = slow_cost;
-                  }
-                  tmp_time += extra_time_to_avoid_slow_down;
-                  if (tmp_time>tmp_c_new) {
-                      tmp_c_new = tmp_time;
-                  }
-                }
+                //     prev_slow_cost = slow_cost;
+                //   }
+                //   tmp_time += extra_time_to_avoid_slow_down;
+                //   if (tmp_time>tmp_c_new) {
+                //       tmp_c_new = tmp_time;
+                //   }
+                // }
                 found_avoid = true;
             } else if (found_avoid) {
                 std::get<6>(node_datas[i]) = tmp_c_new;
