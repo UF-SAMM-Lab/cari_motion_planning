@@ -58,7 +58,7 @@ double Metrics::cost(const NodePtr& parent,
   return cost(parent,new_node);
 }
 
-void Metrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas)
+void Metrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, bool infer, bool switch_order)
 {
 
 }

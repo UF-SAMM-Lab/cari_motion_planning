@@ -534,6 +534,8 @@ namespace pathplan
     bool improved = false;
 
     double cost_node_to_near;
+    std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
+    connection_datas.reserve(near_nodes.size());
     if (rewire_parent)
     {
       // ROS_INFO_STREAM("node parents:"<<node->getParents().size());
@@ -546,15 +548,9 @@ namespace pathplan
       // JF - determine all avoidance intervals between nodes before loop
       if (time_avoid_ && use_net) {
         std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-        std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
-        connection_datas.reserve(near_nodes.size());
         for (const std::pair<double, NodePtr> &p : near_nodes) {
           const NodePtr &n = p.second;
-          if (n == goal_node_)
-            continue;
-          // check to prevent a node from becoming its own parent
-          if (n == nearest_node)
-            continue;
+
           if (n == node)
             continue;          
           if (!checker_->checkPath(n->getConfiguration(), node->getConfiguration()))
@@ -569,11 +565,11 @@ namespace pathplan
         {
           std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double> conn_data = connection_datas[c];
           const NodePtr &n = std::get<0>(conn_data); // get near node from pair
-          // if (n == goal_node_)
-          //   continue;
-          // // check to prevent a node from becoming its own parent
-          // if (n == nearest_node)
-          //   continue;
+          if (n == goal_node_)
+            continue;
+          // check to prevent a node from becoming its own parent
+          if (n == nearest_node)
+            continue;
           // if (n == node)
           //   continue;
           // cost of near node
@@ -598,14 +594,14 @@ namespace pathplan
           conn->setParentTime(std::get<2>(conn_data));
           conn->setAvoidIntervals(std::get<3>(conn_data), std::get<4>(conn_data), std::get<5>(conn_data));
           conn->setMinTime(inv_max_speed_, min_accel_time);
-          if (1) {
+          if (0) {
             double n_time;
             std::vector<Eigen::Vector3f> avoid_ints;
             float last_pass_time;
             float min_human_dist;
             double test_cost = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist);
             std::cout<<"cfgs:";
-            std::cout<<n->getConfiguration().transpose()<<"->"<<node->getConfiguration().transpose()<<std::endl;;
+            std::cout<<n->getConfiguration().transpose()<<"->"<<node->getConfiguration().transpose()<<std::endl;
             std::cout<<"truth:";
             for (int a=0;a<avoid_ints.size();a++) std::cout<<avoid_ints[a].transpose()<<";";
             std::cout<<std::endl;
@@ -782,128 +778,184 @@ namespace pathplan
 
     if (rewire_children)
     {
-      std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+      if (time_avoid_ && use_net) {
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        // must call cost again to approximate time to go from new node to near node
+        metrics_->cost(connection_datas,false,true);
+        // std::cout<<"connections checked:"<<connection_datas.size()<<std::endl;
 
-      // ROS_INFO_STREAM("goal:" << goal_node_->getConfiguration().transpose());
-      // ROS_INFO("try to find a better child between %zu nodes", near_nodes.size());
-      for (const std::pair<double, NodePtr> &p : near_nodes)
-      {
-        const NodePtr &n = p.second;
-        if (n == node)
-          continue;
-        // if (n == goal_node_)
-          // ROS_INFO_STREAM("the goal is a near node");
-        // if (n != root_)
-          // ROS_INFO_STREAM("nearest child:" << n->getConfiguration().transpose() << "," << n->parent_connections_[0]->getCost() << "," << n->parent_connections_[0]->getParent()->getConfiguration().transpose());
-        // ROS_INFO_STREAM("near node:"<<n->getConfiguration().transpose());
-        // l2 distance or time to reach node n
-        // ROS_INFO_STREAM("rewire"<<*n);
-        // ROS_INFO_STREAM("to"<<*node);
-        double cost_to_near = std::numeric_limits<double>::infinity();
-        // ROS_INFO_STREAM("rewire3"<<*n);
-        if (time_avoid_)
+        for (int c=0;c<connection_datas.size();c++)
         {
+          std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double> conn_data = connection_datas[c];
+          const NodePtr &n = std::get<0>(conn_data); // get near node from pair
+
+          double cost_to_near = std::numeric_limits<double>::infinity();
+
+          double cost_node_to_near = std::get<6>(conn_data);
+
           if ((n != goal_node_) || (!goal_node_->parent_connections_.empty()))
-            cost_to_near = costToNode(n);
-        }
-        else
-        {
-          cost_to_near = costToNode(n);
-        }
-        // ROS_INFO_STREAM("rewire3.1");
-        // node can not be a better parent to near node
-        // ROS_INFO_STREAM("cost_to_node:" << cost_to_node << ", cost_to_near:" << cost_to_near);
-        if (cost_to_node >= cost_to_near)
-          continue;
-        // std::vector<NodePtr> all_nodes = getNodes();
-        // if (std::find(all_nodes.begin(),all_nodes.end(), goal_node_)==all_nodes.end()) ROS_INFO_STREAM("goal nodes is not in tree");
-        // if (n == goal_node_) {
-        //   PATH_COMMENT_STREAM("goal node rewire "<<cost_to_near<<","<<goal_node_->getConfiguration().transpose());
-        // }
-        // JF - if standard cost fn, get l2 distance between nodes
-        double node_time = 0;
-        double cost_node_to_near;
-
-        float min_human_dist;
-        std::vector<Eigen::Vector3f> avoid_ints;
-        float last_pass_time;
-        if (!time_avoid_)
-        {
-          cost_node_to_near = metrics_->cost(node->getConfiguration(), n->getConfiguration());
-        }
-        else
-        { // JF - else get time to reach node n via node
-          cost_node_to_near = metrics_->cost(node, n, node_time, avoid_ints, last_pass_time, min_human_dist);
-        }
-        // if the cost to reach n via node is not less than cost to reach n via n.parent, then skip
-        //  if ((cost_to_node + cost_node_to_near) >= cost_to_near)
-        //    continue;
-        if (time_avoid_)
-        {
+              cost_to_near = costToNode(n);
+          // if near node is not better than nearest node, skip
           if ((cost_node_to_near) >= cost_to_near)
             continue;
-        }
-        else
-        {
-          // ROS_INFO_STREAM("new cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_near << ", conn cost:" << cost_node_to_near);
-          if ((cost_node_to_near + cost_to_node) >= cost_to_near)
-            continue;
-        }
-        // node could still be a better parent to n, check for collision between node and n
-        // if ((n != goal_node_) || (nodes_->l2_dist(n, goal_node_->getConfiguration()) > 2))
-        // {
-          if (!checker_->checkPath(node->getConfiguration(), n->getConfiguration()))
-            continue;
-        // }
+          // JF-for time-avoidance, cost function should return total time to reach node from start
+          // double n_time = 0;
+          // //JF - don't want to add costs for time-avoidance
 
-        // ROS_INFO_STREAM("node parents rewire child:"<<node->parent_connections_.size());
-        // node is a better parent for n and path is collision free, remove old n.parent
-        if (!n->parent_connections_.empty())
-        {
-          // when removing a parent, note that the parent node could potentially be a parent of this node again
-          if (time_avoid_)
+          // node is a better parent for n and path is collision free, remove old n.parent
+          if (!n->parent_connections_.empty())
           {
+            // when removing a parent, note that the parent node could potentially be a parent of this node again
             n->parent_connections_.at(0)->removeCache();
+
           }
-          else
-          {
-            n->parent_connections_.at(0)->remove();
-          }
-          // if (n==goal_node_) {
-          //   PATH_COMMENT_STREAM("GOAL NODE REWIRE:"<<goal_node_->potential_parent_connections_.size());
-          // }
-        }
-        // std::cout<<"Test\n";
-        // make new connection between node and n
-        ConnectionPtr conn = std::make_shared<Connection>(node, n);
-        if (time_avoid_)
-        {
-          conn->setParentTime(node_time);
-          conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
+          // make a new connect from better parent to node
+          ConnectionPtr conn = std::make_shared<Connection>(node,n);
+          // edge cost is l2 distance or time to reach new node
+          conn->setParentTime(std::get<2>(conn_data));
+          conn->setAvoidIntervals(std::get<3>(conn_data), std::get<4>(conn_data), std::get<5>(conn_data));
           conn->setMinTime(inv_max_speed_, min_accel_time);
-        }
-        conn->add();
-        conn->setCost(cost_node_to_near);
-        // if (n == goal_node_)
-        //   ROS_INFO_STREAM("goal node improvement");
 
-        // loop over near nodes a second time
-        //  for (const std::pair<double,NodePtr>& p2:near_nodes) {
-        //  const NodePtr& n_p = p2.second;
-        // std::cout<<"test2\n";
+          // std::cin.ignore();
+          conn->add();
+          conn->setCost(cost_node_to_near);
 
-        if (time_avoid_)
-        {
           // ROS_INFO_STREAM("here");
           rewireNearToTheirChildren(n, 0);
           // ROS_INFO_STREAM("here1");
           rewireNearToBetterParents(n);
           // ROS_INFO_STREAM("here2");
           improved = !goal_node_->getParents().empty();
+                    
         }
-        else
+
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        ROS_INFO_STREAM("STAP net Avoidance intervals " << time_span.count() << " seconds for "<<connection_datas.size()<<" configs");
+      } else {
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+
+        // ROS_INFO_STREAM("goal:" << goal_node_->getConfiguration().transpose());
+        // ROS_INFO("try to find a better child between %zu nodes", near_nodes.size());
+        for (const std::pair<double, NodePtr> &p : near_nodes)
         {
-          improved = true;
+          const NodePtr &n = p.second;
+          if (n == node)
+            continue;
+          // if (n == goal_node_)
+            // ROS_INFO_STREAM("the goal is a near node");
+          // if (n != root_)
+            // ROS_INFO_STREAM("nearest child:" << n->getConfiguration().transpose() << "," << n->parent_connections_[0]->getCost() << "," << n->parent_connections_[0]->getParent()->getConfiguration().transpose());
+          // ROS_INFO_STREAM("near node:"<<n->getConfiguration().transpose());
+          // l2 distance or time to reach node n
+          // ROS_INFO_STREAM("rewire"<<*n);
+          // ROS_INFO_STREAM("to"<<*node);
+          double cost_to_near = std::numeric_limits<double>::infinity();
+          // ROS_INFO_STREAM("rewire3"<<*n);
+          if (time_avoid_)
+          {
+            if ((n != goal_node_) || (!goal_node_->parent_connections_.empty()))
+              cost_to_near = costToNode(n);
+          }
+          else
+          {
+            cost_to_near = costToNode(n);
+          }
+          // ROS_INFO_STREAM("rewire3.1");
+          // node can not be a better parent to near node
+          // ROS_INFO_STREAM("cost_to_node:" << cost_to_node << ", cost_to_near:" << cost_to_near);
+          if (cost_to_node >= cost_to_near)
+            continue;
+          // std::vector<NodePtr> all_nodes = getNodes();
+          // if (std::find(all_nodes.begin(),all_nodes.end(), goal_node_)==all_nodes.end()) ROS_INFO_STREAM("goal nodes is not in tree");
+          // if (n == goal_node_) {
+          //   PATH_COMMENT_STREAM("goal node rewire "<<cost_to_near<<","<<goal_node_->getConfiguration().transpose());
+          // }
+          // JF - if standard cost fn, get l2 distance between nodes
+          double node_time = 0;
+          double cost_node_to_near;
+
+          float min_human_dist;
+          std::vector<Eigen::Vector3f> avoid_ints;
+          float last_pass_time;
+          if (!time_avoid_)
+          {
+            cost_node_to_near = metrics_->cost(node->getConfiguration(), n->getConfiguration());
+          }
+          else
+          { // JF - else get time to reach node n via node
+            cost_node_to_near = metrics_->cost(node, n, node_time, avoid_ints, last_pass_time, min_human_dist);
+          }
+          // if the cost to reach n via node is not less than cost to reach n via n.parent, then skip
+          //  if ((cost_to_node + cost_node_to_near) >= cost_to_near)
+          //    continue;
+          if (time_avoid_)
+          {
+            if ((cost_node_to_near) >= cost_to_near)
+              continue;
+          }
+          else
+          {
+            // ROS_INFO_STREAM("new cost:" << cost_node_to_near + cost_to_node << ", old cost:" << cost_to_near << ", conn cost:" << cost_node_to_near);
+            if ((cost_node_to_near + cost_to_node) >= cost_to_near)
+              continue;
+          }
+          // node could still be a better parent to n, check for collision between node and n
+          // if ((n != goal_node_) || (nodes_->l2_dist(n, goal_node_->getConfiguration()) > 2))
+          // {
+            if (!checker_->checkPath(node->getConfiguration(), n->getConfiguration()))
+              continue;
+          // }
+
+          // ROS_INFO_STREAM("node parents rewire child:"<<node->parent_connections_.size());
+          // node is a better parent for n and path is collision free, remove old n.parent
+          if (!n->parent_connections_.empty())
+          {
+            // when removing a parent, note that the parent node could potentially be a parent of this node again
+            if (time_avoid_)
+            {
+              n->parent_connections_.at(0)->removeCache();
+            }
+            else
+            {
+              n->parent_connections_.at(0)->remove();
+            }
+            // if (n==goal_node_) {
+            //   PATH_COMMENT_STREAM("GOAL NODE REWIRE:"<<goal_node_->potential_parent_connections_.size());
+            // }
+          }
+          // std::cout<<"Test\n";
+          // make new connection between node and n
+          ConnectionPtr conn = std::make_shared<Connection>(node, n);
+          if (time_avoid_)
+          {
+            conn->setParentTime(node_time);
+            conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
+            conn->setMinTime(inv_max_speed_, min_accel_time);
+          }
+          conn->add();
+          conn->setCost(cost_node_to_near);
+          // if (n == goal_node_)
+          //   ROS_INFO_STREAM("goal node improvement");
+
+          // loop over near nodes a second time
+          //  for (const std::pair<double,NodePtr>& p2:near_nodes) {
+          //  const NodePtr& n_p = p2.second;
+          // std::cout<<"test2\n";
+
+          if (time_avoid_)
+          {
+            // ROS_INFO_STREAM("here");
+            rewireNearToTheirChildren(n, 0);
+            // ROS_INFO_STREAM("here1");
+            rewireNearToBetterParents(n);
+            // ROS_INFO_STREAM("here2");
+            improved = !goal_node_->getParents().empty();
+          }
+          else
+          {
+            improved = true;
+          }
         }
         // should i call rewire_only on all child nodes of node n?
 
@@ -912,11 +964,11 @@ namespace pathplan
         //   std::cout<<avoid_ints[i].transpose()<<std::endl;
         // }
         // PATH_COMMENT_STREAM("end of ints");
-      }
 
-      std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-      std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-      ROS_INFO_STREAM("children " << time_span.count() << " seconds for "<<near_nodes.size());
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        ROS_INFO_STREAM("children " << time_span.count() << " seconds for "<<near_nodes.size());
+      }
     }
     // std::cout<<"rewire child hass:"<<node->parent_connections_.size()<<" parents\n";
 

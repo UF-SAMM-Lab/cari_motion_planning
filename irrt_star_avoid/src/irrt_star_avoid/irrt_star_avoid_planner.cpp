@@ -238,6 +238,24 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   m_nh.getParam("use_STAP_net",use_net);
   ROS_INFO_STREAM("solver using STAP net:"<<use_net);
 
+    urdf::Model robo_model;
+  robo_model.initParam("robot_description");
+  std::string base_frame_ = "world";
+  std::string tool_frame = "tip";
+  if (!m_nh.getParam("base_frame", base_frame_))
+  {
+    ROS_ERROR("%s/base_frame not defined", m_nh.getNamespace().c_str());
+    throw std::invalid_argument("base_frame is not defined");
+  }
+  if (!m_nh.getParam("tool_frame", tool_frame))
+  {
+    ROS_ERROR("%s/tool_frame not defined", m_nh.getNamespace().c_str());
+    throw std::invalid_argument("base_frame is not defined");
+  }
+  Eigen::Vector3d grav;
+  grav << 0, 0, -9.806;
+  chain_ = rosdyn::createChain(robo_model, base_frame_, tool_frame, grav);
+  unsigned int n_joints=chain_->getActiveJointsNumber();
 }
 
 void IRRTStarAvoid::setPlanningScene ( const planning_scene::PlanningSceneConstPtr& planning_scene )
@@ -469,48 +487,58 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   // ===============================
   
   //JF - randomly sample some points along the humans sequence
+  // pre_samples.clear();
   if (metrics->pc_avoid_checker->model_->new_joint_seq) {
     pre_samples.clear();
     metrics->pc_avoid_checker->model_->new_joint_seq = false;
   }
   if (pre_samples.empty()) {
-    pre_samples.reserve(50);
-    Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(100).array()*0.5+0.5)).round().cast<int>();
-    Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(100).array()*0.5+0.5)).round().cast<int>();
+    pre_samples.reserve(100);
+    Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
+    Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
     moveit::core::RobotState kinematic_state(robot_model_);
     Eigen::Vector3d z;
     z<<0,0,1;
     Eigen::VectorXd joint_values;
-    for (int i=0;i<rand_t_indices.size();i++) {
+    moveit::core::RobotState new_state(robot_model_);
+    int presamples=0;
+    for (int i=0;i<rand_t_indices.size();i++) {//rand_t_indices.size();i++) {
       Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(rand_t_indices[i]).second.col(rand_j_indices[i]).cast<double>();
-      Eigen::Vector3d v1=pt;
-      v1[3] = 0;
-      Eigen::Quaterniond tmp_quat = Eigen::Quaterniond().setFromTwoVectors(z,v1);
-      geometry_msgs::Pose tmp_pose;
-      tmp_pose.orientation.w = tmp_quat.w();
-      tmp_pose.orientation.x = tmp_quat.x();
-      tmp_pose.orientation.y = tmp_quat.y();
-      tmp_pose.orientation.z = tmp_quat.z();
-      tmp_pose.position.x = pt[0];
-      tmp_pose.position.y = pt[1];
-      tmp_pose.position.z = pt[2];
-      if(kinematic_state.setFromIK(jmg, tmp_pose,0.1)) {
-        kinematic_state.copyJointGroupPositions(jmg, joint_values);
-        pre_samples.push_back(joint_values);
+      Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
+      std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
+      // for (auto c: goal.joint_constraints)
+      //   new_state.setJointPositions(c.joint_name,&c.position);
+      // new_state.copyJointGroupPositions(group_,result_cfg);
+      // goal_state.updateCollisionBodyTransforms();
+      if (checker->check(result_cfg)) {
+        pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
+        solver->addNode(new_node);
+        presamples++;
+        if (presamples>99) break;
       }
-      tmp_pose.orientation.w = 0;
-      tmp_pose.orientation.x = 1;
-      tmp_pose.orientation.y = 0;
-      tmp_pose.orientation.z = 0;
-      if(kinematic_state.setFromIK(jmg, tmp_pose,0.1)) {
-        kinematic_state.copyJointGroupPositions(jmg, joint_values);
-        pre_samples.push_back(joint_values);
-      }
-      if (pre_samples.size()>49) break;
+      // Eigen::Vector3d pt_robot_vec = (pt-Eigen::Vector3d(0,0,0.337)).normalized();
+      // pt = pt_robot_vec*0.653+Eigen::Vector3d(0,0,0.337);
+      // Eigen::Quaterniond tmp_quat = Eigen::Quaterniond().setFromTwoVectors(z,pt_robot_vec);
+      // geometry_msgs::Pose tmp_pose;
+      // tmp_pose.orientation.w = tmp_quat.w();
+      // tmp_pose.orientation.x = tmp_quat.x();
+      // tmp_pose.orientation.y = tmp_quat.y();
+      // tmp_pose.orientation.z = tmp_quat.z();
+      // tmp_pose.position.x = pt[0];
+      // tmp_pose.position.y = pt[1];
+      // tmp_pose.position.z = pt[2];
+      // if(kinematic_state.setFromIK(jmg, tmp_pose,0.1)) {
+      //   kinematic_state.copyJointGroupPositions(jmg, joint_values);
+      //   ROS_INFO_STREAM("presample success:" << joint_values);
+      //   pre_samples.push_back(joint_values);
+      // }
+      // if (pre_samples.size()>49) break;
 
     }
   }
-  ROS_INFO_STREAM("presamples:"<<pre_samples.size());
+  // for (int i=0;i<pre_samples.size();i++) {
+    
+  // }
 
   // searching initial solutions
   pathplan::PathPtr solution = solver->getSolution() ;
@@ -1062,5 +1090,28 @@ void IRRTStarAvoid::time_parameterize(std::vector<Eigen::VectorXd> waypoints, st
 
 }
 
+Eigen::VectorXd IRRTStarAvoid::apf_pose(const Eigen::VectorXd current_pose, const Eigen::Vector3d& ee_tgt) {
+  return apf_pose(current_pose,ee_tgt,0);
 }
+
+Eigen::VectorXd IRRTStarAvoid::apf_pose(const Eigen::VectorXd current_pose, const Eigen::Vector3d& ee_tgt, int iteration) {
+  
+  Eigen::Vector3d current_ee_pos = chain_->getTransformation(current_pose).translation();
+  Eigen::Vector3d F_att = -apf_zeta*(ee_tgt-current_ee_pos);
+  // std::cout<<"F_att:"<<F_att<<std::endl;
+  Eigen::Matrix6Xd jacobian = chain_->getJacobian(current_pose);
+  // std::cout<<"jacobian:"<<jacobian.block(0,0,3,jacobian.cols())<<std::endl;
+  Eigen::VectorXd tau = jacobian.block(0,0,3,jacobian.cols()).transpose()*F_att;
+  Eigen::VectorXd end_pose = current_pose-apf_alpha*tau;
+  std::cout<<"ee_tgt:"<<ee_tgt.transpose()<<",iter:"<<iteration<<", diff:"<<(end_pose-current_pose).norm()<<std::endl;
+  std::cout<<"end_pose:"<<end_pose.transpose()<<std::endl;
+  if ((iteration<100)&&((end_pose-current_pose).norm()>0.01)) {
+    end_pose = apf_pose(end_pose,ee_tgt,iteration+1);
+  }
+  return end_pose;
+}
+}
+
+
+
 }

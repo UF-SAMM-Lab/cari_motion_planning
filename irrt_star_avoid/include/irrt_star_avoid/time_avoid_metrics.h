@@ -62,7 +62,7 @@ public:
   double cost(const Eigen::VectorXd& parent,
                               const Eigen::VectorXd& new_node,double &near_time);
 
-  void cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas);
+  void cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, bool infer=true, bool switch_order=false);
                               
   double utopia(const Eigen::VectorXd& configuration1,
                       const Eigen::VectorXd& configuration2);

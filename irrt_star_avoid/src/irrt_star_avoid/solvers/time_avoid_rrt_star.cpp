@@ -50,6 +50,10 @@ bool TimeAvoidRRTStar::addGoal(const NodePtr &goal_node, const double &max_time)
   return setProblem(max_time);
 }
 
+void TimeAvoidRRTStar::addNode(const NodePtr &new_node) {
+  start_tree_->addNode(new_node);
+}
+
 bool TimeAvoidRRTStar::setProblem(const double &max_time)
 {
   init_ = false;

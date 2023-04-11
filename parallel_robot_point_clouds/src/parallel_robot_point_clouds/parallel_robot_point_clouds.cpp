@@ -109,7 +109,7 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   // torch::jit::setGraphExecutorOptimize(false);
   c10::InferenceMode guard;
   std::string file_name = ros::package::getPath("parallel_robot_point_clouds")+"/src/parallel_robot_point_clouds/traced_stap_model.pt";
-  
+  ROS_INFO_STREAM("network file:"<<file_name);
   bool cuda_avail = torch::cuda::is_available();
   ROS_INFO_STREAM("cuda status:"<<cuda_avail);
   if (cuda_avail) {
@@ -622,32 +622,45 @@ double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
 
 at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations,int i,int num_cfg_per_this_batch,int num_cfg_per_batch)
 {
+  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   c10::InferenceMode guard;
+  int n_dof = std::get<0>(configurations[0]).size();
+  int human_lines = model_->quat_seq.size();
   #ifdef CUDA_AVAILABLE
-  at::Tensor input_tensor = torch::zeros({num_cfg_per_this_batch*int(model_->quat_seq.size()),43},device(at::kCPU).pinned_memory(true));
+  // ROS_INFO("using CUDA");
+  // at::Tensor cpu_tensor = at::empty({num_cfg_per_this_batch*human_lines}, device(at::kCPU).pinned_memory(true));
+  at::Tensor input_tensor = torch::zeros({num_cfg_per_this_batch*human_lines,43},device(at::kCPU).pinned_memory(true));
   #else
-  at::Tensor input_tensor = torch::zeros({num_cfg_per_this_batch*int(model_->quat_seq.size()),43},device(at::kCPU));
+  // ROS_INFO("using CPU");
+  at::Tensor input_tensor = torch::zeros({num_cfg_per_this_batch*human_lines,43},device(at::kCPU));
   #endif
   // ROS_INFO_STREAM("input tensor size:"<<input_tensor.sizes()[0]<<","<<input_tensor.sizes()[1]<<","<<input_tensor.sizes()[2]<<","<<input_tensor.sizes()[3]);
   auto input_tensor_a = input_tensor.accessor<float,2>();
   for (int j=0;j<num_cfg_per_this_batch;j++) {
     for (int l=0;l<int(model_->quat_seq.size());l++) {
-      for (int k=0;k<std::get<0>(configurations[i*num_cfg_per_batch+j]).size();k++) input_tensor_a[i*num_cfg_per_batch+j*model_->quat_seq.size()+l][k] = std::get<0>(configurations[i*num_cfg_per_batch+j])[k];
-      for (int k=0;k<std::get<1>(configurations[i*num_cfg_per_batch+j]).size();k++) input_tensor_a[i*num_cfg_per_batch+j*model_->quat_seq.size()+l][k+std::get<0>(configurations[i*num_cfg_per_batch+j]).size()] = std::get<1>(configurations[i*num_cfg_per_batch+j])[k];
-      for (int k=0;k<31;k++) input_tensor_a[i*num_cfg_per_batch+j*model_->quat_seq.size()+l][k+2*std::get<1>(configurations[i*num_cfg_per_batch+j]).size()] = model_->quat_seq[l].second[k];
+      for (int k=0;k<n_dof;k++) input_tensor_a[i*num_cfg_per_batch+j*human_lines+l][k] = std::get<0>(configurations[i*num_cfg_per_batch+j])[k];
+      for (int k=0;k<n_dof;k++) input_tensor_a[i*num_cfg_per_batch+j*human_lines+l][k+n_dof] = std::get<1>(configurations[i*num_cfg_per_batch+j])[k];
+      for (int k=0;k<31;k++) input_tensor_a[i*num_cfg_per_batch+j*human_lines+l][k+2*n_dof] = model_->quat_seq[l].second[k];
     }
   }
-  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-  at::Tensor tmp_tensor = avoid_net.forward({input_tensor.to(torch_device)}).toTensor().flatten();//to(at::kCPU).flatten();
   std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  ROS_INFO_STREAM("prepping inference took " << time_span.count() << " seconds");
+  // std::cout<<"input tensor:"<<input_tensor<<std::endl;
+  at::Tensor tmp_tensor = avoid_net.forward({input_tensor.to(torch_device)}).toTensor().flatten();//to(at::kCPU).flatten();
+  // std::cout<<"output tensor:"<<tmp_tensor.to(at::kCPU)<<std::endl;
+  // std::cout<<"output tensor size:"<<tmp_tensor.sizes()<<std::endl;
+  t2 = std::chrono::high_resolution_clock::now();
+  time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
   ROS_INFO_STREAM("inference took " << time_span.count() << " seconds");
+  at::Tensor int_gt = (tmp_tensor>0.5).to(at::kBool);
+  // std::cout<<int_gt<<std::endl;
   #ifdef CUDA_AVAILABLE
-  at::Tensor cpu_tensor = at::empty(tmp_tensor.sizes(), device(at::kCPU).pinned_memory(true));
-  tmp_tensor.copy_(cpu_tensor);
-  return cpu_tensor;
+  // tmp_tensor.copy_(cpu_tensor);
+  // std::cout<<"cpu tensor:"<<cpu_tensor<<std::endl;
+  return int_gt.to(at::kCPU);
   #else
-  return tmp_tensor;
+  return int_gt;
   #endif
 }
 
@@ -677,13 +690,15 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
     // intervals = intervals.flatten().to(at::kCPU);
     // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
     // auto intervals_a = intervals.accessor<float,1>();
-    at::Tensor int_gt = (intervals>0.5).to(at::kBool);
-    auto intervals_a = int_gt.accessor<bool,1>();
+    auto intervals_a = intervals.accessor<bool,1>();
+    Eigen::Vector3f interval;
+    interval.setZero();
     for (int j=0;j<num_cfg_per_this_batch;j++) {
+      std::get<2>(configurations[i*num_cfg_per_batch+j]).reserve(int(model_->quat_seq.size()*0.5));
       bool in_occupancy = false;
-      std::vector<Eigen::Vector3f> intervals_vec;
-      Eigen::Vector3f interval;
-      interval.setZero();
+      // std::get<2>(configurations[i*num_cfg_per_batch+j]).clear();
+      // std::cout<<"cfgs:";
+      // std::cout<<std::get<0>(configurations[i*num_cfg_per_batch+j]).transpose()<<"->"<<std::get<1>(configurations[i*num_cfg_per_batch+j]).transpose()<<std::endl;
       for (int l=0;l<model_->quat_seq.size();l++) {
         // std::cout<<(intervals_a[j*model_->quat_seq.size()+l]>0.5)<<",";
         if ((intervals_a[j*model_->quat_seq.size()+l]) && (!in_occupancy)) {
@@ -693,7 +708,7 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
         if ((!intervals_a[j*model_->quat_seq.size()+l]) && (in_occupancy)) {
           in_occupancy = false;
           interval[1] = model_->quat_seq[l].first;
-          std::get<2>(configurations[i*num_cfg_per_batch+j]).push_back(interval);
+          std::get<2>(configurations[i*num_cfg_per_batch+j]).emplace_back(interval);
         }
       }
       // std::cout<<std::endl;

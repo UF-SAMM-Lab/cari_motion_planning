@@ -446,32 +446,53 @@ void TimeAvoidMetrics::cost_thread(Eigen::MatrixXd& dist_new, Eigen::VectorXd& t
 }
 
 //JF - need node1 instead of config1
-void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas)
-{
-  if (node_datas.size()==0) return;
+void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, bool infer, bool switch_order)
+{ 
 
-  std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>> configurations;
-  configurations.reserve(node_datas.size());
+  if (node_datas.size()==0) return;
   Eigen::MatrixXd parents(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
   Eigen::MatrixXd children(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
+  std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>> configurations;
+  if (infer) {
+    configurations.reserve(node_datas.size());
 
-  std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
-  for (int i=0;i<node_datas.size();i++) {
-    std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float> config;
-    std::get<0>(config) = std::get<0>(node_datas[i])->getConfiguration();
-    parents.row(i) = std::get<0>(node_datas[i])->getConfiguration();
-    std::get<1>(config) = std::get<1>(node_datas[i])->getConfiguration();
-    children.row(i) = std::get<1>(node_datas[i])->getConfiguration();
-    // std::cout<<i<<", "<<std::get<0>(node_datas[i])->getConfiguration().transpose()<<", "<<std::get<1>(node_datas[i])->getConfiguration().transpose()<<std::endl;
-    configurations.push_back(config);
+    std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+    for (int i=0;i<node_datas.size();i++) {
+      NodePtr p = std::get<0>(node_datas[i]);
+      NodePtr c = std::get<1>(node_datas[i]);  
+      if (switch_order) {
+        p = std::get<1>(node_datas[i]);
+        c = std::get<0>(node_datas[i]);
+      }
+      std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float> config;
+      std::get<0>(config) = p->getConfiguration();
+      std::get<1>(config) = c->getConfiguration();
+      parents.row(i) = p->getConfiguration();
+      children.row(i) = c->getConfiguration();
+      // std::cout<<i<<", "<<std::get<0>(node_datas[i])->getConfiguration().transpose()<<", "<<std::get<1>(node_datas[i])->getConfiguration().transpose()<<std::endl;
+      configurations.push_back(config);
+    }
+    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    ROS_INFO_STREAM("prepping configs took " << time_span.count() << " seconds");
+
+    pc_avoid_checker->checkMutliplePaths(configurations);
+
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    ROS_INFO_STREAM("getting intervals took " << time_span.count() << " seconds for "<<node_datas.size()<<" configs");
+  } else {
+    for (int i=0;i<node_datas.size();i++) {  
+      NodePtr p = std::get<0>(node_datas[i]);
+      NodePtr c = std::get<1>(node_datas[i]);
+      if (switch_order) {
+        p = std::get<1>(node_datas[i]);
+        c = std::get<0>(node_datas[i]);
+      }
+      parents.row(i) = p->getConfiguration();
+      children.row(i) = c->getConfiguration();
+    }
   }
-
-  pc_avoid_checker->checkMutliplePaths(configurations);
-
-  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  ROS_INFO_STREAM("getting intervals took " << time_span.count() << " seconds for "<<node_datas.size()<<" configs");
-  
   Eigen::MatrixXd dist_new = parents-children;
   Eigen::MatrixXd tmp_mat = dist_new.array().abs().rowwise()*inv_max_speed_.transpose().array();
   Eigen::VectorXd time_new = tmp_mat.rowwise().maxCoeff();
@@ -501,16 +522,24 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     //get cost of parent
     //requires extended node data
     double c_near = 0.0;
-    if (!std::get<0>(node_datas[i])->parent_connections_.empty()) {
-      c_near = std::get<0>(node_datas[i])->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
+    NodePtr p = std::get<0>(node_datas[i]);
+    NodePtr c = std::get<1>(node_datas[i]);
+    if (switch_order) {
+      p = std::get<1>(node_datas[i]);
+      c = std::get<0>(node_datas[i]);
+    }
+    if (!p->parent_connections_.empty()) {
+      c_near = p->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
     }
     std::get<2>(node_datas[i]) = c_near;    
     // get min cost to get to new node from near parent
     std::get<6>(node_datas[i]) = c_near + node_time_new;
     // std::cout<<"conn time:"<<std::get<6>(node_datas[i])<<std::endl;
     bool success = true; //bool to set false if path can not be found
-    std::get<4>(node_datas[i]) = std::get<3>(configurations[i]);
-    std::get<3>(node_datas[i]) = std::get<2>(configurations[i]);
+    if (infer) {
+      std::get<4>(node_datas[i]) = std::get<3>(configurations[i]);
+      std::get<3>(node_datas[i]) = std::get<2>(configurations[i]);
+    }
     // std::cout<<"intervals:";
     // for (int a=0;a<std::get<3>(node_datas[i]).size();a++) std::cout<<std::get<3>(node_datas[i])[a].transpose()<<";";
     // std::cout<<std::endl;
@@ -541,7 +570,7 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
                     tmp_c_new = tmp_time;
                     std::get<2>(node_datas[i]) = std::get<3>(node_datas[i])[r][1]+t_pad_;
                 }
-                if (use_iso15066_) tmp_time = pc_avoid_checker->checkISO15066(std::get<0>(configurations[i]),std::get<1>(configurations[i]),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time,ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+                if (use_iso15066_) tmp_time = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time,ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
 
                 if (tmp_time>tmp_c_new) {
                     tmp_c_new = tmp_time;

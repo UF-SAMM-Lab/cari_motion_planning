@@ -47,6 +47,8 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <avoidance_intervals/avoidance_model.h>
 #include <ros/ros.h>
 #include <algorithm>
+#include <rosdyn_core/primitives.h>
+#include <rosdyn_core/urdf_parser.h>
 
 // #define COMMENT(...) ROS_LOG(::ros::console::levels::Debug, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
 
@@ -139,7 +141,12 @@ private:
   bool use_iptp=false;
   bool use_net = false;
   std::vector<Eigen::VectorXd> pre_samples;
-
+  Eigen::VectorXd apf_pose(const Eigen::VectorXd current_pose, const Eigen::Vector3d& ee_tgt);
+  Eigen::VectorXd apf_pose(const Eigen::VectorXd current_pose, const Eigen::Vector3d& ee_tgt, int iteration);
+  rosdyn::ChainPtr chain_;
+  unsigned int n_joints=0;
+  double apf_zeta = 1.0;
+  double apf_alpha = 1.0;
 };
 
 typedef std::shared_ptr<IRRTStarAvoid> IRRTStarAvoidPtr;
