@@ -109,7 +109,7 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   // torch::jit::setGraphExecutorOptimize(false);
   c10::InferenceMode guard;
   std::string file_name = ros::package::getPath("parallel_robot_point_clouds")+"/src/parallel_robot_point_clouds/traced_stap_model.pt";
-  avoid_net = torch::jit::load(file_name);
+  
   bool cuda_avail = torch::cuda::is_available();
   ROS_INFO_STREAM("cuda status:"<<cuda_avail);
   if (cuda_avail) {
@@ -117,7 +117,8 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   } else {
     torch_device = at::kCPU; 
   }
-  avoid_net.to(torch_device);
+  avoid_net = torch::jit::load(file_name,torch_device);
+  // avoid_net.to(torch_device);
   torch::NoGradGuard no_grad; // ensures that autograd is off
   avoid_net.eval(); // turn off dropout and other training-time layers/functions
   ROS_INFO_STREAM("num pytorch threads:"<<at::get_num_threads());
@@ -622,7 +623,11 @@ double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
 at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations,int i,int num_cfg_per_this_batch,int num_cfg_per_batch)
 {
   c10::InferenceMode guard;
+  #ifdef CUDA_AVAILABLE
   at::Tensor input_tensor = torch::zeros({num_cfg_per_this_batch*int(model_->quat_seq.size()),43},device(at::kCPU).pinned_memory(true));
+  #else
+  at::Tensor input_tensor = torch::zeros({num_cfg_per_this_batch*int(model_->quat_seq.size()),43},device(at::kCPU));
+  #endif
   // ROS_INFO_STREAM("input tensor size:"<<input_tensor.sizes()[0]<<","<<input_tensor.sizes()[1]<<","<<input_tensor.sizes()[2]<<","<<input_tensor.sizes()[3]);
   auto input_tensor_a = input_tensor.accessor<float,2>();
   for (int j=0;j<num_cfg_per_this_batch;j++) {
@@ -637,9 +642,13 @@ at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::Ve
   std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
   std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
   ROS_INFO_STREAM("inference took " << time_span.count() << " seconds");
+  #ifdef CUDA_AVAILABLE
   at::Tensor cpu_tensor = at::empty(tmp_tensor.sizes(), device(at::kCPU).pinned_memory(true));
   tmp_tensor.copy_(cpu_tensor);
   return cpu_tensor;
+  #else
+  return tmp_tensor;
+  #endif
 }
 
 int ParallelRobotPointClouds::getMaxCfgPerBatch(void){

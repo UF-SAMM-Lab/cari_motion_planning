@@ -604,6 +604,8 @@ namespace pathplan
             float last_pass_time;
             float min_human_dist;
             double test_cost = metrics_->cost(n, node, n_time, avoid_ints, last_pass_time, min_human_dist);
+            std::cout<<"cfgs:";
+            std::cout<<n->getConfiguration().transpose()<<"->"<<node->getConfiguration().transpose()<<std::endl;;
             std::cout<<"truth:";
             for (int a=0;a<avoid_ints.size();a++) std::cout<<avoid_ints[a].transpose()<<";";
             std::cout<<std::endl;
