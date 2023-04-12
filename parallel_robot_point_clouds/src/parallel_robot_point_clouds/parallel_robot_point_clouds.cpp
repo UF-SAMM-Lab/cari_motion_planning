@@ -551,6 +551,7 @@ double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
       Eigen::VectorXd q = configuration1 + (configuration2 - configuration1) * inv_nsteps * (double)istep;
 
       double scaling=ssm_->computeScaling(q,nominal_velocity);
+      
       min_human_dist = (float)scaling;
       // std::cout<<","<<min_human_dist<<",";
 
@@ -620,7 +621,7 @@ double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
     // }
 }
 
-at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations,int i,int num_cfg_per_this_batch,int num_cfg_per_batch)
+std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations,int i,int num_cfg_per_this_batch,int num_cfg_per_batch)
 {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   c10::InferenceMode guard;
@@ -637,7 +638,7 @@ at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::Ve
   // ROS_INFO_STREAM("input tensor size:"<<input_tensor.sizes()[0]<<","<<input_tensor.sizes()[1]<<","<<input_tensor.sizes()[2]<<","<<input_tensor.sizes()[3]);
   auto input_tensor_a = input_tensor.accessor<float,2>();
   for (int j=0;j<num_cfg_per_this_batch;j++) {
-    for (int l=0;l<int(model_->quat_seq.size());l++) {
+    for (int l=0;l<human_lines;l++) {
       for (int k=0;k<n_dof;k++) input_tensor_a[i*num_cfg_per_batch+j*human_lines+l][k] = std::get<0>(configurations[i*num_cfg_per_batch+j])[k];
       for (int k=0;k<n_dof;k++) input_tensor_a[i*num_cfg_per_batch+j*human_lines+l][k+n_dof] = std::get<1>(configurations[i*num_cfg_per_batch+j])[k];
       for (int k=0;k<31;k++) input_tensor_a[i*num_cfg_per_batch+j*human_lines+l][k+2*n_dof] = model_->quat_seq[l].second[k];
@@ -654,13 +655,36 @@ at::Tensor ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::Ve
   time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
   ROS_INFO_STREAM("inference took " << time_span.count() << " seconds");
   at::Tensor int_gt = (tmp_tensor>0.5).to(at::kBool);
+  at::Tensor int_gt_rolled_forward = torch::roll(int_gt,1,0);
+  at::Tensor int_gt_rolled_back = torch::roll(int_gt,-1,0);
+  at::Tensor int_start_sum = int_gt & (int_gt_rolled_forward==false);
+  at::Tensor int_end_sum = int_gt  & (int_gt_rolled_back==false);
+  at::Tensor all_start_stops = torch::empty({0,2}, device(torch_device));
+  at::Tensor last_pass_times = torch::zeros({num_cfg_per_this_batch},device(torch_device));
+  std::vector<int> tensor_splits(num_cfg_per_this_batch+1);
+  tensor_splits[0] = 0;
+  for (int j=0;j<num_cfg_per_this_batch;j++) {
+    at::Tensor int_start_slices = int_start_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
+    at::Tensor int_end_slices = int_end_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
+    at::Tensor int_starts = torch::where(int_start_slices==true)[0];
+    at::Tensor int_ends = torch::where(int_end_slices==true)[0];
+    if (int_starts.sizes()[0]>int_ends.sizes()[0]){
+      last_pass_times[j] = int_starts[-1];
+      std::cout<<"last pass\n";
+      int_starts = int_starts.slice(0,0,int_starts.sizes()[0]-1,1);
+    }
+    at::Tensor int_data = torch::stack({int_starts,int_ends},1);
+    all_start_stops = torch::cat({all_start_stops,int_data},0);
+    std::cout<<all_start_stops.sizes()<<std::endl;
+    tensor_splits[j+1] = tensor_splits[j] + int_data.sizes()[0];
+  }
   // std::cout<<int_gt<<std::endl;
   #ifdef CUDA_AVAILABLE
   // tmp_tensor.copy_(cpu_tensor);
   // std::cout<<"cpu tensor:"<<cpu_tensor<<std::endl;
-  return int_gt.to(at::kCPU);
+  return std::make_tuple(all_start_stops.to(at::kCPU),last_pass_times.to(at::kCPU),tensor_splits);
   #else
-  return int_gt;
+  return std::make_tuple(all_start_stops,last_pass_times,tensor_splits);
   #endif
 }
 
@@ -684,40 +708,50 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
     // ROS_INFO_STREAM("batch:"<<i);
     int num_cfg_per_this_batch = std::min(num_cfg_per_batch,num_cfg-i*num_cfg_per_batch);
     // ROS_INFO_STREAM("num_cfg_per_this_batch:"<<num_cfg_per_this_batch);
-    at::Tensor intervals = checkBatch(configurations,i,num_cfg_per_this_batch,num_cfg_per_batch);
+    std::tuple<at::Tensor,at::Tensor,std::vector<int>> interval_data = checkBatch(configurations,i,num_cfg_per_this_batch,num_cfg_per_batch);
 
     // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
     // intervals = intervals.flatten().to(at::kCPU);
     // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
     // auto intervals_a = intervals.accessor<float,1>();
-    auto intervals_a = intervals.accessor<bool,1>();
-    Eigen::Vector3f interval;
-    interval.setZero();
+    auto intervals_a = std::get<0>(interval_data).accessor<int,2>();
+    auto lpt = std::get<1>(interval_data).accessor<int,1>();
+    std::vector<int> data_idx = std::get<2>(interval_data);
+
     for (int j=0;j<num_cfg_per_this_batch;j++) {
-      std::get<2>(configurations[i*num_cfg_per_batch+j]).reserve(int(model_->quat_seq.size()*0.5));
-      bool in_occupancy = false;
-      // std::get<2>(configurations[i*num_cfg_per_batch+j]).clear();
-      // std::cout<<"cfgs:";
-      // std::cout<<std::get<0>(configurations[i*num_cfg_per_batch+j]).transpose()<<"->"<<std::get<1>(configurations[i*num_cfg_per_batch+j]).transpose()<<std::endl;
-      for (int l=0;l<model_->quat_seq.size();l++) {
-        // std::cout<<(intervals_a[j*model_->quat_seq.size()+l]>0.5)<<",";
-        if ((intervals_a[j*model_->quat_seq.size()+l]) && (!in_occupancy)) {
-          in_occupancy = true;
-          interval[0] = model_->quat_seq[l].first;
-        }
-        if ((!intervals_a[j*model_->quat_seq.size()+l]) && (in_occupancy)) {
-          in_occupancy = false;
-          interval[1] = model_->quat_seq[l].first;
-          std::get<2>(configurations[i*num_cfg_per_batch+j]).emplace_back(interval);
-        }
+      int num_intervals = data_idx[j+1]-data_idx[j];
+      std::get<2>(configurations[i*num_cfg_per_batch+j]).reserve(num_intervals);
+      for (int l=data_idx[j];l<data_idx[j+1];l++) {
+        std::get<2>(configurations[i*num_cfg_per_batch+j]).emplace_back((float)intervals_a[l][0]*0.1,(float)intervals_a[l][1]*0.1,0);
       }
-      // std::cout<<std::endl;
-      // std::cout<<std::get<2>(configurations[i*num_cfg_per_batch+j]).size()<<std::endl;
-      if (in_occupancy) {
-          std::get<3>(configurations[i*num_cfg_per_batch+j]) = interval[0];
+      if (lpt[j]>0) {
+          std::get<3>(configurations[i*num_cfg_per_batch+j]) = (float)lpt[j]*0.1;
       } else {
         std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
       }
+      // bool in_occupancy = false;
+      // // std::get<2>(configurations[i*num_cfg_per_batch+j]).clear();
+      // // std::cout<<"cfgs:";
+      // // std::cout<<std::get<0>(configurations[i*num_cfg_per_batch+j]).transpose()<<"->"<<std::get<1>(configurations[i*num_cfg_per_batch+j]).transpose()<<std::endl;
+      // for (int l=0;l<model_->quat_seq.size();l++) {
+      //   // std::cout<<(intervals_a[j*model_->quat_seq.size()+l]>0.5)<<",";
+      //   if ((intervals_a[j*model_->quat_seq.size()+l]) && (!in_occupancy)) {
+      //     in_occupancy = true;
+      //     interval[0] = model_->quat_seq[l].first;
+      //   }
+      //   if ((!intervals_a[j*model_->quat_seq.size()+l]) && (in_occupancy)) {
+      //     in_occupancy = false;
+      //     interval[1] = model_->quat_seq[l].first;
+      //     std::get<2>(configurations[i*num_cfg_per_batch+j]).emplace_back(interval);
+      //   }
+      // }
+      // // std::cout<<std::endl;
+      // // std::cout<<std::get<2>(configurations[i*num_cfg_per_batch+j]).size()<<std::endl;
+      // if (in_occupancy) {
+      //     std::get<3>(configurations[i*num_cfg_per_batch+j]) = interval[0];
+      // } else {
+      //   std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
+      // }
     }
 
     #ifdef CUDA_AVAILABLE

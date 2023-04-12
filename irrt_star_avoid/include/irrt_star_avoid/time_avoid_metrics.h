@@ -48,16 +48,18 @@ protected:
   double t_pad_=0;
   int slow_joint;
   bool use_iso15066_;
+  bool record_SSM;
 private:
   std::ofstream data_file;
   void cost_thread(Eigen::MatrixXd& dist_new, Eigen::VectorXd& time_new,  std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations, std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, int start_i, int end_i);
+  void cost_thread2(Eigen::MatrixXd& parents, Eigen::MatrixXd& children,  Eigen::MatrixXd& dist_new, Eigen::VectorXd& time_new, std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, int start_i, int end_i, bool switch_order);
+
 public:
-  bool record_intervals = false;
   double max_dt;
   Eigen::VectorXd inv_max_speed_;
   // ParallelRobotPointCloudsPtr pc_avoid_checker;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-  TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen::VectorXd& max_acc, const double &nu=1e-2, const double &t_pad=0.0, bool use_iso15066=false);
+  TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen::VectorXd& max_acc, const double &nu=1e-2, const double &t_pad=0.0, bool use_iso15066=false, bool record_SSM=false);
 
   double cost(const NodePtr& parent,
                               const NodePtr& new_node, double &near_time, std::vector<Eigen::Vector3f> &avoid_ints, float &last_pass_time, float &min_human_dist);
@@ -71,7 +73,7 @@ public:
 
   bool interval_intersection(float avd_int_1_start, float avd_int_1_end, float conn_int_start, float conn_int_end);
   ~TimeAvoidMetrics() {
-    if (record_intervals) data_file.close();
+    if (record_SSM) data_file.close();
   }
 
 };

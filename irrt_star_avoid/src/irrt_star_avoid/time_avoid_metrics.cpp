@@ -31,13 +31,14 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 namespace pathplan
 {
 
-TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen::VectorXd& max_acc, const double& nu, const double& t_pad, bool use_iso15066):
+TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen::VectorXd& max_acc, const double& nu, const double& t_pad, bool use_iso15066, bool record_SSM):
   Metrics(),
   max_speed_(max_speed),
   max_acc_(max_acc),
   nu_(nu),
   t_pad_(t_pad),
-  use_iso15066_(use_iso15066)
+  use_iso15066_(use_iso15066), 
+  record_SSM(record_SSM)
 {
   Eigen::VectorXd dt = max_speed_.array()/max_acc_.array();
   max_dt = 0.8*dt.maxCoeff();
@@ -49,7 +50,12 @@ TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen
 
   name="time avoid metrics";
 
-  if (record_intervals) data_file.open("cost_data.csv");
+  if (record_SSM) {
+    data_file.open("cost_data.csv");
+    for (int i=0;i<6;i++) data_file << "q_s"<<i<<",";
+    for (int i=0;i<6;i++) data_file << "q_g"<<i<<",";
+    data_file << "nominal time\n";
+  }
 
 }
 
@@ -447,6 +453,89 @@ void TimeAvoidMetrics::cost_thread(Eigen::MatrixXd& dist_new, Eigen::VectorXd& t
   }
 }
 
+void TimeAvoidMetrics::cost_thread2(Eigen::MatrixXd& parents, Eigen::MatrixXd& children,  Eigen::MatrixXd& dist_new, Eigen::VectorXd& time_new, std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, int start_i, int end_i, bool switch_order) {
+  // ROS_INFO_STREAM("Started loop for:"<<start_i<<" to "<<end_i);
+  for (int i=start_i;i<end_i;i++) {
+    double node_time_new = time_new[i];
+    //get cost of parent
+    //requires extended node data
+    double c_near = 0.0;
+    NodePtr p = std::get<0>(node_datas[i]);
+    NodePtr c = std::get<1>(node_datas[i]);
+    if (switch_order) {
+      p = std::get<1>(node_datas[i]);
+      c = std::get<0>(node_datas[i]);
+    }
+    if (!p->parent_connections_.empty()) {
+      c_near = p->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
+    }
+    std::get<2>(node_datas[i]) = c_near;    
+    // get min cost to get to new node from near parent
+    std::get<6>(node_datas[i]) = c_near + node_time_new;
+    bool success = true; //bool to set false if path can not be found
+
+    if (std::get<6>(node_datas[i])>std::get<4>(node_datas[i])){
+        success = false;
+        // break;
+    }
+    std::get<5>(node_datas[i]) = 1.0;
+    if (use_iso15066_) {    
+
+      std::get<6>(node_datas[i]) = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),c_near,std::get<6>(node_datas[i]),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+    }
+    //if avoidance intervals, loop over avoidance intervals to determine soonest time of passage from parent to new node
+    if (!std::get<3>(node_datas[i]).empty() && success){
+        bool found_avoid = false;
+        double tmp_time = 0.0;
+        double tmp_c_new = std::get<6>(node_datas[i]);
+        double extra_time_to_avoid_slow_down;
+        double prev_slow_cost;
+        // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        for (int r=0;r<std::get<3>(node_datas[i]).size();r++) {
+            //if time to reach new node is within an avoidance interval +/- padding then set time to reach new node to the end of the avoidance interval
+            //repeat check with the time to reach the parent node when parent time is increased
+            //ensuring the entire path from parent to new node is not in an avoidance interval
+            //need to check if connection intveral is within connection interval
+            //if any part of the avoidance interval overlaps the connection interval (near_time to tmp_c_new)
+            if (interval_intersection(std::get<3>(node_datas[i])[r][0],std::get<3>(node_datas[i])[r][1],std::get<2>(node_datas[i]),tmp_c_new)) {
+                tmp_time = std::get<3>(node_datas[i])[r][1]+node_time_new + t_pad_;
+                if (tmp_time>tmp_c_new) {
+                    tmp_c_new = tmp_time;
+                    std::get<2>(node_datas[i]) = std::get<3>(node_datas[i])[r][1]+t_pad_;
+                }
+                double tmp_time2 = tmp_time;
+                if (use_iso15066_) tmp_time = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time,ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+                
+                if (tmp_time>tmp_c_new) {
+                    tmp_c_new = tmp_time;
+                    std::get<2>(node_datas[i]) = std::get<3>(node_datas[i])[r][1]+t_pad_;
+                }
+                found_avoid = true;
+            } else if (found_avoid) {
+                std::get<6>(node_datas[i]) = tmp_c_new;
+                found_avoid = false;
+                break;
+            }
+        }
+        // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1);
+        // ROS_INFO_STREAM("ssm took " << time_span.count() << " seconds");
+
+        if (found_avoid) {
+            std::get<6>(node_datas[i]) = tmp_c_new;
+        } 
+        
+        std::get<6>(node_datas[i]) = std::max(std::get<6>(node_datas[i]),tmp_c_new);
+      }
+
+    //return inf cost if not success
+    if (!success) {
+        std::get<6>(node_datas[i]) = std::numeric_limits<double>::infinity();
+    }
+    // std::cout<<"conn time end:"<<std::get<6>(node_datas[i])<<std::endl;
+  }
+
+}
+
 //JF - need node1 instead of config1
 void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, bool infer, bool switch_order)
 { 
@@ -455,8 +544,13 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
   Eigen::MatrixXd parents(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
   Eigen::MatrixXd children(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
   std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>> configurations;
+  // std::vector<std:pair<Eigen::VectorXd,Eigen::VectorXd>> configurations;
+  // std::vector<std::vector<Eigen::Vector3f>> avoid_ints_vec;
+  // std::vector<float> last_pass_vec;
   if (infer) {
     configurations.reserve(node_datas.size());
+    // avoid_ints_vec.reserve(node_datas.size());
+    // last_pass_vec.reserve(node_datas.size());
 
     std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     for (int i=0;i<node_datas.size();i++) {
@@ -473,13 +567,25 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
       children.row(i) = c->getConfiguration();
       // std::cout<<i<<", "<<std::get<0>(node_datas[i])->getConfiguration().transpose()<<", "<<std::get<1>(node_datas[i])->getConfiguration().transpose()<<std::endl;
       configurations.push_back(config);
+      // configurations.emplace_back(p->getConfiguration(),c->getConfiguration());
     }
     std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     ROS_INFO_STREAM("prepping configs took " << time_span.count() << " seconds");
 
     pc_avoid_checker->checkMutliplePaths(configurations);
+    // pc_avoid_checker->checkMutliplePaths(configurations,avoid_ints_vec,last_pass_vec);
 
+    t2 = std::chrono::high_resolution_clock::now();
+    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    ROS_INFO_STREAM("this part took " << time_span.count() << " seconds for "<<node_datas.size()<<" configs");
+
+    for (int i=0;i<node_datas.size();i++) {
+      std::get<4>(node_datas[i]) = std::get<3>(configurations[i]);
+      std::get<3>(node_datas[i]).swap(std::get<2>(configurations[i]));
+      // std::get<4>(node_datas[i]).swap(avoid_ints_vec[i]);
+      // std::get<3>(node_datas[i]) = std::get<2>(configurations[i]);
+    }
     t2 = std::chrono::high_resolution_clock::now();
     time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     ROS_INFO_STREAM("getting intervals took " << time_span.count() << " seconds for "<<node_datas.size()<<" configs");
@@ -498,20 +604,26 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
   Eigen::MatrixXd dist_new = parents-children;
   Eigen::MatrixXd tmp_mat = dist_new.array().abs().rowwise()*inv_max_speed_.transpose().array();
   Eigen::VectorXd time_new = tmp_mat.rowwise().maxCoeff();
-  // int num_elements_per_thread = std::ceil(node_datas.size()/2);
+
+  // int num_threads = 6;
+  // int num_elements_per_thread = std::max(int(std::ceil((double)node_datas.size()/(double)num_threads)),10);
+  // num_threads = std::max(int(std::floor((double)node_datas.size()/(double)num_elements_per_thread)),1);
+  // num_elements_per_thread = int(std::ceil((double)node_datas.size()/(double)num_threads));
   // std::vector<std::thread> threads;
-  // threads.resize(2);
-  // for (int i=0;i<2;i++) {
+  // threads.resize(num_threads);
+  // for (int i=0;i<num_threads;i++) {
   //   if (i>node_datas.size()-1) break;
   //   int start_i = i*num_elements_per_thread;
   //   int end_i = std::min((i+1)*num_elements_per_thread,(int)node_datas.size());
-  //   threads.at(i) = std::thread(&TimeAvoidMetrics::cost_thread,this,std::ref(dist_new),std::ref(time_new),std::ref(configurations),std::ref(node_datas),start_i,end_i);
+  //   threads.at(i) = std::thread(&TimeAvoidMetrics::cost_thread2,this,std::ref(parents),std::ref(children),std::ref(dist_new),std::ref(time_new),std::ref(node_datas),start_i,end_i,switch_order);
   // }
-  // for (int i=0;i<2;i++) {
+  // for (int i=0;i<num_threads;i++) {
   //   if (threads.at(i).joinable()){
   //     threads.at(i).join();
   //   }
   // }
+  // return;
+
   for (int i=0;i<node_datas.size();i++) {
     // std::cout<<i<<", "<<std::get<0>(node_datas[i])->getConfiguration().transpose()<<", "<<std::get<1>(node_datas[i])->getConfiguration().transpose()<<std::endl;
       //determine min time to complete straight line path from parent to config
@@ -538,10 +650,7 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     std::get<6>(node_datas[i]) = c_near + node_time_new;
     // std::cout<<"conn time:"<<std::get<6>(node_datas[i])<<std::endl;
     bool success = true; //bool to set false if path can not be found
-    if (infer) {
-      std::get<4>(node_datas[i]) = std::get<3>(configurations[i]);
-      std::get<3>(node_datas[i]) = std::get<2>(configurations[i]);
-    }
+
     // std::cout<<"intervals:";
     // for (int a=0;a<std::get<3>(node_datas[i]).size();a++) std::cout<<std::get<3>(node_datas[i])[a].transpose()<<";";
     // std::cout<<std::endl;
@@ -550,7 +659,19 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
         // break;
     }
     std::get<5>(node_datas[i]) = 1.0;
-    if (use_iso15066_) {
+    if (use_iso15066_) {    
+      if (record_SSM && infer) {
+        std::stringstream out_string;
+        for (int j=0;j<parents.row(i).size();j++) out_string << parents.row(i)[j] << ",";
+        for (int j=0;j<children.row(i).size();j++) out_string << children.row(i)[j] << ",";
+        // out_string<<std::get<2>(node_datas[i])<<",";
+        // out_string<<tmp_time2<<",";
+        // out_string<<tmp_time<<",";
+        // out_string<<tmp_time-tmp_time2<<",";
+        // out_string<<std::get<5>(node_datas[i])<<",";
+        out_string<<node_time_new<<std::endl;
+        data_file << out_string.str();
+      }
       std::get<6>(node_datas[i]) = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),c_near,std::get<6>(node_datas[i]),ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
     }
     //if avoidance intervals, loop over avoidance intervals to determine soonest time of passage from parent to new node
@@ -560,7 +681,7 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
         double tmp_c_new = std::get<6>(node_datas[i]);
         double extra_time_to_avoid_slow_down;
         double prev_slow_cost;
-        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
+        // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         for (int r=0;r<std::get<3>(node_datas[i]).size();r++) {
             //if time to reach new node is within an avoidance interval +/- padding then set time to reach new node to the end of the avoidance interval
             //repeat check with the time to reach the parent node when parent time is increased
@@ -576,18 +697,6 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
                 double tmp_time2 = tmp_time;
                 if (use_iso15066_) tmp_time = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time,ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
                 
-                std::stringstream out_string;
-                if (record_intervals) {
-                  for (int i=0;i<n_dof;i++) out_string << parents.row(i) << ",";
-                  for (int i=0;i<n_dof;i++) out_string << children.row(i) << ",";
-                  out_string<<tmp_time2<<",";
-                  out_string<<tmp_time<<",";
-                  out_string<<tmp_time-tmp_time2<<",";
-                  out_string<<std::get<5>(node_datas[i]);
-                  out_string<<std::endl;
-                  data_file << out_string.str();
-                }
-
                 if (tmp_time>tmp_c_new) {
                     tmp_c_new = tmp_time;
                     std::get<2>(node_datas[i]) = std::get<3>(node_datas[i])[r][1]+t_pad_;
@@ -613,8 +722,8 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
                 break;
             }
         }
-        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1);
-        ROS_INFO_STREAM("ssm took " << time_span.count() << " seconds");
+        // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1);
+        // ROS_INFO_STREAM("ssm took " << time_span.count() << " seconds");
 
         if (found_avoid) {
             std::get<6>(node_datas[i]) = tmp_c_new;

@@ -49,6 +49,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <algorithm>
 #include <rosdyn_core/primitives.h>
 #include <rosdyn_core/urdf_parser.h>
+#include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
 
 // #define COMMENT(...) ROS_LOG(::ros::console::levels::Debug, ROSCONSOLE_DEFAULT_NAME, __VA_ARGS__)
 

@@ -119,7 +119,10 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
     use_iso15066=false;
   }
 
-  metrics=std::make_shared<pathplan::TimeAvoidMetrics>(max_velocity_,max_accels_,1e-2, t_pad_,use_iso15066);
+  bool record_SSM = false;
+  if (!m_nh.getParam("record_SSM",record_SSM)) ROS_INFO_STREAM("record_SSM did not exist");
+  ROS_INFO_STREAM("recording SSM data:"<<record_SSM);
+  metrics=std::make_shared<pathplan::TimeAvoidMetrics>(max_velocity_,max_accels_,1e-2, t_pad_,use_iso15066, record_SSM);
   base_metrics = std::static_pointer_cast<pathplan::Metrics>(metrics);
 
   // COMMENT("check planning scene");
@@ -231,8 +234,6 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(m_nh, robot_model_,group_,avoid_model_,max_velocity_,collision_thread_,collision_distance,grid_spacing,record_intervals);
   COMMENT("settign metrics point cloud checker");
   metrics->setPointCloudChecker(point_cloud_checker);
-  metrics->record_intervals = record_intervals;
-
 
   m_solver_performance=m_nh.advertise<std_msgs::Float64MultiArray>("/solver_performance",1000);
 
@@ -328,6 +329,8 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
   COMMENT("cloning the planning scene");
   planning_scene::PlanningScenePtr ptr=planning_scene::PlanningScene::clone(planning_scene_);
+  ptr->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(),
+                                           /* exclusive = */ true);
   COMMENT("init parallel collision checker");
   checker=std::make_shared<pathplan::ParallelMoveitCollisionChecker>(ptr,group_,collision_thread_,collision_distance);
 
@@ -504,19 +507,23 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     Eigen::VectorXd joint_values;
     moveit::core::RobotState new_state(robot_model_);
     int presamples=0;
-    for (int i=0;i<rand_t_indices.size();i++) {//rand_t_indices.size();i++) {
-      Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(rand_t_indices[i]).second.col(rand_j_indices[i]).cast<double>();
-      Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
-      std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
-      // for (auto c: goal.joint_constraints)
-      //   new_state.setJointPositions(c.joint_name,&c.position);
-      // new_state.copyJointGroupPositions(group_,result_cfg);
-      // goal_state.updateCollisionBodyTransforms();
-      if (checker->check(result_cfg)) {
-        pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
-        solver->addNode(new_node);
-        presamples++;
-        if (presamples>199) break;
+    int num_human_points = metrics->pc_avoid_checker->model_->joint_seq[0].second.cols();
+    int num_human_steps = metrics->pc_avoid_checker->model_->joint_seq.size();
+    for (int i=0;i<num_human_steps;i+=5) {//rand_t_indices.size();i++) {
+      for (int j=0;j<10;j++) {
+        Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j).cast<double>();
+        Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
+        std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
+        // for (auto c: goal.joint_constraints)
+        //   new_state.setJointPositions(c.joint_name,&c.position);
+        // new_state.copyJointGroupPositions(group_,result_cfg);
+        // goal_state.updateCollisionBodyTransforms();
+        if (checker->check(result_cfg)) {
+          pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
+          solver->addNode(new_node);
+          presamples++;
+          if (presamples>199) break;
+        }
       }
       // Eigen::Vector3d pt_robot_vec = (pt-Eigen::Vector3d(0,0,0.337)).normalized();
       // pt = pt_robot_vec*0.653+Eigen::Vector3d(0,0,0.337);
