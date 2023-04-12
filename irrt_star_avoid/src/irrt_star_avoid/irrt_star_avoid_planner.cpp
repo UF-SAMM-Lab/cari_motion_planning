@@ -231,6 +231,7 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(m_nh, robot_model_,group_,avoid_model_,max_velocity_,collision_thread_,collision_distance,grid_spacing,record_intervals);
   COMMENT("settign metrics point cloud checker");
   metrics->setPointCloudChecker(point_cloud_checker);
+  metrics->record_intervals = record_intervals;
 
 
   m_solver_performance=m_nh.advertise<std_msgs::Float64MultiArray>("/solver_performance",1000);
@@ -492,8 +493,9 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     pre_samples.clear();
     metrics->pc_avoid_checker->model_->new_joint_seq = false;
   }
+
   if (pre_samples.empty()) {
-    pre_samples.reserve(100);
+    pre_samples.reserve(200);
     Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
     Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
     moveit::core::RobotState kinematic_state(robot_model_);
@@ -514,7 +516,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
         pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
         solver->addNode(new_node);
         presamples++;
-        if (presamples>99) break;
+        if (presamples>199) break;
       }
       // Eigen::Vector3d pt_robot_vec = (pt-Eigen::Vector3d(0,0,0.337)).normalized();
       // pt = pt_robot_vec*0.653+Eigen::Vector3d(0,0,0.337);

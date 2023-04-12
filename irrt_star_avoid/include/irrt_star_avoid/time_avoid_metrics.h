@@ -49,8 +49,10 @@ protected:
   int slow_joint;
   bool use_iso15066_;
 private:
+  std::ofstream data_file;
   void cost_thread(Eigen::MatrixXd& dist_new, Eigen::VectorXd& time_new,  std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations, std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, int start_i, int end_i);
 public:
+  bool record_intervals = false;
   double max_dt;
   Eigen::VectorXd inv_max_speed_;
   // ParallelRobotPointCloudsPtr pc_avoid_checker;
@@ -68,7 +70,9 @@ public:
                       const Eigen::VectorXd& configuration2);
 
   bool interval_intersection(float avd_int_1_start, float avd_int_1_end, float conn_int_start, float conn_int_end);
-
+  ~TimeAvoidMetrics() {
+    if (record_intervals) data_file.close();
+  }
 
 };
 

@@ -49,6 +49,8 @@ TimeAvoidMetrics::TimeAvoidMetrics(const Eigen::VectorXd& max_speed, const Eigen
 
   name="time avoid metrics";
 
+  if (record_intervals) data_file.open("cost_data.csv");
+
 }
 
 bool TimeAvoidMetrics::interval_intersection(float avd_int_1_start, float avd_int_1_end, float conn_int_start, float conn_int_end) {
@@ -558,6 +560,7 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
         double tmp_c_new = std::get<6>(node_datas[i]);
         double extra_time_to_avoid_slow_down;
         double prev_slow_cost;
+        std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
         for (int r=0;r<std::get<3>(node_datas[i]).size();r++) {
             //if time to reach new node is within an avoidance interval +/- padding then set time to reach new node to the end of the avoidance interval
             //repeat check with the time to reach the parent node when parent time is increased
@@ -570,7 +573,20 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
                     tmp_c_new = tmp_time;
                     std::get<2>(node_datas[i]) = std::get<3>(node_datas[i])[r][1]+t_pad_;
                 }
+                double tmp_time2 = tmp_time;
                 if (use_iso15066_) tmp_time = pc_avoid_checker->checkISO15066(parents.row(i),children.row(i),dist_new.row(i).norm(),std::get<2>(node_datas[i]),tmp_time,ceil(dist_new.row(i).norm()/0.1),std::get<5>(node_datas[i]));
+                
+                std::stringstream out_string;
+                if (record_intervals) {
+                  for (int i=0;i<n_dof;i++) out_string << parents.row(i) << ",";
+                  for (int i=0;i<n_dof;i++) out_string << children.row(i) << ",";
+                  out_string<<tmp_time2<<",";
+                  out_string<<tmp_time<<",";
+                  out_string<<tmp_time-tmp_time2<<",";
+                  out_string<<std::get<5>(node_datas[i]);
+                  out_string<<std::endl;
+                  data_file << out_string.str();
+                }
 
                 if (tmp_time>tmp_c_new) {
                     tmp_c_new = tmp_time;
@@ -597,6 +613,9 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
                 break;
             }
         }
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1);
+        ROS_INFO_STREAM("ssm took " << time_span.count() << " seconds");
+
         if (found_avoid) {
             std::get<6>(node_datas[i]) = tmp_c_new;
         } 
