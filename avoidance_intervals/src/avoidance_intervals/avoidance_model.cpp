@@ -667,7 +667,7 @@ namespace avoidance_intervals{
         Eigen::Vector3f e1 = l_shoulder+link_lengths_[3]*z_e1.vec();
         joint_locations.push_back(e1 );
         Eigen::Quaternionf z_w1 = quats[4]*z_axis_quat*quats[4].inverse();
-        Eigen::Vector3f w1 = e1+(link_lengths_[4]+0.1)*z_w1.vec();
+        Eigen::Vector3f w1 = e1+(link_lengths_[4])*z_w1.vec();
         joint_locations.push_back(w1);
         Eigen::Vector3f r_shoulder = spine_top+0.5*link_lengths_[2]*z_shoulders.vec();
         joint_locations.push_back(r_shoulder);
@@ -676,7 +676,7 @@ namespace avoidance_intervals{
         Eigen::Vector3f e2 = r_shoulder+link_lengths_[5]*z_e2.vec();
         joint_locations.push_back(e2);
         Eigen::Quaternionf z_w2 = quats[6]*z_axis_quat*quats[6].inverse();
-        Eigen::Vector3f w2 = e2+(link_lengths_[6]+0.1)*z_w2.vec();
+        Eigen::Vector3f w2 = e2+(link_lengths_[6])*z_w2.vec();
         joint_locations.push_back(w2);
         Eigen::Vector3f spine_mid = 0.5*(spine_top+pelvis_loc);
         joint_locations.push_back(spine_mid);

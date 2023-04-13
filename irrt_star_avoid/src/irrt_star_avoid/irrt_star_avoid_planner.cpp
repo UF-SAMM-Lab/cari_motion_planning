@@ -510,22 +510,27 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     int num_human_points = metrics->pc_avoid_checker->model_->joint_seq[0].second.cols();
     int num_human_steps = metrics->pc_avoid_checker->model_->joint_seq.size();
     std::vector<int> joint_ids = {4,5,7,8};
-    for (int i=0;i<num_human_steps;i+=3) {//rand_t_indices.size();i++) {
+    for (int i=1;i<num_human_steps;i++) {//rand_t_indices.size();i++) {
+      Eigen::MatrixXd joint_diff = metrics->pc_avoid_checker->model_->joint_seq.at(i).second - metrics->pc_avoid_checker->model_->joint_seq.at(i-1).second;
+      Eigen::VectorXd vels = joint_diff.colwise().norm();
       for (int j:joint_ids) {
-        Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j).cast<double>();
-        Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
-        std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
-        // for (auto c: goal.joint_constraints)
-        //   new_state.setJointPositions(c.joint_name,&c.position);
-        // new_state.copyJointGroupPositions(group_,result_cfg);
-        // goal_state.updateCollisionBodyTransforms();
-        if (checker->check(result_cfg)) {
-          pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
-          solver->addNode(new_node);
-          presamples++;
-          if (presamples>299) break;
+        if (vels[j]/0.1>0.5) {
+          Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
+          Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
+          std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
+          // for (auto c: goal.joint_constraints)
+          //   new_state.setJointPositions(c.joint_name,&c.position);
+          // new_state.copyJointGroupPositions(group_,result_cfg);
+          // goal_state.updateCollisionBodyTransforms();
+          if (checker->check(result_cfg)) {
+            pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
+            solver->addNode(new_node);
+            presamples++;
+            if (presamples>299) break;
+          }
         }
       }
+      ROS_INFO_STREAM(presamples<<" presamples added to tree");
       // Eigen::Vector3d pt_robot_vec = (pt-Eigen::Vector3d(0,0,0.337)).normalized();
       // pt = pt_robot_vec*0.653+Eigen::Vector3d(0,0,0.337);
       // Eigen::Quaterniond tmp_quat = Eigen::Quaterniond().setFromTwoVectors(z,pt_robot_vec);

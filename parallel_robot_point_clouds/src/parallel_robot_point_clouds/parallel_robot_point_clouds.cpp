@@ -541,7 +541,7 @@ double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
     double segment_time = nominal_time / nsteps;
     for (unsigned int istep = 0; istep < nsteps+1; istep++)
     { 
-      int step_num = int((t1+(double)istep*segment_time)/model_t_step);
+      int step_num = int((t1+cost+(double)istep*segment_time)/model_t_step);
       if (step_num<model_->joint_seq.size()) {
         ssm_->setPointCloud(model_->joint_seq[step_num].second);
       } else {
@@ -563,12 +563,12 @@ double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
             ssm_->setPointCloud(model_->joint_seq[step_num+i].second);
             scaling=ssm_->computeScaling(q,nominal_velocity);
             if (scaling>0.1) { 
-              max_seg_time = (segment_time+double(i)*0.1)/scaling;
+              max_seg_time = double(i)*0.1+segment_time/scaling;
               min_human_dist = (float)scaling;
               break;
             }
           } else {
-            max_seg_time = segment_time;
+            // max_seg_time = segment_time;
             break;
           }
         }
