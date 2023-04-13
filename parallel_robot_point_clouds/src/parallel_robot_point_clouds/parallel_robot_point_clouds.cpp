@@ -558,7 +558,7 @@ double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
       // std::cout<<q.transpose()<<", scale:"<<scaling<<", "<<model_t_step<<std::endl;
       double max_seg_time = segment_time/(scaling+1e-6);
       if (scaling<0.1) {
-        for (int i=1;i<30;i+=3) {
+        for (int i=1;i<30;i+=5) {
           if (step_num+i<model_->joint_seq.size()) {
             ssm_->setPointCloud(model_->joint_seq[step_num+i].second);
             scaling=ssm_->computeScaling(q,nominal_velocity);
@@ -675,7 +675,7 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
     }
     at::Tensor int_data = torch::stack({int_starts,int_ends},1);
     all_start_stops = torch::cat({all_start_stops,int_data},0);
-    std::cout<<all_start_stops.sizes()<<std::endl;
+    // std::cout<<all_start_stops.sizes()<<std::endl;
     tensor_splits[j+1] = tensor_splits[j] + int_data.sizes()[0];
   }
   // std::cout<<int_gt<<std::endl;
@@ -714,14 +714,14 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
     // intervals = intervals.flatten().to(at::kCPU);
     // ROS_INFO_STREAM("intervals size:"<<intervals.sizes()[0]<<","<<intervals.sizes()[1]<<","<<intervals.sizes()[2]<<","<<intervals.sizes()[3]);
     // auto intervals_a = intervals.accessor<float,1>();
-    auto intervals_a = std::get<0>(interval_data).accessor<int,2>();
-    auto lpt = std::get<1>(interval_data).accessor<int,1>();
+    auto intervals_a = std::get<0>(interval_data).accessor<float,2>();
+    auto lpt = std::get<1>(interval_data).accessor<float,1>();
     std::vector<int> data_idx = std::get<2>(interval_data);
-
     for (int j=0;j<num_cfg_per_this_batch;j++) {
       int num_intervals = data_idx[j+1]-data_idx[j];
       std::get<2>(configurations[i*num_cfg_per_batch+j]).reserve(num_intervals);
       for (int l=data_idx[j];l<data_idx[j+1];l++) {
+        // std::cout<<(float)intervals_a[l][0]*0.1<<","<<(float)intervals_a[l][1]*0.1<<std::endl;
         std::get<2>(configurations[i*num_cfg_per_batch+j]).emplace_back((float)intervals_a[l][0]*0.1,(float)intervals_a[l][1]*0.1,0);
       }
       if (lpt[j]>0) {

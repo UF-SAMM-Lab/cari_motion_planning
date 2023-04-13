@@ -498,7 +498,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   }
 
   if (pre_samples.empty()) {
-    pre_samples.reserve(200);
+    pre_samples.reserve(300);
     Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
     Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
     moveit::core::RobotState kinematic_state(robot_model_);
@@ -509,8 +509,9 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     int presamples=0;
     int num_human_points = metrics->pc_avoid_checker->model_->joint_seq[0].second.cols();
     int num_human_steps = metrics->pc_avoid_checker->model_->joint_seq.size();
-    for (int i=0;i<num_human_steps;i+=5) {//rand_t_indices.size();i++) {
-      for (int j=0;j<10;j++) {
+    std::vector<int> joint_ids = {4,5,7,8};
+    for (int i=0;i<num_human_steps;i+=3) {//rand_t_indices.size();i++) {
+      for (int j:joint_ids) {
         Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j).cast<double>();
         Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
         std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
@@ -522,7 +523,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
           pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
           solver->addNode(new_node);
           presamples++;
-          if (presamples>199) break;
+          if (presamples>299) break;
         }
       }
       // Eigen::Vector3d pt_robot_vec = (pt-Eigen::Vector3d(0,0,0.337)).normalized();
@@ -1112,8 +1113,8 @@ Eigen::VectorXd IRRTStarAvoid::apf_pose(const Eigen::VectorXd current_pose, cons
   // std::cout<<"jacobian:"<<jacobian.block(0,0,3,jacobian.cols())<<std::endl;
   Eigen::VectorXd tau = jacobian.block(0,0,3,jacobian.cols()).transpose()*F_att;
   Eigen::VectorXd end_pose = current_pose-apf_alpha*tau;
-  std::cout<<"ee_tgt:"<<ee_tgt.transpose()<<",iter:"<<iteration<<", diff:"<<(end_pose-current_pose).norm()<<std::endl;
-  std::cout<<"end_pose:"<<end_pose.transpose()<<std::endl;
+  // std::cout<<"ee_tgt:"<<ee_tgt.transpose()<<",iter:"<<iteration<<", diff:"<<(end_pose-current_pose).norm()<<std::endl;
+  // std::cout<<"end_pose:"<<end_pose.transpose()<<std::endl;
   if ((iteration<100)&&((end_pose-current_pose).norm()>0.01)) {
     end_pose = apf_pose(end_pose,ee_tgt,iteration+1);
   }
