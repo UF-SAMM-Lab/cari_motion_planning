@@ -510,11 +510,14 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     int num_human_points = metrics->pc_avoid_checker->model_->joint_seq[0].second.cols();
     int num_human_steps = metrics->pc_avoid_checker->model_->joint_seq.size();
     std::vector<int> joint_ids = {4,5,7,8};
+    Eigen::MatrixXd last_points = Eigen::MatrixXd::Zero(3,joint_ids.size());
     for (int i=1;i<num_human_steps;i++) {//rand_t_indices.size();i++) {
       Eigen::MatrixXd joint_diff = metrics->pc_avoid_checker->model_->joint_seq.at(i).second - metrics->pc_avoid_checker->model_->joint_seq.at(i-1).second;
       Eigen::VectorXd vels = joint_diff.colwise().norm();
-      for (int j:joint_ids) {
-        if (vels[j]/0.1>0.5) {
+      for (int k=0;k<joint_ids.size();k++) {
+        int j = joint_ids[k];
+        if (((metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j)-last_points.col(k)).norm()>0.2)||(vels[j]>0.05)) {
+          last_points.col(k) = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
           Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
           Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
           std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;

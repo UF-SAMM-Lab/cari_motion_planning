@@ -670,8 +670,11 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
     at::Tensor int_ends = torch::where(int_end_slices==true)[0];
     if (int_starts.sizes()[0]>int_ends.sizes()[0]){
       last_pass_times[j] = int_starts[-1];
-      std::cout<<"last pass\n";
+      std::cout<<"last pass:"<<j<<"\n";
       int_starts = int_starts.slice(0,0,int_starts.sizes()[0]-1,1);
+    } else if (int_starts.sizes()[0]<int_ends.sizes()[0]) {
+      std::cout<<"correction after last pass:"<<j<<"\n";
+      int_ends = int_ends.slice(0,1,int_ends.sizes()[0],1);
     }
     at::Tensor int_data = torch::stack({int_starts,int_ends},1);
     all_start_stops = torch::cat({all_start_stops,int_data},0);
