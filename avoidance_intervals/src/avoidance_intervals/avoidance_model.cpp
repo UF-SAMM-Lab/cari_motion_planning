@@ -463,7 +463,9 @@ namespace avoidance_intervals{
 
     void model::subscribe_sequence(const avoidance_intervals::joint_seq::ConstPtr& msg) {
         std::cout<<"receiving the sequence of length:"<<msg->sequence.size()<<"\n";
+        std::lock_guard<std::mutex> lock(seq_mtx);
         joint_seq.clear();
+        quat_seq.clear();
         for (int i=0;i< msg->sequence.size();i++) {
             Eigen::MatrixXd joint_pos(3,int(msg->sequence[i].joint_pos.data.size()/3));
             int c = 0;

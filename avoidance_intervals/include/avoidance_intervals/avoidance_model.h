@@ -107,6 +107,7 @@ namespace avoidance_intervals{
         ros::Subscriber disp_all_sub;
         ros::Subscriber sub_seq;
         ros::Publisher disp_pub;
+        std::mutex seq_mtx;
         protected:
         int num_threads_;
         ros::NodeHandle nh_;

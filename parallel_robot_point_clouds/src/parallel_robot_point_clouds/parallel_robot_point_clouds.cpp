@@ -627,6 +627,7 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
   c10::InferenceMode guard;
   int n_dof = std::get<0>(configurations[0]).size();
   int human_lines = model_->quat_seq.size();
+  // std::cout<<"human_lines:"<<human_lines<<std::endl;
   #ifdef CUDA_AVAILABLE
   // ROS_INFO("using CUDA");
   // at::Tensor cpu_tensor = at::empty({num_cfg_per_this_batch*human_lines}, device(at::kCPU).pinned_memory(true));

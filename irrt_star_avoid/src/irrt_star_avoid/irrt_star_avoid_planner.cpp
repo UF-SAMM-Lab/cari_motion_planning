@@ -518,9 +518,9 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
         int j = joint_ids[k];
         if (((metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j)-last_points.col(k)).norm()>0.2)||(vels[j]>0.05)) {
           last_points.col(k) = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
-          Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
+          Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j)+joint_diff.col(j);
           Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
-          std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
+          // std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
           // for (auto c: goal.joint_constraints)
           //   new_state.setJointPositions(c.joint_name,&c.position);
           // new_state.copyJointGroupPositions(group_,result_cfg);
@@ -533,7 +533,6 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
           }
         }
       }
-      ROS_INFO_STREAM(presamples<<" presamples added to tree");
       // Eigen::Vector3d pt_robot_vec = (pt-Eigen::Vector3d(0,0,0.337)).normalized();
       // pt = pt_robot_vec*0.653+Eigen::Vector3d(0,0,0.337);
       // Eigen::Quaterniond tmp_quat = Eigen::Quaterniond().setFromTwoVectors(z,pt_robot_vec);
@@ -553,6 +552,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
       // if (pre_samples.size()>49) break;
 
     }
+    ROS_INFO_STREAM(presamples<<" presamples added to tree");
   }
   // for (int i=0;i<pre_samples.size();i++) {
     
