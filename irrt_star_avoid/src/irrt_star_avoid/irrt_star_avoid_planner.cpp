@@ -265,6 +265,8 @@ void IRRTStarAvoid::setPlanningScene ( const planning_scene::PlanningSceneConstP
   planning_scene_=planning_scene;
   COMMENT("create checker");
   planning_scene::PlanningScenePtr ps=planning_scene::PlanningScene::clone(planning_scene);
+  ps->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(),
+                                          /* exclusive = */ true);
   checker=std::make_shared<pathplan::MoveitCollisionChecker>(ps,group_,collision_distance);
 
 }
@@ -329,8 +331,8 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
   COMMENT("cloning the planning scene");
   planning_scene::PlanningScenePtr ptr=planning_scene::PlanningScene::clone(planning_scene_);
-  ptr->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(),
-                                           /* exclusive = */ true);
+  // ptr->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(),
+  //                                          /* exclusive = */ true);
   COMMENT("init parallel collision checker");
   checker=std::make_shared<pathplan::ParallelMoveitCollisionChecker>(ptr,group_,collision_thread_,collision_distance);
 

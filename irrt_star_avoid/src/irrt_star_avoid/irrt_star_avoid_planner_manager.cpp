@@ -204,6 +204,8 @@ planning_interface::PlanningContextPtr PathPlanerManager::getPlanningContext(
   {
     ROS_INFO("Using  planner %s for planning on the group %s",planner->getName().c_str(),req.group_name.c_str());
   }
+  // planning_scene->setActiveCollisionDetector(collision_detection::CollisionDetectorAllocatorBullet::create(),
+  //                                          /* exclusive = */ true);
   COMMENT("set planning scene");
   planner->setPlanningScene(planning_scene);
   COMMENT("set motion plan request");

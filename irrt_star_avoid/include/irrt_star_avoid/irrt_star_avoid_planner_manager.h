@@ -29,6 +29,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <moveit/planning_interface/planning_interface.h>
 #include <irrt_star_avoid/irrt_star_avoid_planner.h>
+#include <moveit/collision_detection_bullet/collision_detector_allocator_bullet.h>
 // #include <dirrt_star/multigoal_planner.h>
 //#include <dirrt_star/time_planner.h>
 //#include <dirrt_star/hamp_time_planner.h>
