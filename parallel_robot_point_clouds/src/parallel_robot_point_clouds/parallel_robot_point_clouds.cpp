@@ -645,48 +645,107 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
       for (int k=0;k<31;k++) input_tensor_a[i*num_cfg_per_batch+j*human_lines+l][k+2*n_dof] = model_->quat_seq[l].second[k];
     }
   }
-  std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-  std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  ROS_INFO_STREAM("prepping inference took " << time_span.count() << " seconds");
+  // std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+  // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  // ROS_INFO_STREAM("prepping inference took " << time_span.count() << " seconds");
   // std::cout<<"input tensor:"<<input_tensor<<std::endl;
   at::Tensor tmp_tensor = avoid_net.forward({input_tensor.to(torch_device)}).toTensor().flatten();//to(at::kCPU).flatten();
   // std::cout<<"output tensor:"<<tmp_tensor.to(at::kCPU)<<std::endl;
   // std::cout<<"output tensor size:"<<tmp_tensor.sizes()<<std::endl;
-  t2 = std::chrono::high_resolution_clock::now();
-  time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-  ROS_INFO_STREAM("inference took " << time_span.count() << " seconds");
   at::Tensor int_gt = (tmp_tensor>0.5).to(at::kBool);
   at::Tensor int_gt_rolled_forward = torch::roll(int_gt,1,0);
   at::Tensor int_gt_rolled_back = torch::roll(int_gt,-1,0);
-  at::Tensor int_start_sum = int_gt & (int_gt_rolled_forward==false);
-  at::Tensor int_end_sum = int_gt  & (int_gt_rolled_back==false);
-  at::Tensor all_start_stops = torch::empty({0,2}, device(torch_device));
-  at::Tensor last_pass_times = torch::zeros({num_cfg_per_this_batch},device(torch_device));
+  at::Tensor int_start_sum = (int_gt & (int_gt_rolled_forward==false)).to(at::kCPU);
+  at::Tensor int_end_sum = (int_gt  & (int_gt_rolled_back==false)).to(at::kCPU);
+
+  // t2 = std::chrono::high_resolution_clock::now();
+  // time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  // ROS_INFO_STREAM("inference took " << time_span.count() << " seconds");
+
+  //this is too slow
   std::vector<int> tensor_splits(num_cfg_per_this_batch+1);
+  at::Tensor int_starts_big = torch::where(int_start_sum==true)[0];
+  at::Tensor int_ends_big = torch::where(int_end_sum==true)[0];
+  at::Tensor int_starts_big_quotient = int_starts_big/human_lines;
+  at::Tensor int_starts_big_int = torch::floor(int_starts_big_quotient);
+  at::Tensor int_starts_big_frac = torch::floor(torch::frac(int_starts_big_quotient)*human_lines);
+  at::Tensor int_ends_big_quotient = int_ends_big/human_lines;
+  at::Tensor int_ends_big_int = torch::floor(int_ends_big_quotient);
+  at::Tensor int_ends_big_frac = torch::ceil(torch::frac(int_ends_big_quotient)*human_lines);
+  // std::cout<<"num_cfg_per_this_batch"<<num_cfg_per_this_batch<<"\n";
+  // std::cout<<"int starts big int\n";
+  // std::cout<<int_starts_big_int<<std::endl;
+  // std::cout<<"int starts big frac\n";
+  // std::cout<<int_starts_big_frac<<std::endl;
+  // std::cout<<"int ends big int\n";
+  // std::cout<<int_ends_big_int<<std::endl;
+  // std::cout<<"int ends big frac\n";
+  // std::cout<<int_ends_big_frac<<std::endl;
+  // t2 = std::chrono::high_resolution_clock::now();
+  // time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  // ROS_INFO_STREAM("big torch where took " << time_span.count() << " seconds");
+  at::Tensor last_pass_times = torch::zeros({num_cfg_per_this_batch},device(at::kCPU));
+  at::Tensor all_start_stops = torch::zeros({std::max(int_starts_big.sizes()[0],int_ends_big.sizes()[0]),2}, device(at::kCPU));
   tensor_splits[0] = 0;
-  for (int j=0;j<num_cfg_per_this_batch;j++) {
-    at::Tensor int_start_slices = int_start_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
-    at::Tensor int_end_slices = int_end_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
-    at::Tensor int_starts = torch::where(int_start_slices==true)[0];
-    at::Tensor int_ends = torch::where(int_end_slices==true)[0];
-    if (int_starts.sizes()[0]>int_ends.sizes()[0]){
-      last_pass_times[j] = int_starts[-1];
-      std::cout<<"last pass:"<<j<<"\n";
-      int_starts = int_starts.slice(0,0,int_starts.sizes()[0]-1,1);
-    } else if (int_starts.sizes()[0]<int_ends.sizes()[0]) {
-      std::cout<<"correction after last pass:"<<j<<"\n";
-      int_ends = int_ends.slice(0,1,int_ends.sizes()[0],1);
+  int l = 0;
+  int k = 0;
+  int m = 0;
+  int j = 0;
+  auto int_starts_big_int_a = int_starts_big_int.accessor<float,1>();
+  auto int_ends_big_int_a = int_ends_big_int.accessor<float,1>();
+  auto int_starts_big_frac_a = int_starts_big_frac.accessor<float,1>();
+  auto int_ends_big_frac_a = int_ends_big_frac.accessor<float,1>();
+  auto all_start_stops_a = all_start_stops.accessor<float,2>();
+  while (true) {
+  // for (int j=0;j<num_cfg_per_this_batch;j++) {
+    // at::Tensor int_start_slices = int_start_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
+    // at::Tensor int_end_slices = int_end_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
+    // at::Tensor int_starts = torch::where(int_start_slices==true)[0];
+    // at::Tensor int_ends = torch::where(int_end_slices==true)[0];
+
+    if (int_starts_big_int_a[l]<int_ends_big_int_a[m]) {
+      last_pass_times[j] = int_starts_big_frac_a[l];
+      l++;
     }
-    at::Tensor int_data = torch::stack({int_starts,int_ends},1);
-    all_start_stops = torch::cat({all_start_stops,int_data},0);
+    if (l>int_starts_big_int.sizes()[0]-1) break;
+    if (int_starts_big_int_a[l]==int_ends_big_int_a[m]) {
+      if (int_ends_big_frac_a[m]<int_starts_big_frac_a[l]) m++;
+      all_start_stops_a[k][0] = int_starts_big_frac_a[l];
+      all_start_stops_a[k][1] = int_ends_big_frac_a[m];
+      l++;
+      m++;
+      k++;
+    }
+    if ((l>int_starts_big_int.sizes()[0]-1)||(m>int_ends_big_int.sizes()[0]-1)) break;
+    while (int_starts_big_int_a[l] > j) {
+      tensor_splits[j+1] = k;
+      j++;
+      // std::cout<<j<<","<<num_cfg_per_this_batch<<std::endl;
+    }
+    // if (j>num_cfg_per_this_batch-1) break;
+    // if (int_starts.sizes()[0]>int_ends.sizes()[0]){
+    //   last_pass_times[j] = int_starts[-1];
+    //   std::cout<<"last pass:"<<j<<"\n";
+    //   int_starts = int_starts.slice(0,0,int_starts.sizes()[0]-1,1);
+    // } else if (int_starts.sizes()[0]<int_ends.sizes()[0]) {
+    //   std::cout<<"correction after last pass:"<<j<<"\n";
+    //   int_ends = int_ends.slice(0,1,int_ends.sizes()[0],1);
+    // }
+    // at::Tensor int_data = torch::stack({int_starts,int_ends},1);
+    // all_start_stops = torch::cat({all_start_stops,int_data},0);
     // std::cout<<all_start_stops.sizes()<<std::endl;
-    tensor_splits[j+1] = tensor_splits[j] + int_data.sizes()[0];
+    // tensor_splits[j+1] = tensor_splits[j] + int_data.sizes()[0];
   }
-  // std::cout<<int_gt<<std::endl;
+  tensor_splits[j+1] = k+1;
+  // t2 = std::chrono::high_resolution_clock::now();
+  // time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+  // ROS_INFO_STREAM("torch batch took " << time_span.count() << " seconds");
+  // std::cout<<all_start_stops<<std::endl;
   #ifdef CUDA_AVAILABLE
   // tmp_tensor.copy_(cpu_tensor);
   // std::cout<<"cpu tensor:"<<cpu_tensor<<std::endl;
-  return std::make_tuple(all_start_stops.to(at::kCPU),last_pass_times.to(at::kCPU),tensor_splits);
+  // return std::make_tuple(all_start_stops.to(at::kCPU),last_pass_times.to(at::kCPU),tensor_splits);
+  return std::make_tuple(all_start_stops,last_pass_times,tensor_splits);
   #else
   return std::make_tuple(all_start_stops,last_pass_times,tensor_splits);
   #endif
@@ -721,17 +780,21 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
     auto intervals_a = std::get<0>(interval_data).accessor<float,2>();
     auto lpt = std::get<1>(interval_data).accessor<float,1>();
     std::vector<int> data_idx = std::get<2>(interval_data);
+
+    // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     for (int j=0;j<num_cfg_per_this_batch;j++) {
       int num_intervals = data_idx[j+1]-data_idx[j];
-      std::get<2>(configurations[i*num_cfg_per_batch+j]).reserve(num_intervals);
-      for (int l=data_idx[j];l<data_idx[j+1];l++) {
-        // std::cout<<(float)intervals_a[l][0]*0.1<<","<<(float)intervals_a[l][1]*0.1<<std::endl;
-        std::get<2>(configurations[i*num_cfg_per_batch+j]).emplace_back((float)intervals_a[l][0]*0.1,(float)intervals_a[l][1]*0.1,0);
-      }
-      if (lpt[j]>0) {
-          std::get<3>(configurations[i*num_cfg_per_batch+j]) = (float)lpt[j]*0.1;
-      } else {
-        std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
+      if (num_intervals>0) {
+        std::get<2>(configurations[i*num_cfg_per_batch+j]).reserve(num_intervals);
+        for (int l=data_idx[j];l<data_idx[j+1];l++) {
+          // std::cout<<(float)intervals_a[l][0]*0.1<<","<<(float)intervals_a[l][1]*0.1<<std::endl;
+          std::get<2>(configurations[i*num_cfg_per_batch+j]).emplace_back((float)intervals_a[l][0]*0.1,(float)intervals_a[l][1]*0.1,0);
+        }
+        if (lpt[j]>0) {
+            std::get<3>(configurations[i*num_cfg_per_batch+j]) = (float)lpt[j]*0.1;
+        } else {
+          std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
+        }
       }
       // bool in_occupancy = false;
       // // std::get<2>(configurations[i*num_cfg_per_batch+j]).clear();
@@ -757,10 +820,12 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
       //   std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
       // }
     }
-
-    #ifdef CUDA_AVAILABLE
-    c10::cuda::CUDACachingAllocator::emptyCache();
-    #endif
+    // std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+    // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    // ROS_INFO_STREAM("post processing inference took " << time_span.count() << " seconds");
+    // #ifdef CUDA_AVAILABLE
+    // c10::cuda::CUDACachingAllocator::emptyCache();
+    // #endif
   }
   // ROS_INFO_STREAM("check intervals, returnign");
 

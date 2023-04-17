@@ -39,6 +39,7 @@ class TimeAvoidRRTStar: public RRT
 {
 protected:
   double r_rewire_;
+  int samples_per_batch = 3;
   //virtual bool setProblem(const double &max_time = std::numeric_limits<double>::infinity()); //max_time not used
 
 public:
@@ -57,6 +58,8 @@ public:
   virtual bool solve(PathPtr &solution, const unsigned int& max_iter=100, const double &max_time = std::numeric_limits<double>::infinity()) override;
   virtual bool update(const Eigen::VectorXd& configuration, PathPtr& solution) override;
   virtual bool update(const NodePtr& n, PathPtr& solution) override;
+  bool update(const std::vector<Eigen::VectorXd>& configurations, PathPtr& solution);
+  bool updateBatch(PathPtr& solution);
   virtual TreeSolverPtr clone(const MetricsPtr& metrics, const CollisionCheckerPtr& checker, const SamplerPtr& sampler) override;
   void addNode(const NodePtr &new_node);
 

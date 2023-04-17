@@ -561,6 +561,9 @@ namespace pathplan
         metrics_->cost(connection_datas);
         // std::cout<<"connections checked:"<<connection_datas.size()<<std::endl;
 
+        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        ROS_INFO_STREAM("STAP net cost " << time_span.count() << " seconds");
         for (int c=0;c<connection_datas.size();c++)
         {
           std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double> conn_data = connection_datas[c];
@@ -632,8 +635,8 @@ namespace pathplan
           improved = true;
         }
 
-        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        t2 = std::chrono::high_resolution_clock::now();
+        time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
         ROS_INFO_STREAM("STAP net Avoidance intervals " << time_span.count() << " seconds for "<<connection_datas.size()<<" configs");
 
       } else {
@@ -973,6 +976,151 @@ namespace pathplan
     // std::cout<<"rewire child hass:"<<node->parent_connections_.size()<<" parents\n";
 
     return improved;
+  }
+
+  bool Tree::rewireBatch(const std::vector<Eigen::VectorXd> &configurations, double r_rewire)
+  {
+    ROS_INFO_STREAM("rewiring a batch");
+    std::vector<NodePtr> new_nodes;
+    for (const Eigen::VectorXd configuration:configurations) {
+      Eigen::VectorXd next_configuration;
+      NodePtr closest_node = nodes_->nearestNeighbor(configuration);
+      if (tryExtendFromNode(configuration, next_configuration, closest_node)) new_nodes.push_back(std::make_shared<Node>(next_configuration));
+    }
+    ROS_INFO_STREAM("going into rewire only batch");
+    return rewireOnlyBatch(new_nodes,r_rewire);
+  }
+
+
+  bool Tree::rewireOnlyBatch(std::vector<NodePtr> &nodes, double r_rewire, const int &what_rewire)
+  {
+    bool improved = false;
+    std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
+    connection_datas.reserve(getNodes().size()*nodes.size());
+    std::vector<int> splits;
+    splits.push_back(0);
+    for (NodePtr node:nodes) {
+      std::multimap<double, NodePtr> near_nodes = near(node, r_rewire);
+      for (const std::pair<double, NodePtr> &p : near_nodes) {
+        const NodePtr &n = p.second;
+
+        if (n == node)
+          continue;          
+        if (!checker_->checkPath(n->getConfiguration(), node->getConfiguration()))
+          continue;
+
+        connection_datas.emplace_back(n,node,0,std::vector<Eigen::Vector3f>(),0,0,0);
+      }
+      splits.push_back(connection_datas.size());
+    }
+    metrics_->cost(connection_datas);
+    for (int c=0;c<connection_datas.size();c++)
+    {
+      std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double> conn_data = connection_datas[c];
+      const NodePtr &n = std::get<0>(conn_data); // get near node from pair
+      const NodePtr &node = std::get<1>(conn_data);
+      if (node == root_) continue;
+      double cost_to_node = costToNode(node);
+      if (n == goal_node_)
+        continue;
+      // // check to prevent a node from becoming its own parent
+      // if (n == nearest_node)
+      //   continue;
+      // if (n == node)
+      //   continue;
+      // cost of near node
+      double cost_to_near = costToNode(n);
+      // std::cout<<"c:"<<c<<", cost to near:"<<cost_to_near<<", cost to node:"<<cost_to_node<<",conn cost:"<<std::get<6>(conn_data)<<std::endl;
+      // if near node is not better than nearest node, skip
+      if (cost_to_near >= cost_to_node)
+        continue;
+      // JF-for time-avoidance, cost function should return total time to reach node from start
+      // double n_time = 0;
+      double cost_near_to_node = std::get<6>(conn_data);
+      // //JF - don't want to add costs for time-avoidance
+
+      // // check for collisions between robot and real-time obstacles at configs along path from parent to node
+      // // JF - need to ensure the predicted obstacles are not part of this planning scene
+      // if (!checker_->checkPath(n->getConfiguration(), node->getConfiguration()))
+      //   continue;
+
+      // make a new connect from better parent to node
+      ROS_INFO_STREAM("making a connection");
+      ConnectionPtr conn = std::make_shared<Connection>(n, node);
+      // edge cost is l2 distance or time to reach new node
+      conn->setParentTime(std::get<2>(conn_data));
+      conn->setAvoidIntervals(std::get<3>(conn_data), std::get<4>(conn_data), std::get<5>(conn_data));
+      conn->setMinTime(inv_max_speed_, min_accel_time);
+
+      // std::cin.ignore();
+      conn->add();
+      conn->setCost(cost_near_to_node);
+      if (((cost_near_to_node) >= cost_to_node))
+      {
+        conn->removeCache();
+        continue;
+      }
+      else
+      {
+        // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
+        if (node->parent_connections_.size()>1) node->parent_connections_.at(0)->removeCache();
+      }
+      
+
+      // JF - if node cost is l2 distance between parent and node, then sum cost to parent with parent->node cost
+
+      // cost_to_node = cost_near_to_node;
+      
+      improved = true;
+    }
+    metrics_->cost(connection_datas,false,true);
+    std::cout<<"connections checked:"<<connection_datas.size()<<std::endl;
+
+    for (int c=0;c<connection_datas.size();c++)
+    {
+      std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double> conn_data = connection_datas[c];
+      const NodePtr &n = std::get<0>(conn_data); // get near node from pair
+      const NodePtr &node = std::get<1>(conn_data);
+
+      double cost_to_near = std::numeric_limits<double>::infinity();
+
+      double cost_node_to_near = std::get<6>(conn_data);
+
+      if ((n != goal_node_) || (!goal_node_->parent_connections_.empty()))
+          cost_to_near = costToNode(n);
+      // if near node is not better than nearest node, skip
+      if ((cost_node_to_near) >= cost_to_near)
+        continue;
+      // JF-for time-avoidance, cost function should return total time to reach node from start
+      // double n_time = 0;
+      // //JF - don't want to add costs for time-avoidance
+
+      // node is a better parent for n and path is collision free, remove old n.parent
+      if (!n->parent_connections_.empty())
+      {
+        // when removing a parent, note that the parent node could potentially be a parent of this node again
+        n->parent_connections_.at(0)->removeCache();
+
+      }
+      // make a new connect from better parent to node
+      ConnectionPtr conn = std::make_shared<Connection>(node,n);
+      // edge cost is l2 distance or time to reach new node
+      conn->setParentTime(std::get<2>(conn_data));
+      conn->setAvoidIntervals(std::get<3>(conn_data), std::get<4>(conn_data), std::get<5>(conn_data));
+      conn->setMinTime(inv_max_speed_, min_accel_time);
+
+      // std::cin.ignore();
+      conn->add();
+      conn->setCost(cost_node_to_near);
+
+      // ROS_INFO_STREAM("here");
+      rewireNearToTheirChildren(n, 0);
+      // ROS_INFO_STREAM("here1");
+      rewireNearToBetterParents(n);
+      // ROS_INFO_STREAM("here2");
+      improved = !goal_node_->getParents().empty();
+                
+    }
   }
 
   void Tree::rewireNearToTheirChildren(NodePtr n, int i)
@@ -1503,6 +1651,7 @@ namespace pathplan
     // PATH_COMMENT_STREAM("rewire only");
     return rewireOnly(new_node, r_rewire);
   }
+
 
   bool Tree::rewire(const Eigen::VectorXd &configuration, double r_rewire)
   {

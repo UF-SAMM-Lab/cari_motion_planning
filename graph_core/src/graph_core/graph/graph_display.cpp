@@ -54,6 +54,7 @@ Display::Display(const planning_scene::PlanningSceneConstPtr planning_scene,
 
 void Display::clearMarkers(const std::string& ns)
 {
+  std::cout<<"clearing markers\n";
   // PATH_COMMENT_STREAM("create marker");
   visualization_msgs::Marker marker;
   marker.action = visualization_msgs::Marker::DELETEALL;
@@ -68,6 +69,7 @@ void Display::clearMarkers(const std::string& ns)
 }
 void Display::clearMarker(const int& id,const std::string& ns)
 {
+  std::cout<<"clearing markers\n";
   visualization_msgs::Marker marker;
   marker.action = visualization_msgs::Marker::DELETE;
   marker.header.stamp=ros::Time::now();
@@ -441,7 +443,6 @@ int Display::displayTree(const TreePtr &tree,
       tf::poseEigenToMsg(state_->getGlobalLinkTransform(last_link_),pose);
       marker.points.push_back(pose.position);
   }
-
   marker_pub_.publish(marker);
   ros::Duration(DISPLAY_TIME).sleep();
   return marker.id;

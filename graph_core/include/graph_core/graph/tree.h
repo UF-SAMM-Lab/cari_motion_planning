@@ -225,6 +225,8 @@ public:
   std::vector<NodePtr> getNodesFromNode(NodePtr node);
   void rewireNearToTheirChildren (NodePtr n,int i);
   void rewireNearToBetterParents (NodePtr n);
+  bool rewireBatch(const std::vector<Eigen::VectorXd> &configurations, double r_rewire);
+  bool rewireOnlyBatch(std::vector<NodePtr> &nodes, double r_rewire, const int &what_rewire = 0);
 };
 
 std::ostream& operator<<(std::ostream& os, const Tree& tree);

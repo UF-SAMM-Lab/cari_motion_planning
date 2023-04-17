@@ -569,16 +569,16 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
       configurations.push_back(config);
       // configurations.emplace_back(p->getConfiguration(),c->getConfiguration());
     }
-    std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-    std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    ROS_INFO_STREAM("prepping configs took " << time_span.count() << " seconds");
+    std::chrono::high_resolution_clock::time_point t2;// = std::chrono::high_resolution_clock::now();
+    std::chrono::duration<double> time_span; //= std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    // ROS_INFO_STREAM("prepping configs took " << time_span.count() << " seconds");
 
     pc_avoid_checker->checkMutliplePaths(configurations);
     // pc_avoid_checker->checkMutliplePaths(configurations,avoid_ints_vec,last_pass_vec);
 
-    t2 = std::chrono::high_resolution_clock::now();
-    time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-    ROS_INFO_STREAM("this part took " << time_span.count() << " seconds for "<<node_datas.size()<<" configs");
+    // t2 = std::chrono::high_resolution_clock::now();
+    // time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+    // ROS_INFO_STREAM("this part took " << time_span.count() << " seconds for "<<node_datas.size()<<" configs");
 
     for (int i=0;i<node_datas.size();i++) {
       std::get<4>(node_datas[i]) = std::get<3>(configurations[i]);

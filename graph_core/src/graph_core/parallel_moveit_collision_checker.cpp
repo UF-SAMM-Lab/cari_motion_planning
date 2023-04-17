@@ -237,6 +237,20 @@ bool ParallelMoveitCollisionChecker::checkPath(const Eigen::VectorXd& configurat
     return false;
   queueConnection(configuration1,configuration2);
   return checkAllQueues();
+  // collision_detection::CollisionResult res;
+  // collision_detection::CollisionRequest req;
+  // req.contacts = false;
+  // assert(configuration1.size()>0);
+  // state1->setJointGroupPositions(group_name_, configuration1);
+  // state1->update();
+  // if (!state1->satisfiesBounds()) return false;
+  // if (!state2->satisfiesBounds()) return false;
+
+  // state2->setJointGroupPositions(group_name_, configuration2);
+  // state2->update();
+  // res.clear();
+  // planning_scene->getCollisionEnv()->checkRobotCollision(req, res, state2, state1);
+  // return res.collision
 }
 
 bool ParallelMoveitCollisionChecker::checkConnFromConf(const ConnectionPtr& conn,

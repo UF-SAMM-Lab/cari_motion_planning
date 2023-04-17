@@ -144,6 +144,14 @@ bool TimeAvoidRRTStar::update(PathPtr& solution)
   return update(sampler_->sample(), solution);
 }
 
+//samples config space, then updates solution
+bool TimeAvoidRRTStar::updateBatch(PathPtr& solution)
+{
+  std::vector<Eigen::VectorXd> samples;
+  for (int i=0;i<samples_per_batch;i++) samples.push_back(sampler_->sample());
+  return update(samples, solution);
+}
+
 //this is for adding new nodes
 bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& solution)
 {
@@ -209,6 +217,51 @@ bool TimeAvoidRRTStar::update(const Eigen::VectorXd& configuration, PathPtr& sol
   return improved;
 }
 
+//this is for adding new nodes
+bool TimeAvoidRRTStar::update(const std::vector<Eigen::VectorXd>& configurations, PathPtr& solution)
+{
+  // std::cout<<"sample "<<configuration.transpose()<<std::endl;
+  // PATH_COMMENT_STREAM("init:"<<init_);
+  if (!init_) {
+    // PATH_COMMENT_STREAM("exit update, not init");
+    return false;
+  }
+
+
+  double old_path_cost;
+  // PATH_COMMENT_STREAM("getting solution cost");
+  //for time-avoidance, cost is time to reach goal node
+  if (solution_) {
+    old_path_cost = start_tree_->costToNode(goal_node_);
+  } else {
+    old_path_cost = std::numeric_limits<double>::max();
+  }
+
+  // PATH_COMMENT_STREAM("old path cost:");
+
+  // PATH_COMMENT_STREAM("number of nodes in tree0: "<<start_tree_->getNumberOfNodes());
+  ROS_INFO_STREAM(configurations.size());
+  bool improved = start_tree_->rewireBatch(configurations, r_rewire_);
+  // PATH_COMMENT_STREAM("number of nodes in tree: "<<start_tree_->getNumberOfNodes());
+  if (improved)
+  {
+
+    if (start_tree_->costToNode(goal_node_)  >= (old_path_cost - 1e-8))
+      return false;
+    // PATH_COMMENT_STREAM(start_tree_->costToNode(goal_node_));
+    solution_ = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node_), metrics_, checker_);
+    // PATH_COMMENT_STREAM("solution:\n"<<*solution_);
+    solution_->setTree(start_tree_);
+
+    path_cost_ = start_tree_->costToNode(goal_node_) ;
+    cost_ = path_cost_;
+    sampler_->setCost(cost_);
+  }
+  solution = solution_;
+  // PATH_COMMENT_STREAM("num nodes "<<start_tree_->getNodes().size());
+  return improved;
+}
+
 //I assume this if the function for rewiring old news to the new parent
 bool TimeAvoidRRTStar::update(const NodePtr& n, PathPtr& solution)
 {
@@ -251,7 +304,7 @@ bool TimeAvoidRRTStar::solve(PathPtr &solution, const unsigned int& max_iter, co
   bool improved = false;
   for (unsigned int iter = 0; iter < max_iter; iter++)
   {
-    if (update(solution))
+    if (updateBatch(solution))
     {
       ROS_DEBUG("Improved in %u iterations", iter);
       solved_ = true;

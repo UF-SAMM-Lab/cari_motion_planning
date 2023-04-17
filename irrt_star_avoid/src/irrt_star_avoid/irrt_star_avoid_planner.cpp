@@ -501,8 +501,8 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
   if (pre_samples.empty()) {
     pre_samples.reserve(300);
-    Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
-    Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
+    // Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
+    // Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
     moveit::core::RobotState kinematic_state(robot_model_);
     Eigen::Vector3d z;
     z<<0,0,1;
@@ -520,7 +520,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
         int j = joint_ids[k];
         if (((metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j)-last_points.col(k)).norm()>0.2)||(vels[j]>0.05)) {
           last_points.col(k) = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
-          Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j)+joint_diff.col(j);
+          Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);//+joint_diff.col(j);
           Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
           // std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
           // for (auto c: goal.joint_constraints)
@@ -528,33 +528,27 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
           // new_state.copyJointGroupPositions(group_,result_cfg);
           // goal_state.updateCollisionBodyTransforms();
           if (checker->check(result_cfg)) {
+            std::cout<<"added pt:"<<pt.transpose()<<std::endl;
             pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
             solver->addNode(new_node);
             presamples++;
             if (presamples>299) break;
+          } else {
+            std::cout<<"rejected pt:"<<pt.transpose()<<std::endl;
           }
         }
       }
-      // Eigen::Vector3d pt_robot_vec = (pt-Eigen::Vector3d(0,0,0.337)).normalized();
-      // pt = pt_robot_vec*0.653+Eigen::Vector3d(0,0,0.337);
-      // Eigen::Quaterniond tmp_quat = Eigen::Quaterniond().setFromTwoVectors(z,pt_robot_vec);
-      // geometry_msgs::Pose tmp_pose;
-      // tmp_pose.orientation.w = tmp_quat.w();
-      // tmp_pose.orientation.x = tmp_quat.x();
-      // tmp_pose.orientation.y = tmp_quat.y();
-      // tmp_pose.orientation.z = tmp_quat.z();
-      // tmp_pose.position.x = pt[0];
-      // tmp_pose.position.y = pt[1];
-      // tmp_pose.position.z = pt[2];
-      // if(kinematic_state.setFromIK(jmg, tmp_pose,0.1)) {
-      //   kinematic_state.copyJointGroupPositions(jmg, joint_values);
-      //   ROS_INFO_STREAM("presample success:" << joint_values);
-      //   pre_samples.push_back(joint_values);
-      // }
-      // if (pre_samples.size()>49) break;
 
     }
     ROS_INFO_STREAM(presamples<<" presamples added to tree");
+    // ROS_INFO_STREAM(solver->getStartTree()->getNodes().size()<<" nodes in tree");
+    // // PATH_COMMENT_STREAM("clearing markers");
+    // display->clearMarkers();
+    // // PATH_COMMENT_STREAM("displaying the tree");
+    // for (int k=0;k<100;k++) {
+    //   display->displayTree(solver->getStartTree());
+    //   ros::Duration(0.01).sleep();
+    // }
   }
   // for (int i=0;i<pre_samples.size();i++) {
     
@@ -585,7 +579,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     }
     // PATH_COMMENT_STREAM("updating the solution");
     // solver->update(solution); //samples for a new node and udpates the node-graph
-    if (solver->update(solution))
+    if (solver->updateBatch(solution))
     {
       solver->setSolved(true);
       // improved = true;
@@ -1125,7 +1119,7 @@ Eigen::VectorXd IRRTStarAvoid::apf_pose(const Eigen::VectorXd current_pose, cons
   Eigen::VectorXd end_pose = current_pose-apf_alpha*tau;
   // std::cout<<"ee_tgt:"<<ee_tgt.transpose()<<",iter:"<<iteration<<", diff:"<<(end_pose-current_pose).norm()<<std::endl;
   // std::cout<<"end_pose:"<<end_pose.transpose()<<std::endl;
-  if ((iteration<100)&&((end_pose-current_pose).norm()>0.01)) {
+  if ((iteration<200)&&((end_pose-current_pose).norm()>0.01)) {
     end_pose = apf_pose(end_pose,ee_tgt,iteration+1);
   }
   return end_pose;
