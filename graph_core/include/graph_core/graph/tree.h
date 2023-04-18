@@ -226,6 +226,7 @@ public:
   void rewireNearToTheirChildren (NodePtr n,int i);
   void rewireNearToBetterParents (NodePtr n);
   bool rewireBatch(const std::vector<Eigen::VectorXd> &configurations, double r_rewire);
+  bool rewireBatch(const std::vector<Eigen::VectorXd> &configurations, double r_rewire,std::vector<NodePtr> &new_nodes);
   bool rewireOnlyBatch(std::vector<NodePtr> &nodes, double r_rewire, const int &what_rewire = 0);
 };
 

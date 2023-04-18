@@ -136,6 +136,11 @@ bool TimeAvoidRRTStar::config(const ros::NodeHandle& nh)
     ROS_DEBUG("%s/rewire_radius is not set. using 2.0*max_distance",nh.getNamespace().c_str());
     r_rewire_=2.0*max_distance_;
   }
+  if (!nh.getParam("samples_per_batch",samples_per_batch))
+  {
+    ROS_DEBUG("%s/samples_per_batch is not set. using 5",nh.getNamespace().c_str());
+    samples_per_batch=5;
+  }
   return true;
 }
 //samples config space, then updates solution
@@ -240,20 +245,24 @@ bool TimeAvoidRRTStar::update(const std::vector<Eigen::VectorXd>& configurations
   // PATH_COMMENT_STREAM("old path cost:");
 
   // PATH_COMMENT_STREAM("number of nodes in tree0: "<<start_tree_->getNumberOfNodes());
-  ROS_INFO_STREAM(configurations.size());
   bool improved = start_tree_->rewireBatch(configurations, r_rewire_);
   // PATH_COMMENT_STREAM("number of nodes in tree: "<<start_tree_->getNumberOfNodes());
   if (improved)
   {
-
-    if (start_tree_->costToNode(goal_node_)  >= (old_path_cost - 1e-8))
+    std::cout<<"getting cost to goal1\n";
+    double tmp_cost = start_tree_->costToNode(goal_node_);
+    std::cout<<"done getting cost to goal1\n";
+    if (tmp_cost >= (old_path_cost - 1e-8)) 
       return false;
     // PATH_COMMENT_STREAM(start_tree_->costToNode(goal_node_));
+    std::cout<<"making solution\n";
     solution_ = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node_), metrics_, checker_);
+    std::cout<<"done making solution\n";
     // PATH_COMMENT_STREAM("solution:\n"<<*solution_);
     solution_->setTree(start_tree_);
-
+    std::cout<<"getting cost to goal2\n";
     path_cost_ = start_tree_->costToNode(goal_node_) ;
+    std::cout<<"done getting cost to goal2\n";
     cost_ = path_cost_;
     sampler_->setCost(cost_);
   }
@@ -304,7 +313,7 @@ bool TimeAvoidRRTStar::solve(PathPtr &solution, const unsigned int& max_iter, co
   bool improved = false;
   for (unsigned int iter = 0; iter < max_iter; iter++)
   {
-    if (updateBatch(solution))
+    if (update(solution))
     {
       ROS_DEBUG("Improved in %u iterations", iter);
       solved_ = true;

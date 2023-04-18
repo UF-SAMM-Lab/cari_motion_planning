@@ -39,7 +39,7 @@ class TimeAvoidRRTStar: public RRT
 {
 protected:
   double r_rewire_;
-  int samples_per_batch = 3;
+  int samples_per_batch = 5;
   //virtual bool setProblem(const double &max_time = std::numeric_limits<double>::infinity()); //max_time not used
 
 public:

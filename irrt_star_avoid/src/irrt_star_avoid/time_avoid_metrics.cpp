@@ -539,7 +539,7 @@ void TimeAvoidMetrics::cost_thread2(Eigen::MatrixXd& parents, Eigen::MatrixXd& c
 //JF - need node1 instead of config1
 void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, bool infer, bool switch_order)
 { 
-
+  std::cout<<"in the cost function\n";
   if (node_datas.size()==0) return;
   Eigen::MatrixXd parents(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
   Eigen::MatrixXd children(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
@@ -583,6 +583,7 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     for (int i=0;i<node_datas.size();i++) {
       std::get<4>(node_datas[i]) = std::get<3>(configurations[i]);
       std::get<3>(node_datas[i]).swap(std::get<2>(configurations[i]));
+      // if (std::get<2>(configurations[i]).empty()) std::cout<<"empty avoid ints vect\n";
       // std::get<4>(node_datas[i]).swap(avoid_ints_vec[i]);
       // std::get<3>(node_datas[i]) = std::get<2>(configurations[i]);
     }
@@ -739,6 +740,8 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     // std::cout<<"conn time end:"<<std::get<6>(node_datas[i])<<std::endl;
   }
 
+  std::cout<<"exiting the cost function\n";
+  // std::cout<<"cost done"<<infer<<","<<switch_order<<"\n";
   // return;
 
   //   // ROS_INFO_STREAM("num configs:"<<configurations.size());
