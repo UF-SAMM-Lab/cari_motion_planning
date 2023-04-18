@@ -985,6 +985,7 @@ namespace pathplan
 
   bool Tree::rewireBatch(const std::vector<Eigen::VectorXd> &configurations, double r_rewire, std::vector<NodePtr> &new_nodes)
   {
+    // std::cout<<"new nodes\n";
     for (const Eigen::VectorXd configuration:configurations) {
       Eigen::VectorXd next_configuration;
       NodePtr closest_node = nodes_->nearestNeighbor(configuration);
@@ -992,6 +993,7 @@ namespace pathplan
         NodePtr new_node = std::make_shared<Node>(next_configuration);
         addNode(new_node);
         new_nodes.push_back(new_node);
+        // std::cout<<next_configuration.transpose()<<std::endl;
       }
     }
     return rewireOnlyBatch(new_nodes,r_rewire);
@@ -1000,7 +1002,7 @@ namespace pathplan
 
   bool Tree::rewireOnlyBatch(std::vector<NodePtr> &nodes, double r_rewire, const int &what_rewire)
   {
-    std::cout<<"in rewire only batch\n";
+    // std::cout<<"in rewire only batch\n";
     bool improved = false;
     std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
     connection_datas.reserve(getNodes().size()*nodes.size());
@@ -1019,15 +1021,15 @@ namespace pathplan
     }
     metrics_->cost(connection_datas);
     // for (auto conn_data:connection_datas)
-    for (int c=0;c<connection_datas.size();c++)
-    {
+    for (int c=0;c<connection_datas.size();c++) {
+    // { std::cout<<"rewire parent:"<<c<<std::endl;
+      // std::vector<ConnectionPtr> tmp_cons = getConnectionToNode(goal_node_);
       std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double> conn_data = connection_datas[c];
       const NodePtr &n = std::get<0>(conn_data); // get near node from pair
       const NodePtr &node = std::get<1>(conn_data);
-      if (node == root_) continue;
-      double cost_to_node = costToNode(node);
       if (n == goal_node_)
         continue;
+      double cost_to_node = costToNode(node);
       // // check to prevent a node from becoming its own parent
       // if (n == nearest_node)
       //   continue;
@@ -1039,6 +1041,9 @@ namespace pathplan
       // if near node is not better than nearest node, skip
       if (cost_to_near >= cost_to_node)
         continue;
+      // if (n==root_) {
+      //   std::cout<<"connecting to the root:"<<cost_to_near<<std::endl;
+      // }
       // JF-for time-avoidance, cost function should return total time to reach node from start
       // double n_time = 0;
       double cost_near_to_node = std::get<6>(conn_data);
@@ -1058,24 +1063,34 @@ namespace pathplan
 
       // std::cin.ignore();
       conn->add();
+      // std::cout<<"added conn2:\n";
+      // std::cout<<*conn<<std::endl;
+      // std::cout<<"cost to parent:"<<costToNode(n)<<", cost to node:"<<costToNode(node)<<std::endl;
       conn->setCost(cost_near_to_node);
       if (((cost_near_to_node) >= cost_to_node))
       {
         conn->removeCache();
         continue;
-      }
+      } 
+      // else if (cost_to_near == std::numeric_limits<double>::infinity()) {
+      //   conn->removeCache();
+      // }
       else
       {
         // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
         if (node->parent_connections_.size()>1) node->parent_connections_.at(0)->removeCache();
       }
+      // std::cout<<node->parent_connections_.size()<<std::endl;
+      // std::cout<<"parent conn:\n";
+      // std::cout<<*node->parent_connections_.at(0)<<std::endl;
       
+      // tmp_cons = getConnectionToNode(goal_node_);
 
       // JF - if node cost is l2 distance between parent and node, then sum cost to parent with parent->node cost
 
       // cost_to_node = cost_near_to_node;
       
-      improved = true;
+      // improved = true;
     }
     
     metrics_->cost(connection_datas,false,true);
@@ -1083,9 +1098,16 @@ namespace pathplan
     // for (auto conn_data:connection_datas)
     for (int c=0;c<connection_datas.size();c++)
     {
+      // std::cout<<"rewire children:"<<c<<std::endl;
+      // std::vector<ConnectionPtr> tmp_cons = getConnectionToNode(goal_node_);
       std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double> conn_data = connection_datas[c];
       const NodePtr &n = std::get<0>(conn_data); // get near node from pair
       const NodePtr &node = std::get<1>(conn_data);
+      if (n == root_) continue;
+      if (!node->parent_connections_.empty()) {
+        if (node->parent_connections_.at(0)->getParent()==n) continue;
+      }
+
 
       double cost_to_near = std::numeric_limits<double>::infinity();
 
@@ -1101,12 +1123,15 @@ namespace pathplan
       // //JF - don't want to add costs for time-avoidance
 
       // node is a better parent for n and path is collision free, remove old n.parent
+      // std::cout<<"before add conn\n";
+      // tmp_cons = getConnectionToNode(goal_node_);
       if (!n->parent_connections_.empty())
       {
         // when removing a parent, note that the parent node could potentially be a parent of this node again
         n->parent_connections_.at(0)->removeCache();
 
       }
+
       // make a new connect from better parent to node
       ConnectionPtr conn = std::make_shared<Connection>(node,n);
       // edge cost is l2 distance or time to reach new node
@@ -1117,18 +1142,39 @@ namespace pathplan
 
       // std::cin.ignore();
       conn->add();
-      conn->setCost(cost_node_to_near);
 
-      ROS_INFO_STREAM("rewiring children");
+      if (costToNode(node) == std::numeric_limits<double>::infinity()) conn->removeCache();
+      // std::cout<<"added conn3:\n";
+      // std::cout<<*conn<<std::endl;
+      // std::cout<<"cost to parent:"<<costToNode(node)<<", cost to node:"<<costToNode(n)<<std::endl;
+      // std::cout<<n->parent_connections_.size()<<std::endl;
+      // std::cout<<"n parent conns:\n";
+      // for (ConnectionPtr cn:n->parent_connections_)std::cout<<*cn<<std::endl;
+      // std::cout<<"n child conns:\n";
+      // for (ConnectionPtr cn:n->child_connections_) std::cout<<*cn<<std::endl;
+      // std::cout<<"parent (node) parent conns:\n";
+      // for (ConnectionPtr cn:node->parent_connections_) std::cout<<*cn<<std::endl;
+      conn->setCost(cost_node_to_near);
+      
+      // std::cout<<"after add conn\n";
+      // tmp_cons = getConnectionToNode(goal_node_);
+      // std::cout<<node->getConfiguration().transpose()<<std::endl;
+      // std::cout<<n->getConfiguration().transpose()<<std::endl;
+      // ROS_INFO_STREAM("rewiring children");
       rewireNearToTheirChildren(n, 0);
+      // tmp_cons = getConnectionToNode(goal_node_);
       // ROS_INFO_STREAM("here1");
-      ROS_INFO_STREAM("rewiring parents");
+      // ROS_INFO_STREAM("rewiring parents");
       rewireNearToBetterParents(n);
-      ROS_INFO_STREAM("next");
-      improved = !goal_node_->getParents().empty();
+      // tmp_cons = getConnectionToNode(goal_node_);
+      // ROS_INFO_STREAM("next");
                 
     }
-    std::cout<<"exiting rewire only batch\n";
+    // std::cout<<"exiting rewire only batch\n";
+
+    improved = !goal_node_->getParents().empty();
+    if (improved) improved = improved && (getConnectionToNode(goal_node_)[0]->getParent()==root_);
+    // std::vector<ConnectionPtr> tmp_cons = getConnectionToNode(goal_node_);
     return improved;
   }
 
@@ -1163,6 +1209,15 @@ namespace pathplan
       conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
       conn->setMinTime(inv_max_speed_, min_accel_time);
       conn->add();
+      // std::cout<<"added conn4:\n";
+      // std::cout<<*conn<<std::endl;
+      // std::cout<<"cost to parent:"<<costToNode(n)<<", cost to node:"<<costToNode(n_child)<<std::endl;
+      // std::cout<<n_child->parent_connections_.size()<<std::endl;
+      
+      // std::cout<<"parent conn:\n";
+      // std::cout<<*n_child->parent_connections_.at(0)<<std::endl;
+      // std::cout<<"parents child conns:\n";
+      // for (ConnectionPtr cn:n->child_connections_) std::cout<<*cn<<std::endl;
       conn->setCost(cost_n_to_child);
       rewireNearToTheirChildren(n_child, i + 1);
       // std::cout<<"rewire near to children, parent has:"<<conn->getParent()->parent_connections_.size()<<" parents\n";
@@ -1194,6 +1249,7 @@ namespace pathplan
       // std::cout<<"test\n";
       // std::cout<<*conn;
       NodePtr n_parent = conn->getParent();
+      // std::cout<<"before conn 5 cost to parent:"<<costToNode(n_parent)<<", cost to node:"<<costToNode(n)<<", parent min time:"<<n_parent->min_time<<std::endl;
       // std::cout<<"test2\n";
       double cost_to_parent = costToNode(n_parent);
       std::vector<Eigen::Vector3f> avoid_ints;
@@ -1214,7 +1270,12 @@ namespace pathplan
       conn->setAvoidIntervals(avoid_ints, last_pass_time, min_human_dist);
       conn->setMinTime(inv_max_speed_, min_accel_time);
       conn->add();
+      // std::cout<<"added conn5:\n";
+      // std::cout<<*conn<<std::endl;
+      // std::cout<<"parent conn:\n";
+      // std::cout<<n->parent_connections_.size()<<std::endl;
       conn->setCost(cost_parent_to_n);
+      // std::cout<<"cost to parent:"<<costToNode(n_parent)<<", cost to node:"<<costToNode(n)<<","<<cost_parent_to_n<<std::endl;
       // std::cout<<"rewire near to parents, parent has:"<<conn->getParent()->parent_connections_.size()<<" parents\n";
     }
   }
@@ -1734,7 +1795,9 @@ namespace pathplan
     }
     else
     {
-      if (node->parent_connections_.empty()) {
+      if (node == root_) {
+        cost = 0;
+      } else if (node->parent_connections_.empty()) {
         cost = std::numeric_limits<double>::infinity();
       } else if (node != root_) {
           cost = node->parent_connections_.at(0)->getCost();
@@ -1744,7 +1807,9 @@ namespace pathplan
   }
 
   std::vector<ConnectionPtr> Tree::getConnectionToNode(NodePtr node)
-  {
+  { 
+    // std::cout<<"goal node\n";
+    // std::cout<<node->getConfiguration().transpose()<<std::endl;
     std::vector<ConnectionPtr> connections;
 
     while (node != root_)
@@ -1752,15 +1817,34 @@ namespace pathplan
       // ROS_INFO_STREAM(*node);
       if (node->parent_connections_.size() != 1)
       {
-        ROS_ERROR("a tree node should have only a parent");
+        ROS_ERROR_STREAM("a tree node should have only a parent");
         ROS_ERROR_STREAM("node \n"
                          << *node);
 
         ROS_INFO_STREAM("current root " << root_);
         ROS_INFO_STREAM("node " << node);
 
-        assert(0);
+        // assert(0);
       }
+      if (std::find(connections.begin(),connections.end(),node->parent_connections_.at(0))!=connections.end()) {
+        ROS_ERROR_STREAM("circular path");
+        std::cout<<*node->parent_connections_.at(0)<<std::endl;
+        std::cout<<"cost:"<<costToNode(node)<<std::endl;
+        // assert(0);
+        break;
+      }
+      // std::cout<<node->parent_connections_.at(0)->getParent()<<"->"<<node<<std::endl;
+      // std::cout<<*node->parent_connections_.at(0)<<std::endl;
+      double p_cost = costToNode(node->parent_connections_.at(0)->getParent());
+      double c_cost = costToNode(node);
+      // std::cout<<"cost to parent:"<<p_cost<<", cost to node:"<<c_cost<<std::endl;
+      // if (time_avoid_ && (p_cost>c_cost)) {
+
+      // }
+      // if (p_cost>c_cost) {
+      //   node->parent_connections_.at(0)->removeCache();
+      //   break;
+      // }
       connections.push_back(node->parent_connections_.at(0));
       node = node->parent_connections_.at(0)->getParent();
     }

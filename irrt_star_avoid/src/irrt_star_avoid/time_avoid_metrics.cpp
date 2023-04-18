@@ -90,7 +90,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     double node_time_new = time_new;
     //get cost of parent
     //requires extended node data
-    double c_near = 0.0;
+    double c_near = 1000;//0.0;
     // if (parent.min_time == std::numeric_limits<double>::infinity()) {
     //     c_near = parent->parent_connections_.at(0)->getCost(); //connections store cost to node at end of connection
     // } else {
@@ -539,7 +539,7 @@ void TimeAvoidMetrics::cost_thread2(Eigen::MatrixXd& parents, Eigen::MatrixXd& c
 //JF - need node1 instead of config1
 void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, bool infer, bool switch_order)
 { 
-  std::cout<<"in the cost function\n";
+  // std::cout<<"in the cost function\n";
   if (node_datas.size()==0) return;
   Eigen::MatrixXd parents(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
   Eigen::MatrixXd children(node_datas.size(),std::get<0>(node_datas[0])->getConfiguration().size());
@@ -636,14 +636,15 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     double node_time_new = time_new[i];
     //get cost of parent
     //requires extended node data
-    double c_near = 0.0;
+    double c_near = 1000;//std::numeric_limits<double>::infinity();//0.0;
     NodePtr p = std::get<0>(node_datas[i]);
     NodePtr c = std::get<1>(node_datas[i]);
     if (switch_order) {
       p = std::get<1>(node_datas[i]);
       c = std::get<0>(node_datas[i]);
     }
-    if (!p->parent_connections_.empty()) {
+    if ((!p->parent_connections_.empty())||(p->min_time==0)) {
+      // std::cout<<"found parent with min_time:"<<p->min_time<<std::endl;
       c_near = p->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
     }
     std::get<2>(node_datas[i]) = c_near;    
@@ -740,7 +741,7 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     // std::cout<<"conn time end:"<<std::get<6>(node_datas[i])<<std::endl;
   }
 
-  std::cout<<"exiting the cost function\n";
+  // std::cout<<"exiting the cost function\n";
   // std::cout<<"cost done"<<infer<<","<<switch_order<<"\n";
   // return;
 
