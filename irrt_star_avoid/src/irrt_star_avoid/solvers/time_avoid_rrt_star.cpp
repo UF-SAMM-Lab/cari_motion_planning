@@ -249,20 +249,20 @@ bool TimeAvoidRRTStar::update(const std::vector<Eigen::VectorXd>& configurations
   // PATH_COMMENT_STREAM("number of nodes in tree: "<<start_tree_->getNumberOfNodes());
   if (improved)
   {
-    std::cout<<"getting cost to goal1\n";
+    // std::cout<<"getting cost to goal1\n";
     double tmp_cost = start_tree_->costToNode(goal_node_);
-    std::cout<<"done getting cost to goal1\n";
+    // std::cout<<"done getting cost to goal1\n";
     if (tmp_cost >= (old_path_cost - 1e-8)) 
       return false;
     // PATH_COMMENT_STREAM(start_tree_->costToNode(goal_node_));
-    std::cout<<"making solution\n";
+    // std::cout<<"making solution\n";
     solution_ = std::make_shared<Path>(start_tree_->getConnectionToNode(goal_node_), metrics_, checker_);
-    std::cout<<"done making solution\n";
+    // std::cout<<"done making solution\n";
     // PATH_COMMENT_STREAM("solution:\n"<<*solution_);
     solution_->setTree(start_tree_);
-    std::cout<<"getting cost to goal2\n";
+    // std::cout<<"getting cost to goal2\n";
     path_cost_ = start_tree_->costToNode(goal_node_) ;
-    std::cout<<"done getting cost to goal2\n";
+    // std::cout<<"done getting cost to goal2\n";
     cost_ = path_cost_;
     sampler_->setCost(cost_);
   }

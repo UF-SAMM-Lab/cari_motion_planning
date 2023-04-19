@@ -50,10 +50,12 @@ protected:
   bool use_iso15066_;
   bool record_SSM;
 private:
+  std::vector<std::tuple<double,float,double>> node_datas_local;
   std::ofstream data_file;
   void cost_thread(Eigen::MatrixXd& dist_new, Eigen::VectorXd& time_new,  std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations, std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, int start_i, int end_i);
-  void cost_thread2(Eigen::MatrixXd& parents, Eigen::MatrixXd& children,  Eigen::MatrixXd& dist_new, Eigen::VectorXd& time_new, std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, int start_i, int end_i, bool switch_order);
-
+  void cost_thread2(int th_num,std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>>& node_datas, int start_i, int end_i, bool switch_order);
+  std::vector<std::thread> threads;
+  int num_threads = 4;
 public:
   double max_dt;
   Eigen::VectorXd inv_max_speed_;

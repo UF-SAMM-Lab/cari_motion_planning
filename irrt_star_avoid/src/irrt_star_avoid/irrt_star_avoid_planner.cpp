@@ -91,7 +91,11 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
     speed_override_int=100;
   }
   speed_override = (double)speed_override_int/100.0;
-  
+  if (!m_nh.getParam("t_pad",t_pad_))
+  {
+    ROS_DEBUG("t_pad is not set, default=0.0");
+    t_pad_=100;
+  }
 
   COMMENT("read bounds");
   for (unsigned int idx=0;idx<m_dof;idx++)
@@ -174,6 +178,12 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   {
     ROS_DEBUG("max_iterations is not set, default=false");
     max_iterations=0;
+  }
+
+  if (!m_nh.getParam("plot_interval",plot_interval_))
+  {
+    ROS_DEBUG("plot_interval is not set, default=5");
+    plot_interval_=5;
   }
 
   if (!m_nh.getParam("grid_spacing",grid_spacing))
@@ -511,7 +521,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     int presamples=0;
     int num_human_points = metrics->pc_avoid_checker->model_->joint_seq[0].second.cols();
     int num_human_steps = metrics->pc_avoid_checker->model_->joint_seq.size();
-    std::vector<int> joint_ids = {4,5,7,8};
+    std::vector<int> joint_ids = {5,8};
     Eigen::MatrixXd last_points = Eigen::MatrixXd::Zero(3,joint_ids.size());
     for (int i=1;i<num_human_steps;i++) {//rand_t_indices.size();i++) {
       Eigen::MatrixXd joint_diff = metrics->pc_avoid_checker->model_->joint_seq.at(i).second - metrics->pc_avoid_checker->model_->joint_seq.at(i-1).second;

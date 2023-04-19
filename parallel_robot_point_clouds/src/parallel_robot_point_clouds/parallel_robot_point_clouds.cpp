@@ -104,6 +104,9 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   grav << 0, 0, -9.806;
   chain_ = rosdyn::createChain(robo_model, base_frame_, tool_frame, grav);
   ssm_=std::make_shared<ssm15066::DeterministicSSM>(chain_,nh);
+  for (int i=0;i<20;i++) {
+    ssm_vec.push_back(std::make_shared<ssm15066::DeterministicSSM>(rosdyn::createChain(robo_model, base_frame_, tool_frame, grav),nh));
+  }
   ROS_INFO_STREAM("recording intervals:"<<record_intervals);
   if (record_intervals) avoid_ints_file.open("avoid_ints.csv");
   // torch::jit::setGraphExecutorOptimize(false);
@@ -621,6 +624,66 @@ double ParallelRobotPointClouds::checkISO15066(Eigen::VectorXd configuration1,
     // }
 }
 
+
+double ParallelRobotPointClouds::checkISO15066Threaded(int th_num, Eigen::VectorXd configuration1,
+                                              Eigen::VectorXd configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) {
+    double nominal_time = t2-t1;
+    min_human_dist = 1.0;
+    // std::cout<<int(model_->joint_seq.size());
+    if (model_->joint_seq.empty()) return t2;
+    double model_t_step = 0.1;
+    // ROS_INFO_STREAM("joint seq:"<<model_->joint_seq.size()<<","<<model_t_step);
+    if (configuration2.size()!=configuration1.size()) {
+      std::cout<<"cfg\n";
+      std::cout<<configuration1.transpose()<<std::endl;
+      std::cout<<configuration2.transpose()<<std::endl;
+    }
+    Eigen::VectorXd nominal_velocity= (configuration2 - configuration1)/nominal_time;
+    double cost=0;
+    double inv_nsteps = 1.0 / nsteps;
+    double segment_time = nominal_time / nsteps;
+    for (unsigned int istep = 0; istep < nsteps+1; istep++)
+    { 
+      int step_num = int((t1+cost+(double)istep*segment_time)/model_t_step);
+      if (step_num<model_->joint_seq.size()) {
+        ssm_vec[th_num]->setPointCloud(model_->joint_seq[step_num].second);
+      } else {
+        // ssm_->setPointCloud(Eigen::Matrix3Xd());
+        ssm_vec[th_num]->setPointCloud(model_->joint_seq.back().second);
+      }
+      Eigen::VectorXd q = configuration1 + (configuration2 - configuration1) * inv_nsteps * (double)istep;
+
+      double scaling=ssm_vec[th_num]->computeScaling(q,nominal_velocity);
+      
+      min_human_dist = (float)scaling;
+      // std::cout<<","<<min_human_dist<<",";
+
+      // std::cout<<q.transpose()<<", scale:"<<scaling<<", "<<model_t_step<<std::endl;
+      double max_seg_time = segment_time/(scaling+1e-6);
+      if (scaling<0.1) {
+        for (int i=1;i<30;i+=5) {
+          if (step_num+i<model_->joint_seq.size()) {
+            ssm_vec[th_num]->setPointCloud(model_->joint_seq[step_num+i].second);
+            scaling=ssm_vec[th_num]->computeScaling(q,nominal_velocity);
+            if (scaling>0.1) { 
+              max_seg_time = double(i)*0.1+segment_time/scaling;
+              min_human_dist = (float)scaling;
+              break;
+            }
+          } else {
+            // max_seg_time = segment_time;
+            break;
+          }
+        }
+      }
+      cost+=max_seg_time; //avoid division by zero
+    }
+    // ROS_INFO_STREAM("ssm cost:"<<cost);
+    // std::cout<<std::endl;
+
+    return cost+(double)t1;
+}
+
 std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::checkBatch(std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>>& configurations,int i,int num_cfg_per_this_batch,int num_cfg_per_batch)
 {
   std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
@@ -649,7 +712,10 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
   // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
   // ROS_INFO_STREAM("prepping inference took " << time_span.count() << " seconds");
   // std::cout<<"input tensor:"<<input_tensor<<std::endl;
+
+  // std::cout<<"inferring2\n";
   at::Tensor tmp_tensor = avoid_net.forward({input_tensor.to(torch_device)}).toTensor().flatten();//to(at::kCPU).flatten();
+  // std::cout<<"done inferring2\n";
   // std::cout<<"output tensor:"<<tmp_tensor.to(at::kCPU)<<std::endl;
   // std::cout<<"output tensor size:"<<tmp_tensor.sizes()<<std::endl;
   at::Tensor int_gt = (tmp_tensor>0.5).to(at::kBool);
@@ -703,11 +769,6 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
     // at::Tensor int_starts = torch::where(int_start_slices==true)[0];
     // at::Tensor int_ends = torch::where(int_end_slices==true)[0];
 
-    if (int_starts_big_int_a[l]<int_ends_big_int_a[m]) {
-      last_pass_times[j] = int_starts_big_frac_a[l];
-      l++;
-    }
-    if (l>int_starts_big_int.sizes()[0]-1) break;
     if (int_starts_big_int_a[l]==int_ends_big_int_a[m]) {
       if (int_ends_big_frac_a[m]<int_starts_big_frac_a[l]) m++;
       all_start_stops_a[k][0] = int_starts_big_frac_a[l];
@@ -715,6 +776,11 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
       l++;
       m++;
       k++;
+    } else if (int_starts_big_int_a[l]<int_ends_big_int_a[m]) {
+      last_pass_times[j] = int_starts_big_frac_a[l];
+      l++;
+    } else if (int_starts_big_int_a[l]>int_ends_big_int_a[m]) {
+      m++;
     }
     if ((l>int_starts_big_int.sizes()[0]-1)||(m>int_ends_big_int.sizes()[0]-1)) break;
     while (int_starts_big_int_a[l] > j) {

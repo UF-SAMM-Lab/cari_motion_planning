@@ -126,6 +126,7 @@ protected:
   int num_link_pts = 0;
   const moveit::core::JointModelGroup* joint_model_group;
   ssm15066::DeterministicSSMPtr ssm_;
+  std::vector<ssm15066::DeterministicSSMPtr> ssm_vec;
   rosdyn::ChainPtr chain_;
   torch::jit::script::Module avoid_net;
   bool record_intervals=false;
@@ -178,6 +179,9 @@ public:
   void displayCollisionPoint(float radius,Eigen::Vector3f pos);
   void clearRobot(void);
   double checkISO15066(Eigen::VectorXd configuration1,
+                                              Eigen::VectorXd configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) ;
+
+  double checkISO15066Threaded(int th_num,Eigen::VectorXd configuration1,
                                               Eigen::VectorXd configuration2, double length, float t1, float t2, unsigned int nsteps, float &min_human_dist) ;
   void updatePlanningScene(const planning_scene::PlanningScenePtr &planning_scene);
   int getMaxCfgPerBatch(void);
