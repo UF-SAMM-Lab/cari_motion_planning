@@ -1846,7 +1846,7 @@ namespace pathplan
 
         ROS_INFO_STREAM("current root " << root_);
         ROS_INFO_STREAM("node " << node);
-
+        break;
         // assert(0);
       }
       if (std::find(connections.begin(),connections.end(),node->parent_connections_.at(0))!=connections.end()) {
@@ -1854,6 +1854,8 @@ namespace pathplan
         // std::cout<<*node->parent_connections_.at(0)<<std::endl;
         // std::cout<<"cost:"<<costToNode(node)<<std::endl;
         // assert(0);
+
+        connections.back()->removeCache();
         break;
       }
       // std::cout<<node->parent_connections_.at(0)->getParent()<<"->"<<node<<std::endl;

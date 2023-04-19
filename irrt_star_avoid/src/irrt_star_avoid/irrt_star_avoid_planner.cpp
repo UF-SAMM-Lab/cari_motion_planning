@@ -400,7 +400,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   start_node->min_time = 0.0;
   COMMENT("creating a time informed sampler");
   pathplan::SamplerPtr sampler = std::make_shared<pathplan::TimeInformedSampler>(m_lb, m_ub, m_lb, m_ub,max_velocity_);
-  
+
   // sampler->sample_pub=m_nh.advertise<visualization_msgs::Marker>("/sample");
   COMMENT("creating a time avoid rrt solver");
   std::shared_ptr<pathplan::TimeAvoidRRTStar> solver=std::make_shared<pathplan::TimeAvoidRRTStar>(metrics,checker,sampler);
