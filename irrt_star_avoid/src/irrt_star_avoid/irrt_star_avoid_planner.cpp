@@ -94,7 +94,7 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   if (!m_nh.getParam("t_pad",t_pad_))
   {
     ROS_DEBUG("t_pad is not set, default=0.0");
-    t_pad_=100;
+    t_pad_=0;
   }
 
   COMMENT("read bounds");

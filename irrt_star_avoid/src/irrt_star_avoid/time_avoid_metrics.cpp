@@ -98,7 +98,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     // } else {
     //     c_near = parent.min_time;
     // }
-    if (!parent->parent_connections_.empty()) {
+    if ((!parent->parent_connections_.empty())||(parent->min_time==0)) {
       c_near = parent->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
     }
     near_time = c_near;
@@ -461,12 +461,15 @@ void TimeAvoidMetrics::cost_thread2(int th_num,std::vector<std::tuple<const Node
     //get cost of parent
     //requires extended node data
     // std::tuple<double,float,double> node_data;
-    double c_near = 0.0;
-    NodePtr p = std::get<0>(node_datas[i]);
-    NodePtr c = std::get<1>(node_datas[i]);
+    double c_near = 1000.0;
+    NodePtr p;
+    NodePtr c;
     if (switch_order) {
       p = std::get<1>(node_datas[i]);
       c = std::get<0>(node_datas[i]);
+    } else {
+      p = std::get<0>(node_datas[i]);
+      c = std::get<1>(node_datas[i]);
     }
     Eigen::VectorXd dist_new = p->getConfiguration()-c->getConfiguration();
     double dist_norm = dist_new.norm();
