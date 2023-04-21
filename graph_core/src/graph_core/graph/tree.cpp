@@ -1047,11 +1047,8 @@ namespace pathplan
       double cost_to_near = costToNode(n);
       // std::cout<<"c:"<<c<<", cost to near:"<<cost_to_near<<", cost to node:"<<cost_to_node<<",conn cost:"<<std::get<6>(conn_data)<<std::endl;
       // if near node is not better than nearest node, skip
-      // if (cost_to_near >= cost_to_node)
-      //   continue;
-      if (n==root_) {
-        std::cout<<"connecting to the root:"<<cost_to_near<<std::endl;
-      }
+      if (cost_to_near >= cost_to_node)
+        continue;
       // JF-for time-avoidance, cost function should return total time to reach node from start
       // double n_time = 0;
       double cost_near_to_node = std::get<6>(conn_data);
@@ -1135,8 +1132,8 @@ namespace pathplan
       if ((n != goal_node_) || (!goal_node_->parent_connections_.empty()))
           cost_to_near = costToNode(n);
       // if near node is not better than nearest node, skip
-      // if ((cost_node_to_near) >= cost_to_near)
-      //   continue;
+      if ((cost_node_to_near) >= cost_to_near)
+        continue;
       // JF-for time-avoidance, cost function should return total time to reach node from start
       // double n_time = 0;
       // //JF - don't want to add costs for time-avoidance
@@ -1202,7 +1199,7 @@ namespace pathplan
 
   void Tree::rewireNearToTheirChildren(NodePtr n, int i)
   {
-    if (i > 5)
+    if (i > num_child_checks)
       return;
     double cost_to_n = costToNode(n);
     // std::cout<<"rewire n has:"<<n->child_connections_.size()<<" children\n";
@@ -1230,8 +1227,7 @@ namespace pathplan
       conn->setCost(cost_n_to_child);
       if (n_child->min_time<cost_n_to_child) continue;
       if (cost_to_n>cost_n_to_child) continue;
-      conn->add();    
-      if (abs(cost_n_to_child-1.30064)<0.00001) std::cout<<"here 5\n";  
+      conn->add();     
       if (n_child->parent_connections_.size()>1)
       {
         n_child->parent_connections_.at(0)->removeCache();

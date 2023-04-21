@@ -148,6 +148,7 @@ private:
   unsigned int n_joints=0;
   double apf_zeta = 1.0;
   double apf_alpha = 1.0;
+  int num_child_checks=5;
 };
 
 typedef std::shared_ptr<IRRTStarAvoid> IRRTStarAvoidPtr;

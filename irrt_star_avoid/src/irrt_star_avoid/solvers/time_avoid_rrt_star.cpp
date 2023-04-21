@@ -40,6 +40,9 @@ bool TimeAvoidRRTStar::addStartTree(const TreePtr &start_tree, const double &max
   return setProblem(max_time);
 }
 
+void TimeAvoidRRTStar::setNumChildChecks(int nc) {
+  start_tree_->num_child_checks = nc;
+}
 
 bool TimeAvoidRRTStar::addGoal(const NodePtr &goal_node, const double &max_time)
 {

@@ -632,7 +632,7 @@ void TimeAvoidMetrics::cost(std::vector<std::tuple<const NodePtr,const NodePtr,d
     // std::cout<<"started thread "<<i<<std::endl;
     threads_started++;
   }
-  for (int i=0;i<threads_started;i++) {
+  for (int i=0;i<threads.size();i++) {
     // std::cout<<"joining thread "<<i<<std::endl;
     if (threads.at(i).joinable()){
       threads.at(i).join();

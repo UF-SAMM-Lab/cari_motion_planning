@@ -73,13 +73,13 @@ protected:
   void populateTreeFromNode(const NodePtr& node, const Eigen::VectorXd& focus1, const Eigen::VectorXd& focus2, const double& cost);
   void populateTreeFromNode(const NodePtr& node, const Eigen::VectorXd& focus1, const Eigen::VectorXd& focus2, const double& cost, const std::vector<NodePtr> &white_list);
 
-
 public:
   NodePtr goal_node_;
   Eigen::VectorXd inv_max_speed_;
   double min_accel_time=0.0;
   bool time_avoid_ = false;
   bool use_net=false;
+  int num_child_checks=5;
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
   Tree(const NodePtr& root,
        const double& max_distance,

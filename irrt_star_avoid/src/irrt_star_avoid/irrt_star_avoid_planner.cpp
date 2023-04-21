@@ -268,6 +268,10 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
   grav << 0, 0, -9.806;
   chain_ = rosdyn::createChain(robo_model, base_frame_, tool_frame, grav);
   unsigned int n_joints=chain_->getActiveJointsNumber();
+  if (!m_nh.getParam("num_child_checks", num_child_checks))
+  {
+    ROS_DEBUG("num_child_checks is not set, default=5");
+  }
 }
 
 void IRRTStarAvoid::setPlanningScene ( const planning_scene::PlanningSceneConstPtr& planning_scene )
@@ -418,6 +422,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   }
   solver->addStart(start_node);
   solver->setInvMaxTime(max_velocity_.cwiseInverse(),metrics->max_dt);
+  solver->setNumChildChecks(num_child_checks);
 
   // m_queue.callAvailable();
 

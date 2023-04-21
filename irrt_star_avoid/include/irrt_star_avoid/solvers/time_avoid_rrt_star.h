@@ -62,6 +62,7 @@ public:
   bool updateBatch(PathPtr& solution);
   virtual TreeSolverPtr clone(const MetricsPtr& metrics, const CollisionCheckerPtr& checker, const SamplerPtr& sampler) override;
   void addNode(const NodePtr &new_node);
+  void setNumChildChecks(int nc);
 
 };
 }
