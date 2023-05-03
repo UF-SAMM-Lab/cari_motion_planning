@@ -467,14 +467,14 @@ namespace avoidance_intervals{
         joint_seq.clear();
         quat_seq.clear();
         for (int i=0;i< msg->sequence.size();i++) {
-            Eigen::MatrixXd joint_pos(3,int(msg->sequence[i].joint_pos.data.size()/3));
+            Eigen::MatrixXd joint_pos(3,int(msg->sequence[i].joint_pos.size()/3));
             int c = 0;
-            for (int j=0;j<msg->sequence[i].joint_pos.data.size();j++) {
-                joint_pos.col(c)[j%3] = msg->sequence[i].joint_pos.data[j];
+            for (int j=0;j<msg->sequence[i].joint_pos.size();j++) {
+                joint_pos.col(c)[j%3] = msg->sequence[i].joint_pos[j];
                 if ((j>0)&&(j%3==0)) c++;
             }
-            joint_seq.push_back(std::pair<float,Eigen::MatrixXd>(msg->sequence[i].time.data,joint_pos));
-            quat_seq.push_back(std::pair<float,std::vector<float>>(msg->sequence[i].time.data,msg->sequence[i].quats.data));
+            joint_seq.push_back(std::pair<float,Eigen::MatrixXd>(msg->sequence[i].time,joint_pos));
+            quat_seq.push_back(std::pair<float,std::vector<float>>(msg->sequence[i].time,msg->sequence[i].quats));
         }
         new_joint_seq = true;
     }
@@ -1218,20 +1218,20 @@ namespace avoidance_intervals{
         int start_i = std::min(int(floor(start_time/t_step_)),int(joint_seq.size())-1);
         ROS_INFO_STREAM("publishing the sequence of length:"<<int(joint_seq.size())-start_i<<" starting from step "<<start_i);
         for (int i=start_i;i<joint_seq.size();i++) {
-            joint_seq_elem_msg.time.data = joint_seq[i].first;
-            joint_seq_elem_msg.joint_pos.data.clear();
+            joint_seq_elem_msg.time = joint_seq[i].first;
+            joint_seq_elem_msg.joint_pos.clear();
             for (int j=0;j<joint_seq[i].second.size();j++) {
                 for (int k=0;k<3;k++) {
-                    joint_seq_elem_msg.joint_pos.data.push_back(joint_seq[i].second[j][k]);
+                    joint_seq_elem_msg.joint_pos.push_back(joint_seq[i].second[j][k]);
                 }
             }
-            joint_seq_elem_msg.quats.data.clear();
-            for (int k=0;k<3;k++) joint_seq_elem_msg.quats.data.push_back(joint_seq[i].second[0][k]);
+            joint_seq_elem_msg.quats.clear();
+            for (int k=0;k<3;k++) joint_seq_elem_msg.quats.push_back(joint_seq[i].second[0][k]);
             for (int j=0;j<quat_seq[i].second.size();j++) {
-                joint_seq_elem_msg.quats.data.push_back(quat_seq[i].second[j].w());
-                joint_seq_elem_msg.quats.data.push_back(quat_seq[i].second[j].x());
-                joint_seq_elem_msg.quats.data.push_back(quat_seq[i].second[j].y());
-                joint_seq_elem_msg.quats.data.push_back(quat_seq[i].second[j].z());
+                joint_seq_elem_msg.quats.push_back(quat_seq[i].second[j].w());
+                joint_seq_elem_msg.quats.push_back(quat_seq[i].second[j].x());
+                joint_seq_elem_msg.quats.push_back(quat_seq[i].second[j].y());
+                joint_seq_elem_msg.quats.push_back(quat_seq[i].second[j].z());
             }
             joint_sequence_msg.sequence.push_back(joint_seq_elem_msg);
         }

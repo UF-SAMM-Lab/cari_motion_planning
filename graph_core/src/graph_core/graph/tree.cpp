@@ -182,11 +182,16 @@ namespace pathplan
     double cost;
     double n_time = 0;
     if (time_avoid_)
+    { 
+      return true;
+    }
+    if (time_avoid_)
     {
       std::vector<Eigen::Vector3f> avoid_ints;
       float min_human_dist;
       float last_pass_time;
       // is it connecting to an a node with inf cost?
+      ROS_INFO("extendonly");
       cost = metrics_->cost(closest_node, new_node, n_time, avoid_ints, last_pass_time, min_human_dist);
       // PATH_COMMENT_STREAM("new node cost:"<<cost);
       if (cost == std::numeric_limits<double>::infinity())
@@ -296,6 +301,7 @@ namespace pathplan
     float last_pass_time;
     if (time_avoid_)
     {
+      ROS_INFO("extend to node");
       cost = metrics_->cost(closest_node, new_node, n_time, avoid_ints, last_pass_time, min_human_dist);
     }
     else
@@ -536,11 +542,13 @@ namespace pathplan
     double cost_node_to_near;
     std::vector<std::tuple<const NodePtr,const NodePtr,double,std::vector<Eigen::Vector3f>,float,float,double>> connection_datas;
     connection_datas.reserve(near_nodes.size());
+    bool has_parent = !node->getParents().empty();
+    NodePtr nearest_node;
+    if (has_parent) nearest_node = node->getParents().at(0);
     if (rewire_parent)
     {
       // ROS_INFO_STREAM("node parents:"<<node->getParents().size());
       // ROS_INFO_STREAM("try to find a better parent between "<<near_nodes.size()<<" nodes w/ time avoid:"<<time_avoid_);
-      NodePtr nearest_node = node->getParents().at(0);
       // std::cout<<"node:"<<*node<<std::endl;
       // std::cout<<"nearest node:"<<*nearest_node<<std::endl;
       // loop over all nearest nodes
@@ -571,8 +579,10 @@ namespace pathplan
           if (n == goal_node_)
             continue;
           // check to prevent a node from becoming its own parent
-          if (n == nearest_node)
-            continue;
+          if (has_parent) {
+            if (n == nearest_node)
+              continue;
+          }
           // if (n == node)
           //   continue;
           // cost of near node
@@ -649,8 +659,10 @@ namespace pathplan
           if (n == goal_node_)
             continue;
           // check to prevent a node from becoming its own parent
-          if (n == nearest_node)
-            continue;
+          if (has_parent) {
+            if (n == nearest_node)
+              continue;
+          }
           if (n == node)
             continue;
           // std::cout<<"near node:"<<*n<<std::endl;
@@ -1214,6 +1226,7 @@ namespace pathplan
       double node_time = 0;
       float last_pass_time;
       float min_human_dist;
+
       double cost_n_to_child = metrics_->cost(n, n_child, node_time, avoid_ints, last_pass_time, min_human_dist);
       if (cost_n_to_child >= cost_to_child)
         continue;
@@ -1278,6 +1291,7 @@ namespace pathplan
       double node_time = 0;
       float last_pass_time;
       float min_human_dist;
+
       double cost_parent_to_n = metrics_->cost(n_parent, n, node_time, avoid_ints, last_pass_time, min_human_dist);
       if (cost_parent_to_n >= cost_to_n)
         continue;

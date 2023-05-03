@@ -723,7 +723,7 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
   at::Tensor int_gt_rolled_back = torch::roll(int_gt,-1,0);
   at::Tensor int_start_sum = (int_gt & (int_gt_rolled_forward==false)).to(at::kCPU);
   at::Tensor int_end_sum = (int_gt  & (int_gt_rolled_back==false)).to(at::kCPU);
-
+  // std::cout<<int_start_sum<<std::endl;
   // t2 = std::chrono::high_resolution_clock::now();
   // time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
   // ROS_INFO_STREAM("inference took " << time_span.count() << " seconds");
@@ -732,6 +732,10 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
   std::vector<int> tensor_splits(num_cfg_per_this_batch+1);
   at::Tensor int_starts_big = torch::where(int_start_sum==true)[0];
   at::Tensor int_ends_big = torch::where(int_end_sum==true)[0];
+  // std::cout<<"int starts big:"<<std::endl;
+  // std::cout<<int_starts_big<<std::endl;
+  // std::cout<<"int ends big:"<<std::endl;
+  // std::cout<<int_ends_big<<std::endl;
   at::Tensor int_starts_big_quotient = int_starts_big/human_lines;
   at::Tensor int_starts_big_int = torch::floor(int_starts_big_quotient);
   at::Tensor int_starts_big_frac = torch::floor(torch::frac(int_starts_big_quotient)*human_lines);
@@ -752,57 +756,59 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
   // ROS_INFO_STREAM("big torch where took " << time_span.count() << " seconds");
   at::Tensor last_pass_times = torch::zeros({num_cfg_per_this_batch},device(at::kCPU));
   at::Tensor all_start_stops = torch::zeros({std::max(int_starts_big.sizes()[0],int_ends_big.sizes()[0]),2}, device(at::kCPU));
-  tensor_splits[0] = 0;
-  int l = 0;
-  int k = 0;
-  int m = 0;
-  int j = 0;
-  auto int_starts_big_int_a = int_starts_big_int.accessor<float,1>();
-  auto int_ends_big_int_a = int_ends_big_int.accessor<float,1>();
-  auto int_starts_big_frac_a = int_starts_big_frac.accessor<float,1>();
-  auto int_ends_big_frac_a = int_ends_big_frac.accessor<float,1>();
-  auto all_start_stops_a = all_start_stops.accessor<float,2>();
-  while (true) {
-  // for (int j=0;j<num_cfg_per_this_batch;j++) {
-    // at::Tensor int_start_slices = int_start_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
-    // at::Tensor int_end_slices = int_end_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
-    // at::Tensor int_starts = torch::where(int_start_slices==true)[0];
-    // at::Tensor int_ends = torch::where(int_end_slices==true)[0];
+  if (int_starts_big.sizes()[0]>0) {
+    tensor_splits[0] = 0;
+    int l = 0;
+    int k = 0;
+    int m = 0;
+    int j = 0;
+    auto int_starts_big_int_a = int_starts_big_int.accessor<float,1>();
+    auto int_ends_big_int_a = int_ends_big_int.accessor<float,1>();
+    auto int_starts_big_frac_a = int_starts_big_frac.accessor<float,1>();
+    auto int_ends_big_frac_a = int_ends_big_frac.accessor<float,1>();
+    auto all_start_stops_a = all_start_stops.accessor<float,2>();
+    while (true) {
+    // for (int j=0;j<num_cfg_per_this_batch;j++) {
+      // at::Tensor int_start_slices = int_start_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
+      // at::Tensor int_end_slices = int_end_sum.slice(0,j*human_lines,(j+1)*human_lines,1);
+      // at::Tensor int_starts = torch::where(int_start_slices==true)[0];
+      // at::Tensor int_ends = torch::where(int_end_slices==true)[0];
 
-    if (int_starts_big_int_a[l]==int_ends_big_int_a[m]) {
-      if (int_ends_big_frac_a[m]<int_starts_big_frac_a[l]) m++;
-      all_start_stops_a[k][0] = int_starts_big_frac_a[l];
-      all_start_stops_a[k][1] = int_ends_big_frac_a[m];
-      l++;
-      m++;
-      k++;
-    } else if (int_starts_big_int_a[l]<int_ends_big_int_a[m]) {
-      last_pass_times[j] = int_starts_big_frac_a[l];
-      l++;
-    } else if (int_starts_big_int_a[l]>int_ends_big_int_a[m]) {
-      m++;
+      if (int_starts_big_int_a[l]==int_ends_big_int_a[m]) {
+        if (int_ends_big_frac_a[m]<int_starts_big_frac_a[l]) m++;
+        all_start_stops_a[k][0] = int_starts_big_frac_a[l];
+        all_start_stops_a[k][1] = int_ends_big_frac_a[m];
+        l++;
+        m++;
+        k++;
+      } else if (int_starts_big_int_a[l]<int_ends_big_int_a[m]) {
+        last_pass_times[j] = int_starts_big_frac_a[l];
+        l++;
+      } else if (int_starts_big_int_a[l]>int_ends_big_int_a[m]) {
+        m++;
+      }
+      if ((l>int_starts_big_int.sizes()[0]-1)||(m>int_ends_big_int.sizes()[0]-1)) break;
+      while (int_starts_big_int_a[l] > j) {
+        tensor_splits[j+1] = k;
+        j++;
+        // std::cout<<j<<","<<num_cfg_per_this_batch<<std::endl;
+      }
+      // if (j>num_cfg_per_this_batch-1) break;
+      // if (int_starts.sizes()[0]>int_ends.sizes()[0]){
+      //   last_pass_times[j] = int_starts[-1];
+      //   std::cout<<"last pass:"<<j<<"\n";
+      //   int_starts = int_starts.slice(0,0,int_starts.sizes()[0]-1,1);
+      // } else if (int_starts.sizes()[0]<int_ends.sizes()[0]) {
+      //   std::cout<<"correction after last pass:"<<j<<"\n";
+      //   int_ends = int_ends.slice(0,1,int_ends.sizes()[0],1);
+      // }
+      // at::Tensor int_data = torch::stack({int_starts,int_ends},1);
+      // all_start_stops = torch::cat({all_start_stops,int_data},0);
+      // std::cout<<all_start_stops.sizes()<<std::endl;
+      // tensor_splits[j+1] = tensor_splits[j] + int_data.sizes()[0];
     }
-    if ((l>int_starts_big_int.sizes()[0]-1)||(m>int_ends_big_int.sizes()[0]-1)) break;
-    while (int_starts_big_int_a[l] > j) {
-      tensor_splits[j+1] = k;
-      j++;
-      // std::cout<<j<<","<<num_cfg_per_this_batch<<std::endl;
-    }
-    // if (j>num_cfg_per_this_batch-1) break;
-    // if (int_starts.sizes()[0]>int_ends.sizes()[0]){
-    //   last_pass_times[j] = int_starts[-1];
-    //   std::cout<<"last pass:"<<j<<"\n";
-    //   int_starts = int_starts.slice(0,0,int_starts.sizes()[0]-1,1);
-    // } else if (int_starts.sizes()[0]<int_ends.sizes()[0]) {
-    //   std::cout<<"correction after last pass:"<<j<<"\n";
-    //   int_ends = int_ends.slice(0,1,int_ends.sizes()[0],1);
-    // }
-    // at::Tensor int_data = torch::stack({int_starts,int_ends},1);
-    // all_start_stops = torch::cat({all_start_stops,int_data},0);
-    // std::cout<<all_start_stops.sizes()<<std::endl;
-    // tensor_splits[j+1] = tensor_splits[j] + int_data.sizes()[0];
+    tensor_splits[j+1] = k+1;
   }
-  tensor_splits[j+1] = k+1;
   // t2 = std::chrono::high_resolution_clock::now();
   // time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
   // ROS_INFO_STREAM("torch batch took " << time_span.count() << " seconds");
@@ -846,7 +852,7 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
     auto intervals_a = std::get<0>(interval_data).accessor<float,2>();
     auto lpt = std::get<1>(interval_data).accessor<float,1>();
     std::vector<int> data_idx = std::get<2>(interval_data);
-
+    if (data_idx.empty()) return;
     // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
     for (int j=0;j<num_cfg_per_this_batch;j++) {
       int num_intervals = data_idx[j+1]-data_idx[j];
