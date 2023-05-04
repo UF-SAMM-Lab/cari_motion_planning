@@ -474,6 +474,11 @@ namespace avoidance_intervals{
                 if ((j>0)&&(j%3==0)) c++;
             }
             joint_seq.push_back(std::pair<float,Eigen::MatrixXd>(msg->sequence[i].time,joint_pos));
+            // std::cout<<"joints "<<i<<std::endl;
+            // std::cout<<msg->sequence[i].time<<std::endl;
+            // std::cout<<joint_pos<<std::endl;
+            // for (int q=0;q<msg->sequence[i].quats.size();q++) std::cout<<msg->sequence[i].quats[q]<<",";
+            // std::cout<<std::endl;
             quat_seq.push_back(std::pair<float,std::vector<float>>(msg->sequence[i].time,msg->sequence[i].quats));
         }
         new_joint_seq = true;

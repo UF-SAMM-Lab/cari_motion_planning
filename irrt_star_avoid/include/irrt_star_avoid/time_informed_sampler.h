@@ -82,12 +82,12 @@ public:
     gen_{rd_()}//gen_(time(0))
   {
 
-    std::cout<<"test3\n";
+    // std::cout<<"test3\n";
     Eigen::VectorXd inv_max_speed = max_q_vel.cwiseInverse();
-    std::cout<<inv_max_speed<<std::endl;
+    // std::cout<<inv_max_speed<<std::endl;
     utopia_ = (stop_configuration-start_configuration).cwiseProduct(inv_max_speed).cwiseAbs().maxCoeff();
 
-    std::cout<<"test4\n";
+    // std::cout<<"test4\n";
     ud_ = std::uniform_real_distribution<double>(0, 1);
 
     ndof_ = lower_bound_.rows();
@@ -114,11 +114,11 @@ public:
     q_range_ = (u_box_-l_box_);
     q_mid_ = 0.5*(u_box_+l_box_);
 
-    std::cout<<"box extents:\n" << q_dist_;
-    std::cout<<"box mid:\n" << q_mid_;
-    std::cout<<"box range:\n" << q_range_;
-    std::cout<<"lower bounds" << l_box_;
-    std::cout<<" upper bounds" << u_box_<<std::endl;
+    // std::cout<<"box extents:\n" << q_dist_;
+    // std::cout<<"box mid:\n" << q_mid_;
+    // std::cout<<"box range:\n" << q_range_;
+    // std::cout<<"lower bounds" << l_box_;
+    // std::cout<<" upper bounds" << u_box_<<std::endl;
   }
 
   ros::Publisher sample_pub;

@@ -833,6 +833,12 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
   // std::chrono::high_resolution_clock::time_point t1 = std::chrono::high_resolution_clock::now();
   // JF- this would be the place for the neural network
   int num_cfg = configurations.size();
+  if (model_->quat_seq.empty()) {
+    for (int i=0;i<num_cfg;i++) {
+      std::get<3>(configurations[i]) = std::numeric_limits<float>::infinity();
+    }
+    return;
+  }
   int max_cfg_per_batch = std::round(500000/model_->quat_seq.size());
   // ROS_INFO_STREAM("max_cfg_per_batch:"<<max_cfg_per_batch);
   int num_batches = std::ceil((double)num_cfg/(double)max_cfg_per_batch);
@@ -867,6 +873,8 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
         } else {
           std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
         }
+      } else {
+        std::get<3>(configurations[i*num_cfg_per_batch+j]) = std::numeric_limits<float>::infinity();
       }
       // bool in_occupancy = false;
       // // std::get<2>(configurations[i*num_cfg_per_batch+j]).clear();

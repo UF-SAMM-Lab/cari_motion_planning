@@ -1203,7 +1203,7 @@ namespace pathplan
     improved = !goal_node_->getParents().empty();
     if (improved) improved = improved && (getConnectionToNode(goal_node_)[0]->getParent()==root_);
 
-    std::cout<<"connection to goal:"<<improved<<std::endl;
+    // std::cout<<"connection to goal:"<<improved<<std::endl;
     // std::vector<ConnectionPtr> tmp_cons = getConnectionToNode(goal_node_);
     // std::cout<<"exiting rewire only batch\n";
     return improved;

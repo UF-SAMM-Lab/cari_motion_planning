@@ -375,7 +375,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
 
   COMMENT("checking start config");
 
-  std::cout<<"start:\n"<<start_conf<<std::endl;
+  std::cout<<"start:"<<start_conf.transpose()<<std::endl;
 
   if (!checker->check(start_conf))
   {
@@ -444,7 +444,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
       goal_state.setJointPositions(c.joint_name,&c.position);
     goal_state.copyJointGroupPositions(group_,goal_configuration);
 
-    std::cout<<"goal:\n"<<goal_configuration<<std::endl;
+    std::cout<<"goal:"<<goal_configuration.transpose()<<std::endl;
     goal_state.updateCollisionBodyTransforms();
     COMMENT("check collision on goal %u",iGoal);
 
@@ -543,12 +543,13 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
           // new_state.copyJointGroupPositions(group_,result_cfg);
           // goal_state.updateCollisionBodyTransforms();
           if (checker->check(result_cfg)) {
-            std::cout<<"added pt:"<<pt.transpose()<<std::endl;
+            // std::cout<<"added pt:"<<pt.transpose()<<std::endl;
             pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
             solver->addNode(new_node);
             presamples++;
             if (presamples>299) break;
-          } else {
+          } 
+          else {
             std::cout<<"rejected pt:"<<pt.transpose()<<std::endl;
           }
         }
@@ -599,7 +600,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
       solver->setSolved(true);
       // improved = true;
     }
-    ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost());
+    ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost()<<", connection to goal:"<<solver->solved());
     // PATH_COMMENT_STREAM("found a solution:"<<found_a_solution<<", solver solved:"<<solver->solved());
     if (!found_a_solution && solver->solved())
     {

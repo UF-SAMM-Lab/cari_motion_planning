@@ -84,6 +84,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     }
     if (!conn_found) {
       ROS_INFO("cost1");
+      ROS_INFO_STREAM(parent->getConfiguration().transpose()<<"->"<<new_node->getConfiguration().transpose());
       std::vector<std::tuple<Eigen::VectorXd,Eigen::VectorXd,std::vector<Eigen::Vector3f>,float>> configurations;
       configurations.reserve(1);
       configurations.emplace_back(parent->getConfiguration(),new_node->getConfiguration(),std::vector<Eigen::Vector3f>(),0);
@@ -107,6 +108,9 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
       // std::cout<<"found parent with min_time:"<<p->min_time<<std::endl;
       c_near = parent->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
     }
+
+    // ROS_INFO_STREAM("min time:"<<parent->min_time);
+    // ROS_INFO_STREAM("last_pass_time:"<<last_pass_time);
     near_time = c_near;    
     // get min cost to get to new node from near parent
     double c_new  = c_near + node_time_new;
@@ -170,6 +174,7 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     if (!success) {
         c_new = std::numeric_limits<double>::infinity();
     }
+    // ROS_INFO_STREAM("cost1:"<<c_new);
     return c_new;
     // PATH_COMMENT_STREAM("time avoid metrics cost fn 1");
 
