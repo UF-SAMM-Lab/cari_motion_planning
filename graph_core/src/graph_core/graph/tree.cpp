@@ -1064,6 +1064,7 @@ namespace pathplan
       // JF-for time-avoidance, cost function should return total time to reach node from start
       // double n_time = 0;
       double cost_near_to_node = std::get<6>(conn_data);
+      // if (n==root_) std::cout<<"connecting to start:"<<cost_to_near<<","<<cost_to_node<<","<<cost_near_to_node<<"\n";
       // //JF - don't want to add costs for time-avoidance
 
       // // check for collisions between robot and real-time obstacles at configs along path from parent to node
@@ -1084,20 +1085,22 @@ namespace pathplan
       // std::cout<<*conn<<std::endl;
       // std::cout<<"cost to parent:"<<costToNode(n)<<", cost to node:"<<costToNode(node)<<std::endl;
       conn->setCost(cost_near_to_node); 
-      if (((cost_near_to_node) >= cost_to_node))
-      {
-        conn->removeCache();
-        continue;
-      } 
-      else if (node->min_time<costToNode(node)) {
-        // std::cout<<"not optimal connection\n";
-        conn->removeCache();
-      } 
-      else if (cost_to_near >= cost_to_node) {
-        conn->removeCache();
-      } else {
-        // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
-        if (node->parent_connections_.size()>1) node->parent_connections_.at(0)->removeCache();
+      if (node->parent_connections_.size()>1) {
+        if (((cost_near_to_node) >= cost_to_node))
+        {
+          conn->removeCache();
+          continue;
+        } 
+        else if (node->min_time<costToNode(node)) {
+          // std::cout<<"not optimal connection\n";
+          conn->removeCache();
+        } 
+        else if (cost_to_near >= cost_to_node) {
+          conn->removeCache();
+        } else {
+          // ROS_INFO_STREAM("node parents parents:"<<node->parent_connections_.size());
+          if (node->parent_connections_.size()>1) node->parent_connections_.at(0)->removeCache();
+        }
       }
       
       // std::cout<<node->parent_connections_.size()<<std::endl;
@@ -1176,14 +1179,16 @@ namespace pathplan
  
       conn->setCost(cost_node_to_near);
 
-      if (n->min_time<costToNode(n)) {
-        // std::cout<<"not optimal connection\n";
-        conn->removeCache();
-      } else if ((cost_node_to_near) >= cost_to_near) {
-        conn->removeCache();
-      }
       if (n->parent_connections_.size()>1) {
-        n->parent_connections_.at(0)->removeCache();
+        if (n->min_time<costToNode(n)) {
+          // std::cout<<"not optimal connection\n";
+          conn->removeCache();
+        } else if ((cost_node_to_near) >= cost_to_near) {
+          conn->removeCache();
+        }
+        if (n->parent_connections_.size()>1) {
+          n->parent_connections_.at(0)->removeCache();
+        }
       }
       // std::cout<<"after add conn\n";
       // tmp_cons = getConnectionToNode(goal_node_);
@@ -1864,6 +1869,8 @@ namespace pathplan
 
         ROS_INFO_STREAM("current root " << root_);
         ROS_INFO_STREAM("node " << node);
+        ROS_INFO_STREAM(node->potential_parent_connections_.size());
+        ROS_INFO_STREAM("child node " << *node->child_connections_.at(0)->getChild());
         break;
         // assert(0);
       }
