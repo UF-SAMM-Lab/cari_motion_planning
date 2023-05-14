@@ -403,7 +403,19 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   pathplan::NodePtr start_node=std::make_shared<pathplan::Node>(start_conf);
   start_node->min_time = 0.0;
   COMMENT("creating a time informed sampler");
-  pathplan::SamplerPtr sampler = std::make_shared<pathplan::TimeInformedSampler>(m_lb, m_ub, m_lb, m_ub,max_velocity_);
+
+  moveit_msgs::Constraints goal=request_.goal_constraints.at(0);
+
+  Eigen::VectorXd goal_configuration( goal.joint_constraints.size() );
+  moveit::core::RobotState goal_state(robot_model_);
+
+  for (auto c: goal.joint_constraints)
+    goal_state.setJointPositions(c.joint_name,&c.position);
+  goal_state.copyJointGroupPositions(group_,goal_configuration);
+
+  std::cout<<"goal:"<<goal_configuration.transpose()<<std::endl;
+
+  pathplan::SamplerPtr sampler = std::make_shared<pathplan::TimeInformedSampler>(start_conf, goal_configuration, m_lb, m_ub,max_velocity_);
 
   // sampler->sample_pub=m_nh.advertise<visualization_msgs::Marker>("/sample");
   COMMENT("creating a time avoid rrt solver");
@@ -623,24 +635,28 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
       break;
     }
 
-    // PATH_COMMENT_STREAM("solver still refining");
-    if (found_a_solution)
-    {
-      ROS_DEBUG_THROTTLE(0.5,"solution improved from %f to %f",cost_of_first_solution,solution->cost());
-      if (display_flag) {
+    if (display_flag) {
         if ((ros::WallTime::now()-plot_time).toSec()>plot_interval_)
         {
           // PATH_COMMENT_STREAM("clearing markers");
           display->clearMarkers();
           // PATH_COMMENT_STREAM("displaying the tree");
           display->displayTree(solver->getStartTree());
-          // PATH_COMMENT_STREAM("displaying the path");
-          display->displayPath(solution,"pathplan",{0,1,0,1});
-          // PATH_COMMENT_STREAM("done displaying");
+
+          if (found_a_solution)
+          {
+            display->displayPath(solution,"pathplan",{0,1,0,1});
+          }
           plot_time=ros::WallTime::now();
         }
-      }
     }
+    // PATH_COMMENT_STREAM("solver still refining");
+    if (found_a_solution)
+    {
+      ROS_DEBUG_THROTTLE(0.5,"solution improved from %f to %f",cost_of_first_solution,solution->cost());
+    
+    }
+    // }
   }
 
   // ROS_INFO_STREAM(*solver);

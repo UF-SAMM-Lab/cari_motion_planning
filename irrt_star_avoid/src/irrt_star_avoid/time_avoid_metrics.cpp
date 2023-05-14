@@ -174,6 +174,9 @@ double TimeAvoidMetrics::cost(const NodePtr& parent,
     if (!success) {
         c_new = std::numeric_limits<double>::infinity();
     }
+    if (!conn_found) {
+      ROS_INFO_STREAM("cost1:"<<c_new);
+    }
     // ROS_INFO_STREAM("cost1:"<<c_new);
     return c_new;
     // PATH_COMMENT_STREAM("time avoid metrics cost fn 1");

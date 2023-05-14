@@ -117,7 +117,7 @@ bool TimeAvoidRRTStar::setProblem(const double &max_time)
   {
     // std::cout<<"adding node:"<<*goal_node_;
     start_tree_->addNode(goal_node_);
-    path_cost_ = std::numeric_limits<double>::max();
+    path_cost_ = std::numeric_limits<double>::infinity();
     // PATH_COMMENT_STREAM("No direct solution is found " << path_cost_);
   }
   cost_=path_cost_+goal_cost_;
@@ -242,7 +242,7 @@ bool TimeAvoidRRTStar::update(const std::vector<Eigen::VectorXd>& configurations
   if (solution_) {
     old_path_cost = start_tree_->costToNode(goal_node_);
   } else {
-    old_path_cost = std::numeric_limits<double>::max();
+    old_path_cost = std::numeric_limits<double>::infinity();
   }
 
   // PATH_COMMENT_STREAM("old path cost:");
