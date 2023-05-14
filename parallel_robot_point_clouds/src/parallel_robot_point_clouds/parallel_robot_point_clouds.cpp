@@ -99,6 +99,11 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
     ROS_ERROR("%s/tool_frame not defined", nh.getNamespace().c_str());
     throw std::invalid_argument("base_frame is not defined");
   }
+
+  if (!nh.getParam("avoid_prob_threshold", prob_threshold))
+  {
+    ROS_WARN_STREAM("/avoid_prob_threshold not defined, using "<<prob_threshold);
+  }
   
   Eigen::Vector3d grav;
   grav << 0, 0, -9.806;
@@ -718,7 +723,7 @@ std::tuple<at::Tensor,at::Tensor,std::vector<int>> ParallelRobotPointClouds::che
   // std::cout<<"done inferring2\n";
   // std::cout<<"output tensor:"<<tmp_tensor.to(at::kCPU)<<std::endl;
   // std::cout<<"output tensor size:"<<tmp_tensor.sizes()<<std::endl;
-  at::Tensor int_gt = (tmp_tensor>0.5).to(at::kBool);
+  at::Tensor int_gt = (tmp_tensor>prob_threshold).to(at::kBool);
   at::Tensor int_gt_rolled_forward = torch::roll(int_gt,1,0);
   at::Tensor int_gt_rolled_back = torch::roll(int_gt,-1,0);
   at::Tensor int_start_sum = (int_gt & (int_gt_rolled_forward==false)).to(at::kCPU);

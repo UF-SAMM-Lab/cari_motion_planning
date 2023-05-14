@@ -991,6 +991,55 @@ namespace avoidance_intervals{
         
     }
 
+    void display_markers(std::vector<Eigen::Vector3f> pts,visualization_msgs::Marker &marker) {
+        marker.header.frame_id = "world";
+        marker.header.stamp = ros::Time();//ros::Time::now();
+        marker.ns = "my_namespace";
+        marker.id = 0;
+        // marker.lifetime = ros::Duration(0.5);
+        marker.type = visualization_msgs::Marker::SPHERE_LIST;
+        marker.action = visualization_msgs::Marker::ADD;
+        marker.pose.position.x = 0;
+        marker.pose.position.y = 0;
+        marker.pose.position.z = 0;
+        marker.pose.orientation.x = 0.0;
+        marker.pose.orientation.y = 0.0;
+        marker.pose.orientation.z = 0.0;
+        marker.pose.orientation.w = 1.0;
+        marker.scale.x = 0.02;
+        marker.scale.y = 0.02;
+        marker.scale.z = 0.02;
+        marker.color.a = 1.0; // Don't forget to set the alpha!
+        marker.color.r = 0.0;
+        marker.color.g = 0.0;
+        marker.color.b = 1.0;
+        marker.points.clear();
+        geometry_msgs::Point p;
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 1;
+        // p.y = 0;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 1;
+        // p.z = 0;
+        // marker.points.push_back(p);
+        // p.x = 0;
+        // p.y = 0;
+        // p.z = 1;
+        // marker.points.push_back(p);
+        for (Eigen::Vector3f pt:pts) {
+            p.x = pt[0];
+            p.y = pt[1];
+            p.z = pt[2];
+            marker.points.push_back(p);
+        }
+        
+    }
+
     void display_markers(std::vector<Eigen::MatrixXf> pts,visualization_msgs::Marker &marker) {
         marker.header.frame_id = "world";
         marker.header.stamp = ros::Time();//ros::Time::now();

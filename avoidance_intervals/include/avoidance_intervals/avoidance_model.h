@@ -48,7 +48,8 @@ namespace avoidance_intervals{
     void display_markers(std::vector<Eigen::Vector4f> pts,visualization_msgs::Marker &marker);
     void display_markers(std::vector<Eigen::MatrixXf> pts,visualization_msgs::Marker &marker);
     void display_markers(std::vector<Eigen::VectorXf> pts,visualization_msgs::Marker &marker);
-
+    void display_markers(std::vector<Eigen::Vector3f> pts,visualization_msgs::Marker &marker);
+    
     void read_human_task(int task_num);
 
     class model_point

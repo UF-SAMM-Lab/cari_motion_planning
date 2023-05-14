@@ -130,6 +130,7 @@ protected:
   rosdyn::ChainPtr chain_;
   torch::jit::script::Module avoid_net;
   bool record_intervals=false;
+  double prob_threshold = 0.5;
 
 public:
   avoidance_intervals::modelPtr model_;
