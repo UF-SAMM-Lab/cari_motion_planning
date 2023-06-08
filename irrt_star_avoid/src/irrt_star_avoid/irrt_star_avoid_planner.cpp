@@ -678,6 +678,8 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     ROS_INFO("Stopped (cost=%f) after %f seconds (%u iterations)",solver->cost(),(ros::WallTime::now()-start_time).toSec(),iteration);
   }
 
+  estimated_time = solver->cost();
+
   // =========================
   // END OF THE IMPORTANT PART
   // =========================
@@ -791,7 +793,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanResponse& res )
     res.trajectory_ = detailed_res.trajectory_.at(0);
   }
   ros::WallDuration wd = ros::WallTime::now() - start_time;
-  res.planning_time_ = wd.toSec();
+  res.planning_time_ = estimated_time;//wd.toSec();
   res.error_code_ = detailed_res.error_code_;
 
   return success;

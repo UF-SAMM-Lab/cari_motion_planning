@@ -149,6 +149,7 @@ private:
   double apf_zeta = 1.0;
   double apf_alpha = 1.0;
   int num_child_checks=5;
+  double estimated_time = 0;
 };
 
 typedef std::shared_ptr<IRRTStarAvoid> IRRTStarAvoidPtr;

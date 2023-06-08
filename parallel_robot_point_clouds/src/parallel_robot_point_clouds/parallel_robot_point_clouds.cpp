@@ -908,9 +908,9 @@ void ParallelRobotPointClouds::checkMutliplePaths(std::vector<std::tuple<Eigen::
     // std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
     // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
     // ROS_INFO_STREAM("post processing inference took " << time_span.count() << " seconds");
-    // #ifdef CUDA_AVAILABLE
-    // c10::cuda::CUDACachingAllocator::emptyCache();
-    // #endif
+    #ifdef CUDA_AVAILABLE
+    c10::cuda::CUDACachingAllocator::emptyCache();
+    #endif
   }
   // ROS_INFO_STREAM("check intervals, returnign");
 
