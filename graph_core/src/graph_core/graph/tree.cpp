@@ -58,6 +58,10 @@ namespace pathplan
     k_rrt_ = 1.1 * std::pow(2.0, dimension + 1) * std::exp(1) * (1.0 + 1.0 / dimension);
   }
 
+  void Tree::setRecordIntervals(bool record_intervals_) {
+    record_intervals = record_intervals_;
+  }
+
   NodePtr Tree::findClosestNode(const Eigen::VectorXd &configuration)
   {
     if (!time_avoid_)
@@ -181,7 +185,7 @@ namespace pathplan
     // get edge cost, for time-avoid this is the min time to reach the new node, considering avoidance intervals
     double cost;
     double n_time = 0;
-    if (time_avoid_)
+    if ((!record_intervals) && (time_avoid_)) //
     { 
       return true;
     }
@@ -986,6 +990,8 @@ namespace pathplan
       }
     }
     // std::cout<<"rewire child hass:"<<node->parent_connections_.size()<<" parents\n";
+    improved = !goal_node_->getParents().empty();
+    if (improved) improved = improved && (getConnectionToNode(goal_node_)[0]->getParent()==root_);
 
     return improved;
   }
@@ -1870,7 +1876,7 @@ namespace pathplan
         ROS_INFO_STREAM("current root " << root_);
         ROS_INFO_STREAM("node " << node);
         ROS_INFO_STREAM(node->potential_parent_connections_.size());
-        ROS_INFO_STREAM("child node " << *node->child_connections_.at(0)->getChild());
+        if (!node->child_connections_.empty())  ROS_INFO_STREAM("child node " << *node->child_connections_.at(0)->getChild());
         break;
         // assert(0);
       }

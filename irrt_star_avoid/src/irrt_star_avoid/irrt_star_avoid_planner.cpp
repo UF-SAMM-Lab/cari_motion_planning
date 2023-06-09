@@ -239,7 +239,7 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
 
 
   COMMENT("init parallel avoid point checker");
-  bool record_intervals = false;
+  record_intervals = false;
   if (!m_nh.getParam("record_intervals",record_intervals)) ROS_INFO_STREAM("record_intervals did not exist");
   point_cloud_checker=std::make_shared<pathplan::ParallelRobotPointClouds>(m_nh, robot_model_,group_,avoid_model_,max_velocity_,collision_thread_,collision_distance,grid_spacing,record_intervals);
   COMMENT("settign metrics point cloud checker");
@@ -435,6 +435,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
   solver->addStart(start_node);
   solver->setInvMaxTime(max_velocity_.cwiseInverse(),metrics->max_dt);
   solver->setNumChildChecks(num_child_checks);
+  solver->setRecordIntervals(record_intervals);
 
   // m_queue.callAvailable();
 
@@ -525,58 +526,59 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
     pre_samples.clear();
     metrics->pc_avoid_checker->model_->new_joint_seq = false;
   }
-
-  if (pre_samples.empty()) {
-    pre_samples.reserve(300);
-    // Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
-    // Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
-    moveit::core::RobotState kinematic_state(robot_model_);
-    Eigen::Vector3d z;
-    z<<0,0,1;
-    Eigen::VectorXd joint_values;
-    moveit::core::RobotState new_state(robot_model_);
-    int presamples=0;
-    int num_human_points = metrics->pc_avoid_checker->model_->joint_seq[0].second.cols();
-    int num_human_steps = metrics->pc_avoid_checker->model_->joint_seq.size();
-    std::vector<int> joint_ids = {5,8};
-    Eigen::MatrixXd last_points = Eigen::MatrixXd::Zero(3,joint_ids.size());
-    for (int i=1;i<num_human_steps;i++) {//rand_t_indices.size();i++) {
-      Eigen::MatrixXd joint_diff = metrics->pc_avoid_checker->model_->joint_seq.at(i).second - metrics->pc_avoid_checker->model_->joint_seq.at(i-1).second;
-      Eigen::VectorXd vels = joint_diff.colwise().norm();
-      for (int k=0;k<joint_ids.size();k++) {
-        int j = joint_ids[k];
-        if (((metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j)-last_points.col(k)).norm()>0.2)||(vels[j]>0.05)) {
-          last_points.col(k) = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
-          Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);//+joint_diff.col(j);
-          Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
-          // std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
-          // for (auto c: goal.joint_constraints)
-          //   new_state.setJointPositions(c.joint_name,&c.position);
-          // new_state.copyJointGroupPositions(group_,result_cfg);
-          // goal_state.updateCollisionBodyTransforms();
-          if (checker->check(result_cfg)) {
-            // std::cout<<"added pt:"<<pt.transpose()<<std::endl;
-            pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
-            solver->addNode(new_node);
-            presamples++;
-            if (presamples>299) break;
-          } 
-          else {
-            std::cout<<"rejected pt:"<<pt.transpose()<<std::endl;
+  if (use_net) {
+    if (pre_samples.empty()) {
+      pre_samples.reserve(300);
+      // Eigen::VectorXi rand_t_indices = (double(metrics->pc_avoid_checker->model_->joint_seq.size())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
+      // Eigen::VectorXi rand_j_indices = (double(metrics->pc_avoid_checker->model_->joint_seq[0].second.cols())*(Eigen::VectorXd::Random(500).array()*0.5+0.5)).round().cast<int>();
+      moveit::core::RobotState kinematic_state(robot_model_);
+      Eigen::Vector3d z;
+      z<<0,0,1;
+      Eigen::VectorXd joint_values;
+      moveit::core::RobotState new_state(robot_model_);
+      int presamples=0;
+      int num_human_points = metrics->pc_avoid_checker->model_->joint_seq[0].second.cols();
+      int num_human_steps = metrics->pc_avoid_checker->model_->joint_seq.size();
+      std::vector<int> joint_ids = {5,8};
+      Eigen::MatrixXd last_points = Eigen::MatrixXd::Zero(3,joint_ids.size());
+      for (int i=1;i<num_human_steps;i++) {//rand_t_indices.size();i++) {
+        Eigen::MatrixXd joint_diff = metrics->pc_avoid_checker->model_->joint_seq.at(i).second - metrics->pc_avoid_checker->model_->joint_seq.at(i-1).second;
+        Eigen::VectorXd vels = joint_diff.colwise().norm();
+        for (int k=0;k<joint_ids.size();k++) {
+          int j = joint_ids[k];
+          if (((metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j)-last_points.col(k)).norm()>0.2)||(vels[j]>0.05)) {
+            last_points.col(k) = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
+            Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);//+joint_diff.col(j);
+            Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
+            // std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
+            // for (auto c: goal.joint_constraints)
+            //   new_state.setJointPositions(c.joint_name,&c.position);
+            // new_state.copyJointGroupPositions(group_,result_cfg);
+            // goal_state.updateCollisionBodyTransforms();
+            if (checker->check(result_cfg)) {
+              // std::cout<<"added pt:"<<pt.transpose()<<std::endl;
+              pathplan::NodePtr new_node=std::make_shared<pathplan::Node>(result_cfg);
+              solver->addNode(new_node);
+              presamples++;
+              if (presamples>299) break;
+            } 
+            else {
+              std::cout<<"rejected pt:"<<pt.transpose()<<std::endl;
+            }
           }
         }
-      }
 
+      }
+      ROS_INFO_STREAM(presamples<<" presamples added to tree");
+      // ROS_INFO_STREAM(solver->getStartTree()->getNodes().size()<<" nodes in tree");
+      // // PATH_COMMENT_STREAM("clearing markers");
+      // display->clearMarkers();
+      // // PATH_COMMENT_STREAM("displaying the tree");
+      // for (int k=0;k<100;k++) {
+      //   display->displayTree(solver->getStartTree());
+      //   ros::Duration(0.01).sleep();
+      // }
     }
-    ROS_INFO_STREAM(presamples<<" presamples added to tree");
-    // ROS_INFO_STREAM(solver->getStartTree()->getNodes().size()<<" nodes in tree");
-    // // PATH_COMMENT_STREAM("clearing markers");
-    // display->clearMarkers();
-    // // PATH_COMMENT_STREAM("displaying the tree");
-    // for (int k=0;k<100;k++) {
-    //   display->displayTree(solver->getStartTree());
-    //   ros::Duration(0.01).sleep();
-    // }
   }
   // for (int i=0;i<pre_samples.size();i++) {
     
@@ -606,11 +608,16 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
       return false;
     }
     // PATH_COMMENT_STREAM("updating the solution");
-    // solver->update(solution); //samples for a new node and udpates the node-graph
-    if (solver->updateBatch(solution))
-    {
-      solver->setSolved(true);
-      // improved = true;
+    if (record_intervals) {
+      if (solver->update(solution)) { //samples for a new node and udpates the node-graph
+        solver->setSolved(true);
+      }
+    } else {
+      if (solver->updateBatch(solution))
+      {
+        solver->setSolved(true);
+        // improved = true;
+      }
     }
     ROS_INFO_STREAM("iteration:"<<iteration<<", cost:"<<solver->cost()<<", connection to goal:"<<solver->solved());
     // PATH_COMMENT_STREAM("found a solution:"<<found_a_solution<<", solver solved:"<<solver->solved());

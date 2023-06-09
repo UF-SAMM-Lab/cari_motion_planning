@@ -71,7 +71,7 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
     }
   }
 
-  n_dof = int(robot_links.size());
+  n_dof = int(robot_model->getVariableCount());
   ROS_INFO("Finished initializing collision checker.");
   for (int i=0;i<n_dof;i++) {
     vis_pubs.push_back(nh.advertise<visualization_msgs::Marker>( "/robot_marker"+std::to_string(i), 0 ));
@@ -116,7 +116,12 @@ ParallelRobotPointClouds::ParallelRobotPointClouds(ros::NodeHandle node_handle,m
   if (record_intervals) avoid_ints_file.open("avoid_ints.csv");
   // torch::jit::setGraphExecutorOptimize(false);
   c10::InferenceMode guard;
-  std::string file_name = ros::package::getPath("parallel_robot_point_clouds")+"/src/parallel_robot_point_clouds/traced_stap_model.pt";
+  std::string STAP_NN_name = "traced_stap_model_edo.pt";
+  if (!nh.getParam("STAP_NN_name", STAP_NN_name))
+  {
+    ROS_WARN_STREAM("/STAP_NN_name not defined, using traced_stap_model_edo.pt");
+  }
+  std::string file_name = ros::package::getPath("parallel_robot_point_clouds")+"/src/parallel_robot_point_clouds/models/" + STAP_NN_name;
   ROS_INFO_STREAM("network file:"<<file_name);
   bool cuda_avail = torch::cuda::is_available();
   ROS_INFO_STREAM("cuda status:"<<cuda_avail);

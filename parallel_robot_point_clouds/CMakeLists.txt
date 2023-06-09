@@ -1,9 +1,9 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(parallel_robot_point_clouds)
 add_compile_options(-std=c++14 -funroll-loops -Wall -Ofast)
-set(CMAKE_BUILD_TYPE Release)
+# set(CMAKE_BUILD_TYPE Release)
 #add_compile_options(-std=c++11)
-# set(CMAKE_BUILD_TYPE Debug)
+set(CMAKE_BUILD_TYPE Debug)
 
 find_package(catkin REQUIRED COMPONENTS
   moveit_core
