@@ -151,6 +151,7 @@ private:
   int num_child_checks=5;
   double estimated_time = 0;
   bool record_intervals = false;
+  Eigen::VectorXd default_pose = Eigen::VectorXd::Zero(6);
 };
 
 typedef std::shared_ptr<IRRTStarAvoid> IRRTStarAvoidPtr;

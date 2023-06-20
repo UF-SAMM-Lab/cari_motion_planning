@@ -588,6 +588,7 @@ void TimeAvoidMetrics::cost_thread2(int th_num,std::vector<std::tuple<const Node
     double dist_norm = dist_new.norm();
     double node_time_new = (inv_max_speed_.cwiseProduct(dist_new.cwiseAbs())).maxCoeff();
     if ((!p->parent_connections_.empty())||(p->min_time==0)) {
+      // if (p->min_time==0) std::cout<<"------------------THE ROOT-----------------------\n";
       c_near = p->min_time;//parent_connections_.at(0)->getParent()->min_time+parent->parent_connections_.at(0)->getCost(); 
     }
     std::get<2>(node_datas[i]) = c_near;    
@@ -596,13 +597,15 @@ void TimeAvoidMetrics::cost_thread2(int th_num,std::vector<std::tuple<const Node
     bool success = true; //bool to set false if path can not be found
 
     if (std::get<6>(node_datas[i])>std::get<4>(node_datas[i])){
+        // if (c_near==0) std::cout<<"the root is no good\n";
         success = false;
         // break;
     }
     std::get<5>(node_datas[i]) = 1.0; 
-
+    // std::cout<<"c near:"<<c_near<<"node cost:"<<std::get<6>(node_datas[i])<<std::endl;
     std::get<6>(node_datas[i]) = pc_avoid_checker->checkISO15066Threaded(th_num,p->getConfiguration(),c->getConfiguration(),dist_norm,c_near,std::get<6>(node_datas[i]),ceil(dist_norm/0.1),std::get<5>(node_datas[i]));
-    
+    // std::cout<<p->getConfiguration().transpose()<<"--"<<c->getConfiguration().transpose()<<",c near:"<<c_near<<",node cost:"<<std::get<6>(node_datas[i])<<",after iso:"<<tmp_cost<<std::endl;
+    // std::get<6>(node_datas[i]) = tmp_cost;
     //if avoidance intervals, loop over avoidance intervals to determine soonest time of passage from parent to new node
     if (!std::get<3>(node_datas[i]).empty() && success){
         bool found_avoid = false;
@@ -625,7 +628,7 @@ void TimeAvoidMetrics::cost_thread2(int th_num,std::vector<std::tuple<const Node
                 }
                 double tmp_time2 = tmp_time;
                 if (use_iso15066_) tmp_time = pc_avoid_checker->checkISO15066Threaded(th_num,p->getConfiguration(),c->getConfiguration(),dist_norm,std::get<2>(node_datas[i]),tmp_time,ceil(dist_norm/0.1),std::get<5>(node_datas[i]));
-                
+                // std::cout<<"interval:"<<std::get<3>(node_datas[i])[r][0]<<","<<std::get<3>(node_datas[i])[r][1]<<","<<std::get<3>(node_datas[i])[r][1]+node_time_new + t_pad_<<","<<tmp_time<<std::endl;
                 if (tmp_time>tmp_c_new) {
                     tmp_c_new = tmp_time;
                     std::get<2>(node_datas[i]) = std::get<3>(node_datas[i])[r][1]+t_pad_;

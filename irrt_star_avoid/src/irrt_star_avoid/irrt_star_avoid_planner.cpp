@@ -96,6 +96,13 @@ IRRTStarAvoid::IRRTStarAvoid ( const std::string& name,
     ROS_DEBUG("t_pad is not set, default=0.0");
     t_pad_=0;
   }
+  std::vector<double> def_pose;
+  if (!m_nh.getParam("default_pose",def_pose))
+  {
+    ROS_DEBUG("default_pose is not set, default=0.0");
+    for (int i=0;i<m_dof;i++) def_pose.push_back(0.0);
+  }
+  for (int i=0;i<m_dof;i++) default_pose[i] = def_pose[i];
 
   COMMENT("read bounds");
   for (unsigned int idx=0;idx<m_dof;idx++)
@@ -549,7 +556,7 @@ bool IRRTStarAvoid::solve ( planning_interface::MotionPlanDetailedResponse& res 
           if (((metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j)-last_points.col(k)).norm()>0.2)||(vels[j]>0.05)) {
             last_points.col(k) = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);
             Eigen::Vector3d pt = metrics->pc_avoid_checker->model_->joint_seq.at(i).second.col(j);//+joint_diff.col(j);
-            Eigen::VectorXd result_cfg=apf_pose(Eigen::VectorXd::Zero(6),pt);
+            Eigen::VectorXd result_cfg=apf_pose(default_pose,pt);
             // std::cout<<"apf pose:"<<result_cfg.transpose()<<std::endl;
             // for (auto c: goal.joint_constraints)
             //   new_state.setJointPositions(c.joint_name,&c.position);
