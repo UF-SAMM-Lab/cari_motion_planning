@@ -417,7 +417,7 @@ bool MultigoalPlanner::solve ( planning_interface::MotionPlanDetailedResponse& r
 
   if (!found_a_solution)
   {
-    ROS_ERROR("unable to find a valid path");
+    ROS_ERROR("multigoal_planner unable to find a valid path");
     res.error_code_.val=moveit_msgs::MoveItErrorCodes::PLANNING_FAILED;
     m_is_running=false;
     if (display_flag)

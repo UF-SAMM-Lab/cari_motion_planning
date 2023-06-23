@@ -785,7 +785,7 @@ namespace pathplan
 
         std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-        ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<near_nodes.size()<<" configs");
+        // ROS_INFO_STREAM("Avoidance intervals " << time_span.count() << " seconds for "<<near_nodes.size()<<" configs");
       }
     }
     // std::cout<<"rewire parent hass:"<<node->parent_connections_.size()<<" parents\n";
@@ -984,15 +984,17 @@ namespace pathplan
         // }
         // PATH_COMMENT_STREAM("end of ints");
 
-        std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
-        std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
-        ROS_INFO_STREAM("children " << time_span.count() << " seconds for "<<near_nodes.size());
+        // std::chrono::high_resolution_clock::time_point t2 = std::chrono::high_resolution_clock::now();
+        // std::chrono::duration<double> time_span = std::chrono::duration_cast<std::chrono::duration<double>>(t2 - t1);
+        // ROS_INFO_STREAM("children " << time_span.count() << " seconds for "<<near_nodes.size());
       }
     }
     // std::cout<<"rewire child hass:"<<node->parent_connections_.size()<<" parents\n";
-    improved = !goal_node_->getParents().empty();
-    if (improved) improved = improved && (getConnectionToNode(goal_node_)[0]->getParent()==root_);
-
+    if (time_avoid_)
+    {
+      improved = !goal_node_->getParents().empty();
+      if (improved) improved = improved && (getConnectionToNode(goal_node_)[0]->getParent()==root_);
+    }
     return improved;
   }
   bool Tree::rewireBatch(const std::vector<Eigen::VectorXd> &configurations, double r_rewire)
